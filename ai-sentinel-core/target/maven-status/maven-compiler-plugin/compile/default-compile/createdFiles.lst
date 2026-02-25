@@ -5,6 +5,7 @@ io/aisentinel/core/model/RequestContext.class
 io/aisentinel/core/enforcement/CompositeEnforcementHandler$1.class
 io/aisentinel/core/scoring/StatisticalScorer$WelfordState.class
 io/aisentinel/core/SentinelPipeline.class
+io/aisentinel/core/feature/DefaultFeatureExtractor$EndpointHistoryEntry.class
 io/aisentinel/core/store/BaselineStore.class
 io/aisentinel/core/telemetry/TelemetryEvent.class
 io/aisentinel/core/policy/PolicyEngine.class

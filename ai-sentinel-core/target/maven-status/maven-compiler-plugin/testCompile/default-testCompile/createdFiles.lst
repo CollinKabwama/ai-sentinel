@@ -1,5 +1,13 @@
-io/aisentinel/core/model/RequestFeaturesTest.class
+io/aisentinel/core/SentinelPipelineTest.class
 io/aisentinel/core/policy/ThresholdPolicyEngineTest.class
-io/aisentinel/core/store/BaselineStoreTest.class
-io/aisentinel/core/scoring/StatisticalScorerTest.class
+io/aisentinel/core/scoring/CompositeScorerTest$1.class
+io/aisentinel/core/enforcement/CompositeEnforcementHandlerTest.class
 io/aisentinel/core/feature/DefaultFeatureExtractorTest.class
+io/aisentinel/core/SentinelPipelineTest$1.class
+io/aisentinel/core/scoring/CompositeScorerTest.class
+io/aisentinel/core/model/RequestFeaturesTest.class
+io/aisentinel/core/enforcement/MonitorOnlyEnforcementHandlerTest.class
+io/aisentinel/core/store/BaselineStoreTest.class
+io/aisentinel/core/SentinelPipelineTest$2.class
+io/aisentinel/core/scoring/CompositeScorerTest$2.class
+io/aisentinel/core/scoring/StatisticalScorerTest.class

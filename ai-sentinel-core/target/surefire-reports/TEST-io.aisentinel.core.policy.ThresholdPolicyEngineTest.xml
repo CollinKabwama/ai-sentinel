@@ -13,7 +13,7 @@
     <property name="sun.java.launcher" value="SUN_STANDARD"/>
     <property name="user.country" value="US"/>
     <property name="sun.boot.library.path" value="/opt/homebrew/Cellar/openjdk/25.0.1/libexec/openjdk.jdk/Contents/Home/lib"/>
-    <property name="sun.java.command" value="/Users/collinkabwama/Desktop/AI Security/ai-sentinel-core/target/surefire/surefirebooter-20260222182259344_3.jar /Users/collinkabwama/Desktop/AI Security/ai-sentinel-core/target/surefire 2026-02-22T18-22-59_315-jvmRun1 surefire-20260222182259344_1tmp surefire_0-20260222182259344_2tmp"/>
+    <property name="sun.java.command" value="/Users/collinkabwama/Desktop/AI Security/ai-sentinel-core/target/surefire/surefirebooter-20260224214838340_3.jar /Users/collinkabwama/Desktop/AI Security/ai-sentinel-core/target/surefire 2026-02-24T21-48-38_311-jvmRun1 surefire-20260224214838340_1tmp surefire_0-20260224214838340_2tmp"/>
     <property name="http.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="jdk.debug" value="release"/>
     <property name="surefire.test.class.path" value="/Users/collinkabwama/Desktop/AI Security/ai-sentinel-core/target/test-classes:/Users/collinkabwama/Desktop/AI Security/ai-sentinel-core/target/classes:/Users/collinkabwama/.m2/repository/org/projectlombok/lombok/1.18.38/lombok-1.18.38.jar:/Users/collinkabwama/.m2/repository/org/slf4j/slf4j-api/2.0.13/slf4j-api-2.0.13.jar:/Users/collinkabwama/.m2/repository/io/micrometer/micrometer-core/1.12.5/micrometer-core-1.12.5.jar:/Users/collinkabwama/.m2/repository/io/micrometer/micrometer-commons/1.12.5/micrometer-commons-1.12.5.jar:/Users/collinkabwama/.m2/repository/io/micrometer/micrometer-observation/1.12.5/micrometer-observation-1.12.5.jar:/Users/collinkabwama/.m2/repository/org/hdrhistogram/HdrHistogram/2.1.12/HdrHistogram-2.1.12.jar:/Users/collinkabwama/.m2/repository/org/latencyutils/LatencyUtils/2.0.3/LatencyUtils-2.0.3.jar:/Users/collinkabwama/.m2/repository/jakarta/servlet/jakarta.servlet-api/6.0.0/jakarta.servlet-api-6.0.0.jar:/Users/collinkabwama/.m2/repository/org/junit/jupiter/junit-jupiter/5.10.2/junit-jupiter-5.10.2.jar:/Users/collinkabwama/.m2/repository/org/junit/jupiter/junit-jupiter-api/5.10.2/junit-jupiter-api-5.10.2.jar:/Users/collinkabwama/.m2/repository/org/opentest4j/opentest4j/1.3.0/opentest4j-1.3.0.jar:/Users/collinkabwama/.m2/repository/org/junit/platform/junit-platform-commons/1.10.2/junit-platform-commons-1.10.2.jar:/Users/collinkabwama/.m2/repository/org/apiguardian/apiguardian-api/1.1.2/apiguardian-api-1.1.2.jar:/Users/collinkabwama/.m2/repository/org/junit/jupiter/junit-jupiter-params/5.10.2/junit-jupiter-params-5.10.2.jar:/Users/collinkabwama/.m2/repository/org/junit/jupiter/junit-jupiter-engine/5.10.2/junit-jupiter-engine-5.10.2.jar:/Users/collinkabwama/.m2/repository/org/junit/platform/junit-platform-engine/1.10.2/junit-platform-engine-1.10.2.jar:/Users/collinkabwama/.m2/repository/org/mockito/mockito-junit-jupiter/5.7.0/mockito-junit-jupiter-5.7.0.jar:/Users/collinkabwama/.m2/repository/org/mockito/mockito-core/5.7.0/mockito-core-5.7.0.jar:/Users/collinkabwama/.m2/repository/net/bytebuddy/byte-buddy-agent/1.14.13/byte-buddy-agent-1.14.13.jar:/Users/collinkabwama/.m2/repository/org/objenesis/objenesis/3.3/objenesis-3.3.jar:/Users/collinkabwama/.m2/repository/org/assertj/assertj-core/3.24.2/assertj-core-3.24.2.jar:/Users/collinkabwama/.m2/repository/net/bytebuddy/byte-buddy/1.14.13/byte-buddy-1.14.13.jar:"/>
@@ -30,7 +30,7 @@
     <property name="java.vm.specification.vendor" value="Oracle Corporation"/>
     <property name="java.specification.name" value="Java Platform API Specification"/>
     <property name="apple.awt.application.name" value="ForkedBooter"/>
-    <property name="surefire.real.class.path" value="/Users/collinkabwama/Desktop/AI Security/ai-sentinel-core/target/surefire/surefirebooter-20260222182259344_3.jar"/>
+    <property name="surefire.real.class.path" value="/Users/collinkabwama/Desktop/AI Security/ai-sentinel-core/target/surefire/surefirebooter-20260224214838340_3.jar"/>
     <property name="sun.management.compiler" value="HotSpot 64-Bit Tiered Compilers"/>
     <property name="ftp.nonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="java.runtime.version" value="25.0.1"/>
@@ -60,5 +60,5 @@
     <property name="socksNonProxyHosts" value="local|*.local|169.254/16|*.169.254/16"/>
     <property name="java.class.version" value="69.0"/>
   </properties>
-  <testcase name="evaluateMapsScoreToAction" classname="io.aisentinel.core.policy.ThresholdPolicyEngineTest" time="0.001"/>
+  <testcase name="evaluateMapsScoreToAction" classname="io.aisentinel.core.policy.ThresholdPolicyEngineTest" time="0.002"/>
 </testsuite>

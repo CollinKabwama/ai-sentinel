@@ -1,4 +1,4 @@
 -------------------------------------------------------------------------------
 Test set: io.aisentinel.core.feature.DefaultFeatureExtractorTest
 -------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.394 s -- in io.aisentinel.core.feature.DefaultFeatureExtractorTest
+Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.011 s -- in io.aisentinel.core.feature.DefaultFeatureExtractorTest

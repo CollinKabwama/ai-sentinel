@@ -42,14 +42,20 @@ public class SentinelAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public FeatureExtractor featureExtractor(BaselineStore store) {
-        return new DefaultFeatureExtractor(store);
+    public FeatureExtractor featureExtractor(BaselineStore store, SentinelProperties props) {
+        int maxKeys = props.getInternalMapMaxKeys() > 0 ? props.getInternalMapMaxKeys() : 100_000;
+        long ttlMs = props.getInternalMapTtl() != null ? props.getInternalMapTtl().toMillis() : 300_000L;
+        return new DefaultFeatureExtractor(store, maxKeys, ttlMs);
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public StatisticalScorer statisticalScorer() {
-        return new StatisticalScorer();
+    public StatisticalScorer statisticalScorer(SentinelProperties props) {
+        int maxKeys = props.getInternalMapMaxKeys() > 0 ? props.getInternalMapMaxKeys() : 100_000;
+        long ttlMs = props.getInternalMapTtl() != null ? props.getInternalMapTtl().toMillis() : 300_000L;
+        int warmupMin = props.getWarmupMinSamples() >= 0 ? props.getWarmupMinSamples() : 2;
+        double warmupScore = props.getWarmupScore() < 0 ? 0.4 : Math.min(1.0, props.getWarmupScore());
+        return new StatisticalScorer(maxKeys, ttlMs, warmupMin, warmupScore);
     }
 
     @Bean
@@ -98,11 +104,15 @@ public class SentinelAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "enforcementHandlerImpl")
     public CompositeEnforcementHandler enforcementHandlerImpl(TelemetryEmitter telemetry, SentinelProperties props) {
+        int maxKeys = props.getInternalMapMaxKeys() > 0 ? props.getInternalMapMaxKeys() : 100_000;
+        long throttleTtlMs = props.getInternalMapTtl() != null ? props.getInternalMapTtl().toMillis() : 300_000L;
         return new CompositeEnforcementHandler(
             props.getBlockStatusCode(),
             props.getQuarantineDurationMs(),
             props.getThrottleRequestsPerSecond(),
-            telemetry
+            telemetry,
+            maxKeys,
+            throttleTtlMs
         );
     }
 

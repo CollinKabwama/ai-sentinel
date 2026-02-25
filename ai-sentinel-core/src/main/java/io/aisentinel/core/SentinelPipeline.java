@@ -48,6 +48,7 @@ public final class SentinelPipeline {
             log.debug("Scoring failed for {}: {}", features.endpoint(), e.getMessage());
             return true;
         }
+        score = clampScore(score);
 
         EnforcementAction action = policyEngine.evaluate(score, features, features.endpoint());
 
@@ -61,5 +62,11 @@ public final class SentinelPipeline {
         }
 
         return enforcementHandler.apply(action, request, response, identityHash, features.endpoint());
+    }
+
+    /** Prevents NaN or out-of-range scores from causing policy bypass; treat NaN as high risk. */
+    private static double clampScore(double score) {
+        if (Double.isNaN(score) || score < 0) return 1.0;
+        return Math.min(1.0, score);
     }
 }
