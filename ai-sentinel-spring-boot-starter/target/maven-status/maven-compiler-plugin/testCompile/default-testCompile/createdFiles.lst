@@ -1,5 +1,0 @@
-io/aisentinel/autoconfigure/config/SentinelPropertiesTest.class
-io/aisentinel/autoconfigure/web/SentinelFilterProxyTest.class
-io/aisentinel/autoconfigure/actuator/SentinelActuatorEndpointTest.class
-io/aisentinel/autoconfigure/config/SentinelAutoConfigurationTest.class
-io/aisentinel/autoconfigure/config/SentinelPropertiesTest$TestConfig.class
