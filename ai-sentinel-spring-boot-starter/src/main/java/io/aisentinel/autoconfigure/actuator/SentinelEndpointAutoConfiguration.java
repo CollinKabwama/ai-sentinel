@@ -1,6 +1,7 @@
 package io.aisentinel.autoconfigure.actuator;
 
 import io.aisentinel.autoconfigure.config.SentinelProperties;
+import io.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointAutoConfiguration;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
@@ -21,8 +22,10 @@ import org.springframework.context.annotation.Bean;
 public class SentinelEndpointAutoConfiguration {
 
     @Bean
-    public SentinelActuatorEndpoint sentinelActuatorEndpoint(SentinelProperties props) {
+    @ConditionalOnBean(CompositeEnforcementHandler.class)
+    public SentinelActuatorEndpoint sentinelActuatorEndpoint(SentinelProperties props,
+                                                            CompositeEnforcementHandler enforcementHandlerImpl) {
         log.debug("Registering Sentinel actuator endpoint");
-        return new SentinelActuatorEndpoint(props);
+        return new SentinelActuatorEndpoint(props, enforcementHandlerImpl);
     }
 }
