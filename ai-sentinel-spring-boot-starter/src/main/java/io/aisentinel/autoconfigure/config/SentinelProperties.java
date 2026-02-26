@@ -21,6 +21,16 @@ public class SentinelProperties {
     private double throttleRequestsPerSecond = 5.0;
     private Duration baselineTtl = Duration.ofMinutes(5);
     private int baselineMaxKeys = 100_000;
+    /** Max keys for internal maps (stateByKey, endpointHistory, throttle, quarantine). Default 100_000. */
+    private int internalMapMaxKeys = 100_000;
+    /** TTL for internal map entries (evict after this period of no access). Default 5 minutes. */
+    private Duration internalMapTtl = Duration.ofMinutes(5);
+    /** Trusted proxy IPs/CIDRs; if empty, forwarded headers are not used. When remote is trusted, client IP is taken from X-Forwarded-For, Forwarded, or X-Real-IP. */
+    private List<String> trustedProxies = List.of();
+    /** Min samples per key before using real score (cold-start); below this return warmup-score. Default 2. */
+    private int warmupMinSamples = 2;
+    /** Score returned during warmup (cold-start) to avoid bypass. Default 0.4 (MONITOR). */
+    private double warmupScore = 0.4;
 
     private IsolationForest isolationForest = new IsolationForest();
     private Telemetry telemetry = new Telemetry();

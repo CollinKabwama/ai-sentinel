@@ -54,6 +54,19 @@ public final class BaselineStore {
             BucketChain c = e.getValue();
             return c.lastAccessMs() < cutoff || c.isEmpty();
         });
+        while (store.size() > maxKeys) {
+            String victim = null;
+            long oldest = Long.MAX_VALUE;
+            for (Map.Entry<String, BucketChain> e : store.entrySet()) {
+                long la = e.getValue().lastAccessMs();
+                if (la < oldest) {
+                    oldest = la;
+                    victim = e.getKey();
+                }
+            }
+            if (victim == null) break;
+            store.remove(victim);
+        }
     }
 
     private static final class BucketChain {

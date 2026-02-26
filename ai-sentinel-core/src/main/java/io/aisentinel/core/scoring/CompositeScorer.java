@@ -29,7 +29,10 @@ public final class CompositeScorer implements AnomalyScorer {
             sum += s * ws.weight;
             totalWeight += ws.weight;
         }
-        return totalWeight > 0 ? Math.min(1.0, sum / totalWeight) : 0.0;
+        if (totalWeight <= 0) return 0.0;
+        double raw = sum / totalWeight;
+        if (Double.isNaN(raw) || raw < 0) return 1.0;
+        return Math.min(1.0, raw);
     }
 
     @Override

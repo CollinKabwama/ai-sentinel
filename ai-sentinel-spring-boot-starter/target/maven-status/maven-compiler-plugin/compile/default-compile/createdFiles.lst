@@ -1,8 +1,0 @@
-io/aisentinel/autoconfigure/web/SentinelFilter.class
-io/aisentinel/autoconfigure/config/SentinelAutoConfiguration.class
-io/aisentinel/autoconfigure/config/SentinelProperties$Telemetry.class
-io/aisentinel/autoconfigure/config/SentinelProperties$Mode.class
-io/aisentinel/autoconfigure/config/SentinelProperties.class
-io/aisentinel/autoconfigure/actuator/SentinelEndpointAutoConfiguration.class
-io/aisentinel/autoconfigure/config/SentinelProperties$IsolationForest.class
-io/aisentinel/autoconfigure/actuator/SentinelActuatorEndpoint.class

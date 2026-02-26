@@ -1,5 +1,0 @@
-io/aisentinel/core/model/RequestFeaturesTest.class
-io/aisentinel/core/policy/ThresholdPolicyEngineTest.class
-io/aisentinel/core/store/BaselineStoreTest.class
-io/aisentinel/core/scoring/StatisticalScorerTest.class
-io/aisentinel/core/feature/DefaultFeatureExtractorTest.class

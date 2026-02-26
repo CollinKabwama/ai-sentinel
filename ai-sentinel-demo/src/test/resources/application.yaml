@@ -2,6 +2,8 @@ ai:
   sentinel:
     enabled: true
     mode: MONITOR
+    # High throttle so multiple test requests in quick succession are allowed
+    throttle-requests-per-second: 100
 
 management:
   endpoints:
