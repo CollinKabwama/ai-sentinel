@@ -8,7 +8,9 @@ import io.aisentinel.core.feature.DefaultFeatureExtractor;
 import io.aisentinel.core.feature.FeatureExtractor;
 import io.aisentinel.core.policy.PolicyEngine;
 import io.aisentinel.core.policy.ThresholdPolicyEngine;
+import io.aisentinel.core.scoring.BoundedTrainingBuffer;
 import io.aisentinel.core.scoring.CompositeScorer;
+import io.aisentinel.core.scoring.IsolationForestConfig;
 import io.aisentinel.core.scoring.IsolationForestScorer;
 import io.aisentinel.core.scoring.StatisticalScorer;
 import io.aisentinel.core.store.BaselineStore;
@@ -25,6 +27,13 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplicat
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @AutoConfiguration
@@ -60,8 +69,34 @@ public class SentinelAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public IsolationForestScorer isolationForestScorer() {
-        return new IsolationForestScorer();
+    public BoundedTrainingBuffer isolationForestTrainingBuffer(SentinelProperties props) {
+        int size = props.getIsolationForest().getTrainingBufferSize();
+        size = size <= 0 ? 10_000 : size;
+        return new BoundedTrainingBuffer(size);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public IsolationForestConfig isolationForestConfig(SentinelProperties props) {
+        var ifProps = props.getIsolationForest();
+        double fallback = ifProps.getFallbackScore() >= 0 ? Math.min(1.0, ifProps.getFallbackScore()) : 0.5;
+        int numTrees = ifProps.getNumTrees() > 0 ? ifProps.getNumTrees() : 100;
+        int maxDepth = ifProps.getMaxDepth() > 0 ? ifProps.getMaxDepth() : 10;
+        return new IsolationForestConfig(
+            fallback,
+            Math.max(1, ifProps.getMinTrainingSamples()),
+            numTrees,
+            maxDepth,
+            ifProps.getRandomSeed(),
+            ifProps.getSampleRate() < 0 ? 0.1 : Math.min(1.0, ifProps.getSampleRate())
+        );
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public IsolationForestScorer isolationForestScorer(BoundedTrainingBuffer isolationForestTrainingBuffer,
+                                                      IsolationForestConfig isolationForestConfig) {
+        return new IsolationForestScorer(isolationForestTrainingBuffer, isolationForestConfig);
     }
 
     @Bean
@@ -72,10 +107,20 @@ public class SentinelAutoConfiguration {
         var composite = new CompositeScorer();
         composite.addScorer(statisticalScorer, 1.0);
         if (props.getIsolationForest().isEnabled()) {
-            log.debug("Adding IsolationForestScorer with weight 0.5");
-            composite.addScorer(isolationForestScorer, 0.5);
+            double weight = props.getIsolationForest().getScoreWeight();
+            if (weight <= 0) weight = 0.5;
+            log.debug("Adding IsolationForestScorer with weight {}", weight);
+            composite.addScorer(isolationForestScorer, weight);
         }
         return composite;
+    }
+
+    @Bean
+    @ConditionalOnProperty(name = "ai.sentinel.isolation-forest.enabled", havingValue = "true")
+    @ConditionalOnBean(IsolationForestScorer.class)
+    public IsolationForestRetrainScheduler isolationForestRetrainScheduler(IsolationForestScorer isolationForestScorer,
+                                                                          SentinelProperties props) {
+        return new IsolationForestRetrainScheduler(isolationForestScorer, props);
     }
 
     @Bean

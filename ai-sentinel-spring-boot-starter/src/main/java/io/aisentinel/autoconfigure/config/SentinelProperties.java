@@ -4,7 +4,6 @@ import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 
 @Data
@@ -49,5 +48,18 @@ public class SentinelProperties {
     @Data
     public static class IsolationForest {
         private boolean enabled = false;
+        private int trainingBufferSize = 10_000;
+        private int minTrainingSamples = 100;
+        private Duration retrainInterval = Duration.ofMinutes(5);
+        private long randomSeed = 42L;
+        private double scoreWeight = 0.5;
+        /** Fraction of requests to add to training buffer (0.0–1.0). Default 0.1 */
+        private double sampleRate = 0.1;
+        /** Score returned when no model is loaded (fallback). Default 0.5 */
+        private double fallbackScore = 0.5;
+        /** Number of trees in the Isolation Forest. Default 100 */
+        private int numTrees = 100;
+        /** Maximum tree depth. Default 10 */
+        private int maxDepth = 10;
     }
 }
