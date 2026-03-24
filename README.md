@@ -72,3 +72,21 @@ curl http://localhost:8080/actuator/sentinel
 - **ai-sentinel-core** — Feature extraction, StatisticalScorer, policy, enforcement
 - **ai-sentinel-spring-boot-starter** — Auto-configuration, filter, actuator
 - **ai-sentinel-demo** — Sample API + traffic simulator
+
+## Developer utilities
+
+### Stage 2: Isolation Forest training monitor
+
+With Isolation Forest enabled, generate traffic and watch the model train:
+
+```bash
+# Start demo with ai.sentinel.isolation-forest.enabled=true (see scripts/README.md)
+mvn -pl ai-sentinel-demo spring-boot:run
+
+# In another terminal: send traffic and poll until model is loaded
+python scripts/train_monitor.py
+```
+
+Options: `--base-url`, `--traffic-endpoint`, `--total-requests`, `--concurrency`, `--poll-interval`, `--request-delay-ms`. See **scripts/README.md** for details.
+
+**Traffic simulator** (`scripts/traffic_simulator.py`) — Generate normal, burst, or attack-style traffic with randomized headers, query params, and payload sizes. Options: `--mode normal|burst|attack`, `--base-url`, `--duration`, `--requests-per-second`, `--concurrency`. Prints requests sent, errors, and latency stats.
