@@ -29,7 +29,7 @@ public final class MonitorOnlyEnforcementHandler implements EnforcementHandler {
     }
 
     @Override
-    public boolean isQuarantined(String identityHash) {
-        return delegate.isQuarantined(identityHash);
+    public boolean isQuarantined(String identityHash, String endpoint) {
+        return delegate.isQuarantined(identityHash, endpoint);
     }
 }
