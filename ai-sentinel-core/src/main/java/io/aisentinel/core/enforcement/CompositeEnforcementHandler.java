@@ -27,21 +27,38 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
     private final TelemetryEmitter telemetry;
     private final int maxKeys;
     private final long throttleTtlMs;
+    private final EnforcementScope enforcementScope;
 
     public CompositeEnforcementHandler(int blockStatusCode, long quarantineDurationMs,
                                        double throttleRequestsPerSecond, TelemetryEmitter telemetry) {
-        this(blockStatusCode, quarantineDurationMs, throttleRequestsPerSecond, telemetry, 100_000, 300_000L);
+        this(blockStatusCode, quarantineDurationMs, throttleRequestsPerSecond, telemetry, 100_000, 300_000L,
+            EnforcementScope.IDENTITY_ENDPOINT);
     }
 
     public CompositeEnforcementHandler(int blockStatusCode, long quarantineDurationMs,
                                        double throttleRequestsPerSecond, TelemetryEmitter telemetry,
                                        int maxKeys, long throttleTtlMs) {
+        this(blockStatusCode, quarantineDurationMs, throttleRequestsPerSecond, telemetry, maxKeys, throttleTtlMs,
+            EnforcementScope.IDENTITY_ENDPOINT);
+    }
+
+    public CompositeEnforcementHandler(int blockStatusCode, long quarantineDurationMs,
+                                       double throttleRequestsPerSecond, TelemetryEmitter telemetry,
+                                       int maxKeys, long throttleTtlMs, EnforcementScope enforcementScope) {
         this.blockStatusCode = blockStatusCode;
         this.quarantineDurationMs = quarantineDurationMs;
         this.throttleRequestsPerSecond = Math.max(0.1, throttleRequestsPerSecond);
         this.telemetry = telemetry;
         this.maxKeys = Math.max(1, maxKeys);
         this.throttleTtlMs = Math.max(1000L, throttleTtlMs);
+        this.enforcementScope = enforcementScope != null ? enforcementScope : EnforcementScope.IDENTITY_ENDPOINT;
+    }
+
+    private String buildEnforcementStateKey(String identityHash, String endpoint) {
+        if (enforcementScope == EnforcementScope.IDENTITY_GLOBAL) {
+            return identityHash;
+        }
+        return identityHash + "|" + (endpoint != null ? endpoint : "");
     }
 
     @Override
@@ -66,17 +83,18 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
     }
 
     @Override
-    public boolean isQuarantined(String identityHash) {
+    public boolean isQuarantined(String identityHash, String endpoint) {
+        String key = buildEnforcementStateKey(identityHash, endpoint);
         long now = System.currentTimeMillis();
-        Long until = quarantinedUntil.compute(identityHash, (k, v) -> {
+        Long until = quarantinedUntil.compute(key, (k, v) -> {
             if (v == null) return null;
-            if (now > v) return null; // expired: remove atomically
+            if (now > v) return null;
             return v;
         });
         return until != null;
     }
 
-    /** Current count of identities in quarantine (for actuator / monitor visibility). */
+    /** Current count of identities (or identity+endpoint keys) in quarantine (for actuator / monitor visibility). */
     public int getQuarantineCount() {
         long now = System.currentTimeMillis();
         int n = 0;
@@ -86,8 +104,13 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
         return n;
     }
 
-    public boolean checkThrottle(String identityHash, String endpoint) {
-        String key = identityHash + "|" + endpoint;
+    /** Approximate number of throttle token buckets currently tracked. */
+    public int getThrottleCount() {
+        return throttleTokens.size();
+    }
+
+    public boolean tryAcquireThrottlePermit(String identityHash, String endpoint) {
+        String key = buildEnforcementStateKey(identityHash, endpoint);
         evictThrottleIfNeeded();
         long now = System.nanoTime();
         long refillNs = (long) (1_000_000_000.0 / throttleRequestsPerSecond);
@@ -138,7 +161,7 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
 
     private boolean applyThrottle(HttpServletRequest request, HttpServletResponse response,
                                   String identityHash, String endpoint) {
-        if (!checkThrottle(identityHash, endpoint)) {
+        if (!tryAcquireThrottlePermit(identityHash, endpoint)) {
             try {
                 response.setStatus(429);
                 response.setContentType("text/plain;charset=UTF-8");
@@ -164,7 +187,8 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
     private void applyQuarantine(HttpServletResponse response, String identityHash, String endpoint) {
         log.debug("Quarantining identityHash={} for endpoint={} durationMs={}", maskHash(identityHash), endpoint, quarantineDurationMs);
         evictQuarantineIfNeeded();
-        quarantinedUntil.put(identityHash, System.currentTimeMillis() + quarantineDurationMs);
+        String key = buildEnforcementStateKey(identityHash, endpoint);
+        quarantinedUntil.put(key, System.currentTimeMillis() + quarantineDurationMs);
         try {
             response.setStatus(blockStatusCode);
             response.setContentType("text/plain;charset=UTF-8");
