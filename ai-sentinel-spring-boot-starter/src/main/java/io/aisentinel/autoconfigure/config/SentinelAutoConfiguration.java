@@ -15,10 +15,12 @@ import io.aisentinel.core.scoring.IsolationForestScorer;
 import io.aisentinel.core.scoring.StatisticalScorer;
 import io.aisentinel.core.store.BaselineStore;
 import io.aisentinel.core.telemetry.DefaultTelemetryEmitter;
+import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.telemetry.TelemetryConfig;
 import io.aisentinel.core.telemetry.TelemetryEmitter;
 import io.aisentinel.autoconfigure.web.SentinelFilter;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.binder.MeterBinder;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
@@ -82,14 +84,24 @@ public class SentinelAutoConfiguration {
         double fallback = ifProps.getFallbackScore() >= 0 ? Math.min(1.0, ifProps.getFallbackScore()) : 0.5;
         int numTrees = ifProps.getNumTrees() > 0 ? ifProps.getNumTrees() : 100;
         int maxDepth = ifProps.getMaxDepth() > 0 ? ifProps.getMaxDepth() : 10;
+        double rej = ifProps.getTrainingRejectionScoreThreshold();
+        if (rej < 0 || Double.isNaN(rej)) rej = 0.7;
+        rej = Math.min(1.0, rej);
         return new IsolationForestConfig(
             fallback,
             Math.max(1, ifProps.getMinTrainingSamples()),
             numTrees,
             maxDepth,
             ifProps.getRandomSeed(),
-            ifProps.getSampleRate() < 0 ? 0.1 : Math.min(1.0, ifProps.getSampleRate())
+            ifProps.getSampleRate() < 0 ? 0.1 : Math.min(1.0, ifProps.getSampleRate()),
+            rej
         );
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public StartupGrace sentinelStartupGrace(SentinelProperties props) {
+        return new SentinelStartupGrace(props.getStartupGracePeriod());
     }
 
     @Bean
@@ -97,6 +109,16 @@ public class SentinelAutoConfiguration {
     public IsolationForestScorer isolationForestScorer(BoundedTrainingBuffer isolationForestTrainingBuffer,
                                                       IsolationForestConfig isolationForestConfig) {
         return new IsolationForestScorer(isolationForestTrainingBuffer, isolationForestConfig);
+    }
+
+    @Bean
+    public MeterBinder sentinelTrainingSampleMetrics(IsolationForestScorer isolationForestScorer) {
+        return registry -> {
+            registry.gauge("aisentinel.training.samples.accepted", isolationForestScorer,
+                s -> (double) s.getAcceptedTrainingSampleCount());
+            registry.gauge("aisentinel.training.samples.rejected", isolationForestScorer,
+                s -> (double) s.getRejectedTrainingSampleCount());
+        };
     }
 
     @Bean
@@ -157,7 +179,8 @@ public class SentinelAutoConfiguration {
             props.getThrottleRequestsPerSecond(),
             telemetry,
             maxKeys,
-            throttleTtlMs
+            throttleTtlMs,
+            props.getEnforcementScope()
         );
     }
 
@@ -180,6 +203,7 @@ public class SentinelAutoConfiguration {
                                              PolicyEngine policyEngine,
                                              EnforcementHandler enforcementHandler,
                                              TelemetryEmitter telemetry,
+                                             StartupGrace sentinelStartupGrace,
                                              SentinelProperties props) {
         log.info("Sentinel pipeline configured (mode={})", props.getMode());
         return new SentinelPipeline(
@@ -187,7 +211,8 @@ public class SentinelAutoConfiguration {
             compositeScorer,
             policyEngine,
             enforcementHandler,
-            telemetry
+            telemetry,
+            sentinelStartupGrace
         );
     }
 
