@@ -6,19 +6,18 @@ import io.aisentinel.core.model.RequestContext;
 import io.aisentinel.core.model.RequestFeatures;
 import io.aisentinel.core.policy.EnforcementAction;
 import io.aisentinel.core.policy.PolicyEngine;
+import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.scoring.AnomalyScorer;
 import io.aisentinel.core.telemetry.TelemetryEmitter;
 import io.aisentinel.core.telemetry.TelemetryEvent;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
  * Orchestrates feature extraction, scoring, policy, and enforcement.
  */
 @Slf4j
-@RequiredArgsConstructor
 public final class SentinelPipeline {
 
     private final FeatureExtractor featureExtractor;
@@ -26,6 +25,17 @@ public final class SentinelPipeline {
     private final PolicyEngine policyEngine;
     private final EnforcementHandler enforcementHandler;
     private final TelemetryEmitter telemetry;
+    private final StartupGrace startupGrace;
+
+    public SentinelPipeline(FeatureExtractor featureExtractor, AnomalyScorer scorer, PolicyEngine policyEngine,
+                            EnforcementHandler enforcementHandler, TelemetryEmitter telemetry, StartupGrace startupGrace) {
+        this.featureExtractor = featureExtractor;
+        this.scorer = scorer;
+        this.policyEngine = policyEngine;
+        this.enforcementHandler = enforcementHandler;
+        this.telemetry = telemetry;
+        this.startupGrace = startupGrace != null ? startupGrace : StartupGrace.NEVER;
+    }
 
     /**
      * Process request. Returns true if request should proceed (doFilter), false if already responded.
@@ -57,7 +67,10 @@ public final class SentinelPipeline {
             telemetry.emit(TelemetryEvent.anomalyDetected(identityHash, features.endpoint(), score));
         }
 
-        if (enforcementHandler.isQuarantined(identityHash)) {
+        boolean startupGraceActive = startupGrace.isGraceActive();
+        if (startupGraceActive) {
+            action = EnforcementAction.MONITOR;
+        } else if (enforcementHandler.isQuarantined(identityHash, features.endpoint())) {
             action = EnforcementAction.QUARANTINE;
         }
 

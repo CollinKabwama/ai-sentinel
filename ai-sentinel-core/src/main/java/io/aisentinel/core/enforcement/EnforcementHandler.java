@@ -14,7 +14,16 @@ public interface EnforcementHandler {
     boolean apply(EnforcementAction action, HttpServletRequest request, HttpServletResponse response,
                   String identityHash, String endpoint);
 
-    default boolean isQuarantined(String identityHash) {
+    /**
+     * @param endpoint request path or normalized endpoint; used when enforcement scope is per-endpoint.
+     */
+    default boolean isQuarantined(String identityHash, String endpoint) {
         return false;
+    }
+
+    /** @deprecated use {@link #isQuarantined(String, String)} */
+    @Deprecated
+    default boolean isQuarantined(String identityHash) {
+        return isQuarantined(identityHash, "");
     }
 }
