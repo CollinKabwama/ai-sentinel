@@ -25,6 +25,8 @@ public final class IsolationForestScorer implements AnomalyScorer {
     private volatile long lastRetrainTimeMillis;
     private final AtomicLong retrainFailureCount = new AtomicLong(0);
     private volatile long lastRetrainFailureTimeMillis;
+    private final AtomicLong acceptedTrainingSampleCount = new AtomicLong(0);
+    private final AtomicLong rejectedTrainingSampleCount = new AtomicLong(0);
 
     public IsolationForestScorer(BoundedTrainingBuffer buffer, IsolationForestConfig config) {
         this.buffer = buffer;
@@ -51,11 +53,16 @@ public final class IsolationForestScorer implements AnomalyScorer {
         if (config.getSampleRate() <= 0) return;
         IsolationForestModel m = model;
         if (m != null) {
-            double s = score(features);
-            if (s > 0.7) return;
+            double anomalyScore = score(features);
+            double rejectionThreshold = config.getTrainingRejectionScoreThreshold();
+            if (anomalyScore > rejectionThreshold) {
+                rejectedTrainingSampleCount.incrementAndGet();
+                return;
+            }
         }
         if (config.getSampleRate() >= 1.0 || ThreadLocalRandomHolder.nextDouble() < config.getSampleRate()) {
             buffer.add(features.toArray());
+            acceptedTrainingSampleCount.incrementAndGet();
         }
     }
 
@@ -99,6 +106,14 @@ public final class IsolationForestScorer implements AnomalyScorer {
 
     public long getRetrainFailureCount() { return retrainFailureCount.get(); }
     public long getLastRetrainFailureTimeMillis() { return lastRetrainFailureTimeMillis; }
+
+    public long getAcceptedTrainingSampleCount() {
+        return acceptedTrainingSampleCount.get();
+    }
+
+    public long getRejectedTrainingSampleCount() {
+        return rejectedTrainingSampleCount.get();
+    }
 
     /** ThreadLocalRandom for sampling without allocating per request. */
     private static final class ThreadLocalRandomHolder {
