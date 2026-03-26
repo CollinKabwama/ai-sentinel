@@ -17,8 +17,6 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.nio.charset.StandardCharsets;
 import java.util.HexFormat;
-import java.util.List;
-import java.util.Set;
 
 @Slf4j
 @Order(Ordered.LOWEST_PRECEDENCE - 100)
@@ -79,7 +77,7 @@ public class SentinelFilter extends OncePerRequestFilter {
     }
 
     private String resolveIdentityHash(HttpServletRequest request) {
-        String identity = resolveClientIp(request, props.getTrustedProxies());
+        String identity = ClientIpResolver.resolveClientIp(request, props.getTrustedProxies());
         try {
             Object ctx = Class.forName("org.springframework.security.core.context.SecurityContextHolder")
                 .getMethod("getContext").invoke(null);
@@ -97,43 +95,11 @@ public class SentinelFilter extends OncePerRequestFilter {
     }
 
     /**
-     * Resolve client IP: if trusted proxies configured and remote is trusted,
-     * use X-Forwarded-For (leftmost), Forwarded for=, or X-Real-IP; else use getRemoteAddr().
-     * Package-private for testing.
+     * @deprecated use {@link ClientIpResolver#resolveClientIp(HttpServletRequest, java.util.List)}
      */
-    static String resolveClientIp(HttpServletRequest request, List<String> trusted) {
-        String remote = request.getRemoteAddr();
-        if (remote == null) return "";
-        if (trusted == null || trusted.isEmpty()) {
-            return remote;
-        }
-        Set<String> trustedSet = Set.copyOf(trusted);
-        if (!trustedSet.contains(remote)) {
-            return remote;
-        }
-        String forwardedFor = request.getHeader("X-Forwarded-For");
-        if (forwardedFor != null && !forwardedFor.isBlank()) {
-            String first = forwardedFor.split(",")[0].trim();
-            if (!first.isEmpty()) return first;
-        }
-        String forwarded = request.getHeader("Forwarded");
-        if (forwarded != null && !forwarded.isBlank()) {
-            for (String part : forwarded.split(";")) {
-                String p = part.trim().toLowerCase();
-                if (p.startsWith("for=")) {
-                    String value = part.trim().substring(4).trim();
-                    if (value.startsWith("\"") && value.length() > 2) {
-                        value = value.substring(1, value.indexOf('"', 1));
-                    }
-                    if (!value.isEmpty()) return value;
-                }
-            }
-        }
-        String realIp = request.getHeader("X-Real-IP");
-        if (realIp != null && !realIp.isBlank()) {
-            return realIp.trim();
-        }
-        return remote;
+    @Deprecated
+    static String resolveClientIp(HttpServletRequest request, java.util.List<String> trustedProxyEntries) {
+        return ClientIpResolver.resolveClientIp(request, trustedProxyEntries);
     }
 
     private static String hash(String s) {
