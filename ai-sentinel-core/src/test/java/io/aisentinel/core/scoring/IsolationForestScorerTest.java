@@ -81,6 +81,35 @@ class IsolationForestScorerTest {
     }
 
     @Test
+    void trainingRejectionThresholdIncrementsRejectedCounter() {
+        var buffer = new BoundedTrainingBuffer(500);
+        var config = new IsolationForestConfig(0.5, 10, 20, 8, 42L, 1.0, 0.0);
+        var scorer = new IsolationForestScorer(buffer, config);
+        for (int i = 0; i < 100; i++) {
+            buffer.add(new double[]{i % 10, 0.5, 60, 2, 100 + i, 0, 0});
+        }
+        scorer.retrain();
+        assertThat(scorer.isModelLoaded()).isTrue();
+        long rejBefore = scorer.getRejectedTrainingSampleCount();
+        scorer.update(features(5, 0.5, 60, 2, 150, 0, 0));
+        assertThat(scorer.getRejectedTrainingSampleCount()).isGreaterThanOrEqualTo(rejBefore);
+    }
+
+    @Test
+    void acceptedTrainingSamplesIncrementWhenNotRejected() {
+        var buffer = new BoundedTrainingBuffer(500);
+        var config = new IsolationForestConfig(0.5, 10, 20, 8, 42L, 1.0, 1.0);
+        var scorer = new IsolationForestScorer(buffer, config);
+        for (int i = 0; i < 100; i++) {
+            buffer.add(new double[]{i % 10, 0.5, 60, 2, 100 + i, 0, 0});
+        }
+        scorer.retrain();
+        long accBefore = scorer.getAcceptedTrainingSampleCount();
+        scorer.update(features(5, 0.5, 60, 2, 150, 0, 0));
+        assertThat(scorer.getAcceptedTrainingSampleCount()).isGreaterThan(accBefore);
+    }
+
+    @Test
     void metadataExposed() {
         var buffer = new BoundedTrainingBuffer(100);
         var config = new IsolationForestConfig(0.5, 10, 5, 5, 42L, 1.0);

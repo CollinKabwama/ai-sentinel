@@ -45,10 +45,10 @@ class CompositeEnforcementHandlerTest {
         for (int i = 0; i < 5; i++) {
             String h = "hash" + i;
             hashes.add(h);
-            boolean allowed = handler.checkThrottle(h, "/api");
+            boolean allowed = handler.tryAcquireThrottlePermit(h, "/api");
             assertThat(allowed).isTrue();
         }
-        assertThat(handler.checkThrottle(hashes.get(0), "/api")).isTrue();
+        assertThat(handler.tryAcquireThrottlePermit(hashes.get(0), "/api")).isTrue();
     }
 
     @Test
@@ -58,8 +58,24 @@ class CompositeEnforcementHandlerTest {
         handler.apply(EnforcementAction.QUARANTINE, request, response, "h1", "/api");
         handler.apply(EnforcementAction.QUARANTINE, request, response, "h2", "/api");
         handler.apply(EnforcementAction.QUARANTINE, request, response, "h3", "/api");
-        assertThat(handler.isQuarantined("h2")).isTrue();
-        assertThat(handler.isQuarantined("h3")).isTrue();
+        assertThat(handler.isQuarantined("h2", "/api")).isTrue();
+        assertThat(handler.isQuarantined("h3", "/api")).isTrue();
+    }
+
+    @Test
+    void identityGlobalScopeSharesThrottleAcrossEndpoints() {
+        handler = new CompositeEnforcementHandler(429, 60_000L, 1.0, telemetry, 100, 60_000L, EnforcementScope.IDENTITY_GLOBAL);
+        String id = "same-id";
+        assertThat(handler.tryAcquireThrottlePermit(id, "/a")).isTrue();
+        assertThat(handler.tryAcquireThrottlePermit(id, "/b")).isFalse();
+    }
+
+    @Test
+    void identityEndpointScopeThrottlesPerEndpoint() {
+        handler = new CompositeEnforcementHandler(429, 60_000L, 1.0, telemetry, 100, 60_000L, EnforcementScope.IDENTITY_ENDPOINT);
+        String id = "same-id";
+        assertThat(handler.tryAcquireThrottlePermit(id, "/a")).isTrue();
+        assertThat(handler.tryAcquireThrottlePermit(id, "/b")).isTrue();
     }
 
     @Test
@@ -68,8 +84,8 @@ class CompositeEnforcementHandlerTest {
         when(response.getWriter()).thenReturn(new java.io.PrintWriter(java.io.OutputStream.nullOutputStream()));
         handler.apply(EnforcementAction.QUARANTINE, request, response, "h1", "/api");
         Thread.sleep(60);
-        assertThat(handler.isQuarantined("h1")).isFalse();
+        assertThat(handler.isQuarantined("h1", "/api")).isFalse();
         handler.apply(EnforcementAction.QUARANTINE, request, response, "h1", "/api");
-        assertThat(handler.isQuarantined("h1")).isTrue();
+        assertThat(handler.isQuarantined("h1", "/api")).isTrue();
     }
 }

@@ -2,6 +2,7 @@ package io.aisentinel.autoconfigure.actuator;
 
 import io.aisentinel.autoconfigure.config.SentinelProperties;
 import io.aisentinel.core.enforcement.CompositeEnforcementHandler;
+import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.scoring.IsolationForestScorer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.actuate.autoconfigure.endpoint.web.WebEndpointAutoConfiguration;
@@ -28,8 +29,10 @@ public class SentinelEndpointAutoConfiguration {
     @ConditionalOnBean(CompositeEnforcementHandler.class)
     public SentinelActuatorEndpoint sentinelActuatorEndpoint(SentinelProperties props,
                                                             CompositeEnforcementHandler enforcementHandlerImpl,
-                                                            ObjectProvider<IsolationForestScorer> isolationForestScorerProvider) {
+                                                            ObjectProvider<IsolationForestScorer> isolationForestScorerProvider,
+                                                            ObjectProvider<StartupGrace> startupGraceProvider) {
         log.debug("Registering Sentinel actuator endpoint");
-        return new SentinelActuatorEndpoint(props, enforcementHandlerImpl, isolationForestScorerProvider.getIfAvailable());
+        return new SentinelActuatorEndpoint(props, enforcementHandlerImpl, isolationForestScorerProvider.getIfAvailable(),
+            startupGraceProvider.getIfAvailable());
     }
 }

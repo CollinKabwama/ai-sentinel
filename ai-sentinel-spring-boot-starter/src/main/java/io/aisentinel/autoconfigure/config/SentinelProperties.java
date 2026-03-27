@@ -1,5 +1,6 @@
 package io.aisentinel.autoconfigure.config;
 
+import io.aisentinel.core.enforcement.EnforcementScope;
 import lombok.Data;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
@@ -24,8 +25,12 @@ public class SentinelProperties {
     private int internalMapMaxKeys = 100_000;
     /** TTL for internal map entries (evict after this period of no access). Default 5 minutes. */
     private Duration internalMapTtl = Duration.ofMinutes(5);
-    /** Trusted proxy IPs/CIDRs; if empty, forwarded headers are not used. When remote is trusted, client IP is taken from X-Forwarded-For, Forwarded, or X-Real-IP. */
+    /** Trusted proxy IPs/CIDRs; if empty, forwarded headers are not used. When remote is trusted, client IP is taken from X-Forwarded-For (rightmost-untrusted), Forwarded, or X-Real-IP. */
     private List<String> trustedProxies = List.of();
+    /** After startup, enforcement is limited to MONITOR for this duration (0 disables). */
+    private Duration startupGracePeriod = Duration.ZERO;
+    /** Whether throttle/quarantine keys are per identity only or identity+endpoint. */
+    private EnforcementScope enforcementScope = EnforcementScope.IDENTITY_ENDPOINT;
     /** Min samples per key before using real score (cold-start); below this return warmup-score. Default 2. */
     private int warmupMinSamples = 2;
     /** Score returned during warmup (cold-start) to avoid bypass. Default 0.4 (MONITOR). */
@@ -61,5 +66,7 @@ public class SentinelProperties {
         private int numTrees = 100;
         /** Maximum tree depth. Default 10 */
         private int maxDepth = 10;
+        /** When a model is loaded, training buffer rejects samples with IF score above this (anti-poisoning). Default 0.7 */
+        private double trainingRejectionScoreThreshold = 0.7;
     }
 }

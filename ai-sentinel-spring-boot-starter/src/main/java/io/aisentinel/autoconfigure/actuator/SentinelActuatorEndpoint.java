@@ -2,6 +2,7 @@ package io.aisentinel.autoconfigure.actuator;
 
 import io.aisentinel.autoconfigure.config.SentinelProperties;
 import io.aisentinel.core.enforcement.CompositeEnforcementHandler;
+import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.scoring.IsolationForestScorer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
@@ -17,13 +18,16 @@ public class SentinelActuatorEndpoint {
     private final SentinelProperties props;
     private final CompositeEnforcementHandler enforcementHandlerImpl;
     private final IsolationForestScorer isolationForestScorer;
+    private final StartupGrace startupGrace;
 
     public SentinelActuatorEndpoint(SentinelProperties props,
                                     CompositeEnforcementHandler enforcementHandlerImpl,
-                                    IsolationForestScorer isolationForestScorer) {
+                                    IsolationForestScorer isolationForestScorer,
+                                    StartupGrace startupGrace) {
         this.props = props;
         this.enforcementHandlerImpl = enforcementHandlerImpl;
         this.isolationForestScorer = isolationForestScorer;
+        this.startupGrace = startupGrace != null ? startupGrace : StartupGrace.NEVER;
     }
 
     @ReadOperation
@@ -33,6 +37,10 @@ public class SentinelActuatorEndpoint {
         map.put("enabled", props.isEnabled());
         map.put("mode", props.getMode().name());
         map.put("isolationForestEnabled", props.getIsolationForest().isEnabled());
+        map.put("startupGraceActive", startupGrace.isGraceActive());
+        map.put("enforcementScope", props.getEnforcementScope().name());
+        map.put("activeThrottleCount", enforcementHandlerImpl.getThrottleCount());
+        map.put("activeQuarantineCount", enforcementHandlerImpl.getQuarantineCount());
         map.put("quarantineCount", enforcementHandlerImpl.getQuarantineCount());
         if (props.getIsolationForest().isEnabled() && isolationForestScorer != null) {
             map.put("isolationForestModelLoaded", isolationForestScorer.isModelLoaded());
@@ -42,6 +50,11 @@ public class SentinelActuatorEndpoint {
             map.put("isolationForestModelAgeMillis", isolationForestScorer.getModelAgeMillis());
             map.put("isolationForestRetrainFailureCount", isolationForestScorer.getRetrainFailureCount());
             map.put("isolationForestLastRetrainFailureTimeMillis", isolationForestScorer.getLastRetrainFailureTimeMillis());
+            map.put("acceptedTrainingSampleCount", isolationForestScorer.getAcceptedTrainingSampleCount());
+            map.put("rejectedTrainingSampleCount", isolationForestScorer.getRejectedTrainingSampleCount());
+        } else {
+            map.put("acceptedTrainingSampleCount", 0L);
+            map.put("rejectedTrainingSampleCount", 0L);
         }
         return map;
     }
