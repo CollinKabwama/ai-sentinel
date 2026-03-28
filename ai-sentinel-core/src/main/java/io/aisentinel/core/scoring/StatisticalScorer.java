@@ -1,5 +1,6 @@
 package io.aisentinel.core.scoring;
 
+import io.aisentinel.core.metrics.SentinelMetrics;
 import io.aisentinel.core.model.RequestFeatures;
 
 import java.util.Map;
@@ -20,6 +21,7 @@ public final class StatisticalScorer implements AnomalyScorer {
     private final long ttlMs;
     private final int warmupMinSamples;
     private final double warmupScore;
+    private final SentinelMetrics metrics;
 
     public StatisticalScorer() {
         this(100_000, 300_000L, 2, 0.4);
@@ -30,10 +32,21 @@ public final class StatisticalScorer implements AnomalyScorer {
     }
 
     public StatisticalScorer(int maxKeys, long ttlMs, int warmupMinSamples, double warmupScore) {
+        this(maxKeys, ttlMs, warmupMinSamples, warmupScore, SentinelMetrics.NOOP);
+    }
+
+    public StatisticalScorer(int maxKeys, long ttlMs, int warmupMinSamples, double warmupScore,
+                             SentinelMetrics metrics) {
         this.maxKeys = Math.max(1, maxKeys);
         this.ttlMs = Math.max(1000L, ttlMs);
         this.warmupMinSamples = Math.max(0, warmupMinSamples);
         this.warmupScore = warmupScore < 0 ? 0 : Math.min(1.0, warmupScore);
+        this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
+    }
+
+    /** Welford state map size (for cache gauges). */
+    public int metricsStateEntryCount() {
+        return stateByKey.size();
     }
 
     @Override
@@ -43,6 +56,7 @@ public final class StatisticalScorer implements AnomalyScorer {
 
         WelfordState state = stateByKey.get(key);
         if (state == null) {
+            metrics.recordStatisticalScore(warmupScore);
             return warmupScore;
         }
         double[] means;
@@ -50,7 +64,10 @@ public final class StatisticalScorer implements AnomalyScorer {
         int n;
         synchronized (state) {
             n = state.n;
-            if (n < Math.max(2, warmupMinSamples)) return warmupScore;
+            if (n < Math.max(2, warmupMinSamples)) {
+                metrics.recordStatisticalScore(warmupScore);
+                return warmupScore;
+            }
             means = state.getMeansCopy();
             stds = state.getStds();
         }
@@ -63,7 +80,9 @@ public final class StatisticalScorer implements AnomalyScorer {
             maxZ = Math.max(maxZ, z);
         }
         double s = sigmoid(maxZ);
-        return Double.isNaN(s) ? 1.0 : Math.min(1.0, Math.max(0.0, s));
+        double out = Double.isNaN(s) ? 1.0 : Math.min(1.0, Math.max(0.0, s));
+        metrics.recordStatisticalScore(out);
+        return out;
     }
 
     @Override

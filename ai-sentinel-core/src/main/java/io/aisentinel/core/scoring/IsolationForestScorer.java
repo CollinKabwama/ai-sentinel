@@ -1,5 +1,6 @@
 package io.aisentinel.core.scoring;
 
+import io.aisentinel.core.metrics.SentinelMetrics;
 import io.aisentinel.core.model.RequestFeatures;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,10 +28,16 @@ public final class IsolationForestScorer implements AnomalyScorer {
     private volatile long lastRetrainFailureTimeMillis;
     private final AtomicLong acceptedTrainingSampleCount = new AtomicLong(0);
     private final AtomicLong rejectedTrainingSampleCount = new AtomicLong(0);
+    private final SentinelMetrics metrics;
 
     public IsolationForestScorer(BoundedTrainingBuffer buffer, IsolationForestConfig config) {
+        this(buffer, config, SentinelMetrics.NOOP);
+    }
+
+    public IsolationForestScorer(BoundedTrainingBuffer buffer, IsolationForestConfig config, SentinelMetrics metrics) {
         this.buffer = buffer;
         this.config = config;
+        this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
         this.trainer = new IsolationForestTrainer(
             config.getNumTrees(),
             config.getMaxDepth(),
@@ -40,12 +47,40 @@ public final class IsolationForestScorer implements AnomalyScorer {
 
     @Override
     public double score(RequestFeatures features) {
+        return evaluateScore(features, true);
+    }
+
+    /**
+     * @param recordRequestMetrics when true, records IF score histogram and inference latency (request path).
+     */
+    private double evaluateScore(RequestFeatures features, boolean recordRequestMetrics) {
         IsolationForestModel m = model;
-        if (m == null) return config.getFallbackScore();
+        if (m == null) {
+            double fb = config.getFallbackScore();
+            if (recordRequestMetrics) {
+                metrics.recordIsolationForestScore(fb);
+            }
+            return fb;
+        }
         double[] x = features.toArray();
+        long t0 = System.nanoTime();
         double s = m.score(x);
-        if (Double.isNaN(s) || s < 0) return config.getFallbackScore();
-        return Math.min(1.0, Math.max(0.0, s));
+        long infNanos = System.nanoTime() - t0;
+        if (recordRequestMetrics) {
+            metrics.recordIsolationForestInferenceLatencyNanos(infNanos);
+        }
+        if (Double.isNaN(s) || s < 0) {
+            double fb = config.getFallbackScore();
+            if (recordRequestMetrics) {
+                metrics.recordIsolationForestScore(fb);
+            }
+            return fb;
+        }
+        double out = Math.min(1.0, Math.max(0.0, s));
+        if (recordRequestMetrics) {
+            metrics.recordIsolationForestScore(out);
+        }
+        return out;
     }
 
     @Override
@@ -53,7 +88,7 @@ public final class IsolationForestScorer implements AnomalyScorer {
         if (config.getSampleRate() <= 0) return;
         IsolationForestModel m = model;
         if (m != null) {
-            double anomalyScore = score(features);
+            double anomalyScore = evaluateScore(features, false);
             double rejectionThreshold = config.getTrainingRejectionScoreThreshold();
             if (anomalyScore > rejectionThreshold) {
                 rejectedTrainingSampleCount.incrementAndGet();
@@ -74,6 +109,7 @@ public final class IsolationForestScorer implements AnomalyScorer {
         List<double[]> samples = buffer.getSnapshotForTraining();
         if (samples.size() < config.getMinTrainingSamples()) return;
         long startMs = System.currentTimeMillis();
+        long t0 = System.nanoTime();
         try {
             IsolationForestModel newModel = trainer.train(samples);
             if (newModel != null) {
@@ -82,11 +118,13 @@ public final class IsolationForestScorer implements AnomalyScorer {
                 lastRetrainTimeMillis = System.currentTimeMillis();
                 long durationMs = lastRetrainTimeMillis - startMs;
                 log.info("IF retrain v{} completed in {}ms using {} samples", v, durationMs, samples.size());
+                metrics.recordRetrainSuccessNanos(System.nanoTime() - t0);
             }
         } catch (Exception e) {
             retrainFailureCount.incrementAndGet();
             lastRetrainFailureTimeMillis = System.currentTimeMillis();
             log.warn("Isolation Forest retrain failed (request path unaffected): {}", e.getMessage());
+            metrics.recordRetrainFailureNanos(System.nanoTime() - t0);
         }
     }
 
