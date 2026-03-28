@@ -6,6 +6,7 @@ import io.aisentinel.core.model.RequestContext;
 import io.aisentinel.core.model.RequestFeatures;
 import io.aisentinel.core.policy.EnforcementAction;
 import io.aisentinel.core.policy.PolicyEngine;
+import io.aisentinel.core.metrics.SentinelMetrics;
 import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.scoring.AnomalyScorer;
 import io.aisentinel.core.telemetry.TelemetryEmitter;
@@ -26,55 +27,74 @@ public final class SentinelPipeline {
     private final EnforcementHandler enforcementHandler;
     private final TelemetryEmitter telemetry;
     private final StartupGrace startupGrace;
+    private final SentinelMetrics metrics;
 
     public SentinelPipeline(FeatureExtractor featureExtractor, AnomalyScorer scorer, PolicyEngine policyEngine,
-                            EnforcementHandler enforcementHandler, TelemetryEmitter telemetry, StartupGrace startupGrace) {
+                            EnforcementHandler enforcementHandler, TelemetryEmitter telemetry, StartupGrace startupGrace,
+                            SentinelMetrics metrics) {
         this.featureExtractor = featureExtractor;
         this.scorer = scorer;
         this.policyEngine = policyEngine;
         this.enforcementHandler = enforcementHandler;
         this.telemetry = telemetry;
         this.startupGrace = startupGrace != null ? startupGrace : StartupGrace.NEVER;
+        this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
     }
 
     /**
      * Process request. Returns true if request should proceed (doFilter), false if already responded.
      */
     public boolean process(HttpServletRequest request, HttpServletResponse response, String identityHash) {
-        RequestContext ctx = new RequestContext();
-        RequestFeatures features;
+        long pipelineStart = System.nanoTime();
         try {
-            features = featureExtractor.extract(request, identityHash, ctx);
-        } catch (Exception e) {
-            log.debug("Feature extraction failed for {}: {}", request.getRequestURI(), e.getMessage());
-            return true;
+            RequestContext ctx = new RequestContext();
+            RequestFeatures features;
+            try {
+                features = featureExtractor.extract(request, identityHash, ctx);
+            } catch (Exception e) {
+                log.debug("Feature extraction failed for {}: {}", request.getRequestURI(), e.getMessage());
+                metrics.recordFailOpen();
+                return true;
+            }
+
+            double rawScore;
+            long scoreStart = System.nanoTime();
+            try {
+                rawScore = scorer.score(features);
+                scorer.update(features);
+            } catch (Exception e) {
+                log.debug("Scoring failed for {}: {}", features.endpoint(), e.getMessage());
+                metrics.recordScoringError();
+                metrics.recordFailOpen();
+                return true;
+            } finally {
+                metrics.recordScoringLatencyNanos(System.nanoTime() - scoreStart);
+            }
+
+            if (Double.isNaN(rawScore) || rawScore < 0) {
+                metrics.recordNanOrNegativeScoreClamped();
+            }
+            double score = clampScore(rawScore);
+
+            EnforcementAction action = policyEngine.evaluate(score, features, features.endpoint());
+
+            telemetry.emit(TelemetryEvent.threatScored(identityHash, features.endpoint(), score));
+            if (score > 0.5) {
+                telemetry.emit(TelemetryEvent.anomalyDetected(identityHash, features.endpoint(), score));
+            }
+
+            boolean startupGraceActive = startupGrace.isGraceActive();
+            if (startupGraceActive) {
+                action = EnforcementAction.MONITOR;
+            } else if (enforcementHandler.isQuarantined(identityHash, features.endpoint())) {
+                action = EnforcementAction.QUARANTINE;
+            }
+
+            metrics.recordPolicyAction(action);
+            return enforcementHandler.apply(action, request, response, identityHash, features.endpoint());
+        } finally {
+            metrics.recordPipelineLatencyNanos(System.nanoTime() - pipelineStart);
         }
-
-        double score;
-        try {
-            score = scorer.score(features);
-            scorer.update(features);
-        } catch (Exception e) {
-            log.debug("Scoring failed for {}: {}", features.endpoint(), e.getMessage());
-            return true;
-        }
-        score = clampScore(score);
-
-        EnforcementAction action = policyEngine.evaluate(score, features, features.endpoint());
-
-        telemetry.emit(TelemetryEvent.threatScored(identityHash, features.endpoint(), score));
-        if (score > 0.5) {
-            telemetry.emit(TelemetryEvent.anomalyDetected(identityHash, features.endpoint(), score));
-        }
-
-        boolean startupGraceActive = startupGrace.isGraceActive();
-        if (startupGraceActive) {
-            action = EnforcementAction.MONITOR;
-        } else if (enforcementHandler.isQuarantined(identityHash, features.endpoint())) {
-            action = EnforcementAction.QUARANTINE;
-        }
-
-        return enforcementHandler.apply(action, request, response, identityHash, features.endpoint());
     }
 
     /** Prevents NaN or out-of-range scores from causing policy bypass; treat NaN as high risk. */

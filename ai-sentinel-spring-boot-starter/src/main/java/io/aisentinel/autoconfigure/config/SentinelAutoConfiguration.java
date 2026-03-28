@@ -14,10 +14,12 @@ import io.aisentinel.core.scoring.IsolationForestConfig;
 import io.aisentinel.core.scoring.IsolationForestScorer;
 import io.aisentinel.core.scoring.StatisticalScorer;
 import io.aisentinel.core.store.BaselineStore;
+import io.aisentinel.core.metrics.SentinelMetrics;
 import io.aisentinel.core.telemetry.DefaultTelemetryEmitter;
 import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.telemetry.TelemetryConfig;
 import io.aisentinel.core.telemetry.TelemetryEmitter;
+import io.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
 import io.aisentinel.autoconfigure.web.SentinelFilter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.MeterBinder;
@@ -31,18 +33,24 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 
-import jakarta.annotation.PostConstruct;
-import jakarta.annotation.PreDestroy;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
-
 @Slf4j
 @AutoConfiguration
 @ConditionalOnWebApplication
 @ConditionalOnProperty(name = "ai.sentinel.enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(SentinelProperties.class)
 public class SentinelAutoConfiguration {
+
+    @Bean
+    @ConditionalOnBean(MeterRegistry.class)
+    public SentinelMetrics sentinelMetrics(MeterRegistry registry) {
+        return new MicrometerSentinelMetrics(registry);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(SentinelMetrics.class)
+    public SentinelMetrics noopSentinelMetrics() {
+        return SentinelMetrics.NOOP;
+    }
 
     @Bean
     @ConditionalOnMissingBean
@@ -61,12 +69,12 @@ public class SentinelAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public StatisticalScorer statisticalScorer(SentinelProperties props) {
+    public StatisticalScorer statisticalScorer(SentinelProperties props, SentinelMetrics sentinelMetrics) {
         int maxKeys = props.getInternalMapMaxKeys() > 0 ? props.getInternalMapMaxKeys() : 100_000;
         long ttlMs = props.getInternalMapTtl() != null ? props.getInternalMapTtl().toMillis() : 300_000L;
         int warmupMin = props.getWarmupMinSamples() >= 0 ? props.getWarmupMinSamples() : 2;
         double warmupScore = props.getWarmupScore() < 0 ? 0.4 : Math.min(1.0, props.getWarmupScore());
-        return new StatisticalScorer(maxKeys, ttlMs, warmupMin, warmupScore);
+        return new StatisticalScorer(maxKeys, ttlMs, warmupMin, warmupScore, sentinelMetrics);
     }
 
     @Bean
@@ -107,17 +115,30 @@ public class SentinelAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public IsolationForestScorer isolationForestScorer(BoundedTrainingBuffer isolationForestTrainingBuffer,
-                                                      IsolationForestConfig isolationForestConfig) {
-        return new IsolationForestScorer(isolationForestTrainingBuffer, isolationForestConfig);
+                                                      IsolationForestConfig isolationForestConfig,
+                                                      SentinelMetrics sentinelMetrics) {
+        return new IsolationForestScorer(isolationForestTrainingBuffer, isolationForestConfig, sentinelMetrics);
     }
 
     @Bean
-    public MeterBinder sentinelTrainingSampleMetrics(IsolationForestScorer isolationForestScorer) {
+    @ConditionalOnBean(MeterRegistry.class)
+    public MeterBinder aisentinelSystemAndTrainingGauges(StatisticalScorer statisticalScorer,
+                                                         FeatureExtractor featureExtractor,
+                                                         CompositeEnforcementHandler enforcementHandlerImpl,
+                                                         IsolationForestScorer isolationForestScorer) {
         return registry -> {
             registry.gauge("aisentinel.training.samples.accepted", isolationForestScorer,
                 s -> (double) s.getAcceptedTrainingSampleCount());
             registry.gauge("aisentinel.training.samples.rejected", isolationForestScorer,
                 s -> (double) s.getRejectedTrainingSampleCount());
+            registry.gauge("aisentinel.cache.state.size", statisticalScorer,
+                s -> (double) s.metricsStateEntryCount());
+            registry.gauge("aisentinel.cache.endpointHistory.size", featureExtractor,
+                f -> (double) f.metricsEndpointHistoryEntryCount());
+            registry.gauge("aisentinel.cache.throttle.size", enforcementHandlerImpl,
+                h -> (double) h.getThrottleCount());
+            registry.gauge("aisentinel.cache.quarantine.size", enforcementHandlerImpl,
+                h -> (double) h.getQuarantineCount());
         };
     }
 
@@ -125,8 +146,9 @@ public class SentinelAutoConfiguration {
     @ConditionalOnMissingBean
     public CompositeScorer compositeScorer(StatisticalScorer statisticalScorer,
                                            IsolationForestScorer isolationForestScorer,
-                                           SentinelProperties props) {
-        var composite = new CompositeScorer();
+                                           SentinelProperties props,
+                                           SentinelMetrics sentinelMetrics) {
+        var composite = new CompositeScorer(sentinelMetrics);
         composite.addScorer(statisticalScorer, 1.0);
         if (props.getIsolationForest().isEnabled()) {
             double weight = props.getIsolationForest().getScoreWeight();
@@ -204,6 +226,7 @@ public class SentinelAutoConfiguration {
                                              EnforcementHandler enforcementHandler,
                                              TelemetryEmitter telemetry,
                                              StartupGrace sentinelStartupGrace,
+                                             SentinelMetrics sentinelMetrics,
                                              SentinelProperties props) {
         log.info("Sentinel pipeline configured (mode={})", props.getMode());
         return new SentinelPipeline(
@@ -212,13 +235,14 @@ public class SentinelAutoConfiguration {
             policyEngine,
             enforcementHandler,
             telemetry,
-            sentinelStartupGrace
+            sentinelStartupGrace,
+            sentinelMetrics
         );
     }
 
     @Bean
     @ConditionalOnMissingBean
-    public SentinelFilter sentinelFilter(SentinelPipeline pipeline, SentinelProperties props) {
-        return new SentinelFilter(pipeline, props);
+    public SentinelFilter sentinelFilter(SentinelPipeline pipeline, SentinelProperties props, SentinelMetrics sentinelMetrics) {
+        return new SentinelFilter(pipeline, props, sentinelMetrics);
     }
 }

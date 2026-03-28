@@ -1,5 +1,6 @@
 package io.aisentinel.core.scoring;
 
+import io.aisentinel.core.metrics.SentinelMetrics;
 import io.aisentinel.core.model.RequestFeatures;
 
 import java.util.ArrayList;
@@ -12,6 +13,15 @@ import java.util.List;
 public final class CompositeScorer implements AnomalyScorer {
 
     private final List<WeightedScorer> scorers = new ArrayList<>();
+    private final SentinelMetrics metrics;
+
+    public CompositeScorer() {
+        this(SentinelMetrics.NOOP);
+    }
+
+    public CompositeScorer(SentinelMetrics metrics) {
+        this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
+    }
 
     public void addScorer(AnomalyScorer scorer, double weight) {
         if (weight > 0) {
@@ -21,7 +31,10 @@ public final class CompositeScorer implements AnomalyScorer {
 
     @Override
     public double score(RequestFeatures features) {
-        if (scorers.isEmpty()) return 0.0;
+        if (scorers.isEmpty()) {
+            metrics.recordCompositeScore(0.0);
+            return 0.0;
+        }
         double sum = 0;
         double totalWeight = 0;
         for (WeightedScorer ws : scorers) {
@@ -29,10 +42,18 @@ public final class CompositeScorer implements AnomalyScorer {
             sum += s * ws.weight;
             totalWeight += ws.weight;
         }
-        if (totalWeight <= 0) return 0.0;
+        if (totalWeight <= 0) {
+            metrics.recordCompositeScore(0.0);
+            return 0.0;
+        }
         double raw = sum / totalWeight;
-        if (Double.isNaN(raw) || raw < 0) return 1.0;
-        return Math.min(1.0, raw);
+        if (Double.isNaN(raw) || raw < 0) {
+            metrics.recordCompositeScore(1.0);
+            return 1.0;
+        }
+        double out = Math.min(1.0, raw);
+        metrics.recordCompositeScore(out);
+        return out;
     }
 
     @Override
