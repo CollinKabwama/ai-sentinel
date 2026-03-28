@@ -146,6 +146,7 @@ management:
 
 - `enabled`, `mode`, `isolationForestEnabled`, `startupGraceActive`, `enforcementScope`
 - `quarantineCount`, `activeThrottleCount`
+- `lastScoreComponents` — snapshot from the **last** scored request: `statistical`, optional `isolationForest`, `composite`, `evaluatedAtMillis` (empty `{}` until traffic hits the filter)
 - When IF is enabled: `isolationForestModelLoaded`, `isolationForestBufferedSampleCount`, `isolationForestModelVersion`, retrain timestamps, `acceptedTrainingSampleCount`, `rejectedTrainingSampleCount`
 - When Micrometer is present: `scoreSummary`, `latencySummary`, `modelRetrainSuccessCount`, `modelRetrainFailureCount`
 

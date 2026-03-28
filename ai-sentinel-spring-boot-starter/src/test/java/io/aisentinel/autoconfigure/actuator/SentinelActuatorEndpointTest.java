@@ -3,9 +3,12 @@ package io.aisentinel.autoconfigure.actuator;
 import io.aisentinel.autoconfigure.config.SentinelProperties;
 import io.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import io.aisentinel.core.runtime.StartupGrace;
+import io.aisentinel.core.model.RequestFeatures;
 import io.aisentinel.core.scoring.BoundedTrainingBuffer;
+import io.aisentinel.core.scoring.CompositeScorer;
 import io.aisentinel.core.scoring.IsolationForestConfig;
 import io.aisentinel.core.scoring.IsolationForestScorer;
+import io.aisentinel.core.scoring.StatisticalScorer;
 import io.aisentinel.core.telemetry.TelemetryEmitter;
 import org.junit.jupiter.api.Test;
 
@@ -23,13 +26,13 @@ class SentinelActuatorEndpointTest {
     @Test
     void infoReturnsExpectedStructure() {
         SentinelProperties props = new SentinelProperties();
-        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null);
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, null);
 
         Map<String, Object> info = endpoint.info();
 
         assertThat(info).containsKeys("enabled", "mode", "isolationForestEnabled", "quarantineCount",
             "startupGraceActive", "enforcementScope", "activeThrottleCount", "activeQuarantineCount",
-            "acceptedTrainingSampleCount", "rejectedTrainingSampleCount");
+            "acceptedTrainingSampleCount", "rejectedTrainingSampleCount", "lastScoreComponents");
         assertThat(info.get("enabled")).isEqualTo(true);
         assertThat(info.get("mode")).isEqualTo("ENFORCE");
         assertThat(info.get("isolationForestEnabled")).isEqualTo(false);
@@ -42,7 +45,7 @@ class SentinelActuatorEndpointTest {
         props.setEnabled(false);
         props.setMode(SentinelProperties.Mode.MONITOR);
         props.getIsolationForest().setEnabled(true);
-        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null);
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, null);
 
         Map<String, Object> info = endpoint.info();
 
@@ -59,7 +62,7 @@ class SentinelActuatorEndpointTest {
         var buffer = new BoundedTrainingBuffer(100);
         var config = new IsolationForestConfig(0.5, 10, 5, 5, 42L, 0.1);
         IsolationForestScorer ifScorer = new IsolationForestScorer(buffer, config);
-        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), ifScorer, StartupGrace.NEVER, null);
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), ifScorer, StartupGrace.NEVER, null, null);
 
         Map<String, Object> info = endpoint.info();
 
@@ -71,5 +74,34 @@ class SentinelActuatorEndpointTest {
         assertThat(info.get("isolationForestBufferedSampleCount")).isEqualTo(0);
         assertThat(info.get("isolationForestModelAgeMillis")).isEqualTo(-1L);
         assertThat(info.get("isolationForestRetrainFailureCount")).isEqualTo(0L);
+    }
+
+    @Test
+    void infoIncludesLastScoreComponentsAfterCompositeScorerRuns() {
+        SentinelProperties props = new SentinelProperties();
+        var features = RequestFeatures.builder()
+            .identityHash("id")
+            .endpoint("/api")
+            .timestampMillis(0)
+            .requestsPerWindow(1)
+            .endpointEntropy(0)
+            .tokenAgeSeconds(60)
+            .parameterCount(0)
+            .payloadSizeBytes(0)
+            .headerFingerprintHash(0)
+            .ipBucket(0)
+            .build();
+        var composite = new CompositeScorer();
+        composite.addScorer(new StatisticalScorer(100, 60_000L, 999, 0.55), 1.0);
+        composite.score(features);
+
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, composite);
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> components = (Map<String, Object>) endpoint.info().get("lastScoreComponents");
+
+        assertThat(components).containsKeys("statistical", "composite", "evaluatedAtMillis");
+        assertThat(components.get("statistical")).isEqualTo(0.55);
+        assertThat(components.get("composite")).isEqualTo(0.55);
     }
 }
