@@ -37,4 +37,82 @@ class ClientIpResolverTest {
 
         assertThat(ip).isEqualTo("192.168.1.1");
     }
+
+    @Test
+    void untrustedRemoteIgnoresForgedXRealIp() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("198.51.100.2");
+        when(request.getHeader("X-Forwarded-For")).thenReturn(null);
+        when(request.getHeader("Forwarded")).thenReturn(null);
+        when(request.getHeader("X-Real-IP")).thenReturn("1.1.1.1");
+
+        String ip = ClientIpResolver.resolveClientIp(request, List.of("127.0.0.1"));
+
+        assertThat(ip).isEqualTo("198.51.100.2");
+    }
+
+    @Test
+    void trustedProxyUsesXRealIpOnlyWhenNoForwardChainHint() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(request.getHeader("X-Forwarded-For")).thenReturn(null);
+        when(request.getHeader("Forwarded")).thenReturn(null);
+        when(request.getHeader("X-Real-IP")).thenReturn("198.51.100.2");
+
+        String ip = ClientIpResolver.resolveClientIp(request, List.of("127.0.0.1"));
+
+        assertThat(ip).isEqualTo("198.51.100.2");
+    }
+
+    @Test
+    void trustedProxyWithPlaceholderXffIgnoresXRealIp() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(request.getHeader("X-Forwarded-For")).thenReturn(",,");
+        when(request.getHeader("Forwarded")).thenReturn(null);
+        when(request.getHeader("X-Real-IP")).thenReturn("9.9.9.9");
+
+        String ip = ClientIpResolver.resolveClientIp(request, List.of("127.0.0.1"));
+
+        assertThat(ip).isEqualTo("127.0.0.1");
+    }
+
+    @Test
+    void trustedProxyXffWinsOverXRealIp() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("127.0.0.1");
+        when(request.getHeader("X-Forwarded-For")).thenReturn("203.0.113.10, 10.0.0.1");
+        when(request.getHeader("X-Real-IP")).thenReturn("9.9.9.9");
+
+        String ip = ClientIpResolver.resolveClientIp(request, List.of("127.0.0.1", "10.0.0.1"));
+
+        assertThat(ip).isEqualTo("203.0.113.10");
+    }
+
+    @Test
+    void noForwardedHeadersFallsBackToRemoteAddr() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getRemoteAddr()).thenReturn("10.0.0.50");
+        when(request.getHeader("X-Forwarded-For")).thenReturn(null);
+        when(request.getHeader("Forwarded")).thenReturn(null);
+        when(request.getHeader("X-Real-IP")).thenReturn(null);
+
+        String ip = ClientIpResolver.resolveClientIp(request, List.of("10.0.0.0/24"));
+
+        assertThat(ip).isEqualTo("10.0.0.50");
+    }
+
+    @Test
+    void hasForwardedChainHint_blankXffIsFalse() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getHeader("X-Forwarded-For")).thenReturn(" ");
+        assertThat(ClientIpResolver.hasForwardedChainHint(request)).isFalse();
+    }
+
+    @Test
+    void hasForwardedChainHint_nonBlankXffIsTrue() {
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        when(request.getHeader("X-Forwarded-For")).thenReturn(",");
+        assertThat(ClientIpResolver.hasForwardedChainHint(request)).isTrue();
+    }
 }
