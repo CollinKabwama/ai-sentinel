@@ -2,6 +2,7 @@ package io.aisentinel.autoconfigure.web;
 
 import io.aisentinel.autoconfigure.config.SentinelProperties;
 import io.aisentinel.core.SentinelPipeline;
+import io.aisentinel.core.metrics.SentinelMetrics;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -25,6 +26,7 @@ public class SentinelFilter extends OncePerRequestFilter {
 
     private final SentinelPipeline pipeline;
     private final SentinelProperties props;
+    private final SentinelMetrics metrics;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response,
@@ -56,6 +58,7 @@ public class SentinelFilter extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
         } catch (Exception e) {
             log.warn("Sentinel pipeline error for path={}, allowing request: {}", request.getRequestURI(), e.getMessage());
+            metrics.recordFailOpen();
             filterChain.doFilter(request, response);
         }
     }
