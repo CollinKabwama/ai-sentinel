@@ -89,4 +89,6 @@ Output includes counts, elapsed time, actual RPS, and latency min/avg/max/p50/p9
 
 ## Actuator fields (reference)
 
-When IF is enabled, `/actuator/sentinel` includes fields such as `isolationForestModelLoaded`, `isolationForestBufferedSampleCount`, `isolationForestModelVersion`, `isolationForestLastRetrainTimeMillis`, `isolationForestModelAgeMillis`, `isolationForestRetrainFailureCount`, `isolationForestLastRetrainFailureTimeMillis`, `acceptedTrainingSampleCount`, and `rejectedTrainingSampleCount`. With Micrometer wired, you may also see `scoreSummary`, `latencySummary`, and retrain counters — see `SentinelActuatorEndpoint` in the starter module for the authoritative list.
+`lastScoreComponents` reflects the **latest** blended score breakdown (`statistical`, optional `isolationForest`, `composite`, `evaluatedAtMillis`); poll after sending traffic if you want fresh values.
+
+When IF is enabled, `/actuator/sentinel` also includes fields such as `isolationForestModelLoaded`, `isolationForestBufferedSampleCount`, `isolationForestModelVersion`, retrain timestamps, `acceptedTrainingSampleCount`, and `rejectedTrainingSampleCount`. With Micrometer wired, you may also see `scoreSummary`, `latencySummary`, and retrain counters — see `SentinelActuatorEndpoint` in the starter module for the authoritative list.

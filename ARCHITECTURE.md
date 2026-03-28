@@ -159,7 +159,7 @@ Trusted entries may be literal IPs or **CIDR** prefixes.
 
 - **`DefaultTelemetryEmitter`** — JSON logs + Micrometer counters for events (verbosity and sampling configurable).
 - **`MicrometerSentinelMetrics`** — registers meters such as `aisentinel.score.composite`, `aisentinel.score.statistical`, `aisentinel.score.if`, `aisentinel.latency.pipeline`, `aisentinel.latency.scoring`, `aisentinel.latency.if`, per-action counters, retrain timers/counters, `aisentinel.failopen.count`, etc., with percentiles where applicable.
-- **`/actuator/sentinel`** aggregates config flags, quarantine/throttle counts, IF training state, and **score/latency summaries** when the Micrometer adapter is present.
+- **`/actuator/sentinel`** aggregates config flags, quarantine/throttle counts, IF training state, **score/latency summaries** when the Micrometer adapter is present, and **`lastScoreComponents`** (statistical vs optional IF vs blended composite from the **most recent** `CompositeScorer` evaluation—useful for quick A/B-style checks alongside `aisentinel.score.*` meters).
 
 ---
 

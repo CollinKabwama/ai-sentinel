@@ -4,6 +4,7 @@ import io.aisentinel.autoconfigure.config.SentinelProperties;
 import io.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
 import io.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import io.aisentinel.core.runtime.StartupGrace;
+import io.aisentinel.core.scoring.CompositeScorer;
 import io.aisentinel.core.scoring.IsolationForestScorer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
@@ -21,17 +22,20 @@ public class SentinelActuatorEndpoint {
     private final IsolationForestScorer isolationForestScorer;
     private final StartupGrace startupGrace;
     private final MicrometerSentinelMetrics micrometerSentinelMetrics;
+    private final CompositeScorer compositeScorer;
 
     public SentinelActuatorEndpoint(SentinelProperties props,
                                     CompositeEnforcementHandler enforcementHandlerImpl,
                                     IsolationForestScorer isolationForestScorer,
                                     StartupGrace startupGrace,
-                                    MicrometerSentinelMetrics micrometerSentinelMetrics) {
+                                    MicrometerSentinelMetrics micrometerSentinelMetrics,
+                                    CompositeScorer compositeScorer) {
         this.props = props;
         this.enforcementHandlerImpl = enforcementHandlerImpl;
         this.isolationForestScorer = isolationForestScorer;
         this.startupGrace = startupGrace != null ? startupGrace : StartupGrace.NEVER;
         this.micrometerSentinelMetrics = micrometerSentinelMetrics;
+        this.compositeScorer = compositeScorer;
     }
 
     @ReadOperation
@@ -66,6 +70,25 @@ public class SentinelActuatorEndpoint {
             map.put("modelRetrainSuccessCount", micrometerSentinelMetrics.getRetrainSuccessCount());
             map.put("modelRetrainFailureCount", micrometerSentinelMetrics.getRetrainFailureCount());
         }
+        map.put("lastScoreComponents", lastScoreComponentsPayload());
         return map;
+    }
+
+    private Map<String, Object> lastScoreComponentsPayload() {
+        if (compositeScorer == null) {
+            return Map.of();
+        }
+        CompositeScorer.CompositeScoreSnapshot snap = compositeScorer.getLastCompositeScoreSnapshot();
+        if (snap == null) {
+            return Map.of();
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("statistical", Double.isNaN(snap.statistical()) ? null : snap.statistical());
+        if (snap.isolationForest() != null) {
+            m.put("isolationForest", snap.isolationForest());
+        }
+        m.put("composite", snap.composite());
+        m.put("evaluatedAtMillis", snap.evaluatedAtEpochMillis());
+        return m;
     }
 }
