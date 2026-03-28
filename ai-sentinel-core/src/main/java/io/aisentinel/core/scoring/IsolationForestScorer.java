@@ -62,7 +62,7 @@ public final class IsolationForestScorer implements AnomalyScorer {
             }
             return fb;
         }
-        double[] x = features.toArray();
+        double[] x = features.toIsolationForestArray();
         long t0 = System.nanoTime();
         double s = m.score(x);
         long infNanos = System.nanoTime() - t0;
@@ -96,7 +96,7 @@ public final class IsolationForestScorer implements AnomalyScorer {
             }
         }
         if (config.getSampleRate() >= 1.0 || ThreadLocalRandomHolder.nextDouble() < config.getSampleRate()) {
-            buffer.add(features.toArray());
+            buffer.add(features.toIsolationForestArray());
             acceptedTrainingSampleCount.incrementAndGet();
         }
     }
