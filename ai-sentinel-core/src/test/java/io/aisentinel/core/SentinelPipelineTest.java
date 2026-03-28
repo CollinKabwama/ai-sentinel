@@ -4,6 +4,7 @@ import io.aisentinel.core.enforcement.EnforcementHandler;
 import io.aisentinel.core.feature.FeatureExtractor;
 import io.aisentinel.core.model.RequestContext;
 import io.aisentinel.core.model.RequestFeatures;
+import io.aisentinel.core.metrics.SentinelMetrics;
 import io.aisentinel.core.policy.EnforcementAction;
 import io.aisentinel.core.policy.PolicyEngine;
 import io.aisentinel.core.runtime.StartupGrace;
@@ -43,7 +44,7 @@ class SentinelPipelineTest {
         when(handler.isQuarantined(anyString(), anyString())).thenReturn(false);
         when(handler.apply(eq(EnforcementAction.QUARANTINE), any(), any(), eq("h"), eq("/api"))).thenReturn(false);
 
-        SentinelPipeline pipeline = new SentinelPipeline(extractor, nanScorer, policy, handler, mock(TelemetryEmitter.class), StartupGrace.NEVER);
+        SentinelPipeline pipeline = new SentinelPipeline(extractor, nanScorer, policy, handler, mock(TelemetryEmitter.class), StartupGrace.NEVER, SentinelMetrics.NOOP);
         HttpServletRequest request = mock(HttpServletRequest.class);
         HttpServletResponse response = mock(HttpServletResponse.class);
 
@@ -74,7 +75,7 @@ class SentinelPipelineTest {
         when(handler.apply(eq(EnforcementAction.MONITOR), any(), any(), eq("h"), eq("/api"))).thenReturn(true);
 
         StartupGrace grace = () -> true;
-        SentinelPipeline pipeline = new SentinelPipeline(extractor, nanScorer, policy, handler, mock(TelemetryEmitter.class), grace);
+        SentinelPipeline pipeline = new SentinelPipeline(extractor, nanScorer, policy, handler, mock(TelemetryEmitter.class), grace, SentinelMetrics.NOOP);
         HttpServletRequest request = mock(HttpServletRequest.class);
         HttpServletResponse response = mock(HttpServletResponse.class);
 
@@ -105,7 +106,7 @@ class SentinelPipelineTest {
         when(handler.isQuarantined(anyString(), anyString())).thenReturn(false);
         when(handler.apply(eq(EnforcementAction.QUARANTINE), any(), any(), eq("h"), eq("/api"))).thenReturn(false);
 
-        SentinelPipeline pipeline = new SentinelPipeline(extractor, negativeScorer, policy, handler, mock(TelemetryEmitter.class), StartupGrace.NEVER);
+        SentinelPipeline pipeline = new SentinelPipeline(extractor, negativeScorer, policy, handler, mock(TelemetryEmitter.class), StartupGrace.NEVER, SentinelMetrics.NOOP);
         HttpServletRequest request = mock(HttpServletRequest.class);
         HttpServletResponse response = mock(HttpServletResponse.class);
 
