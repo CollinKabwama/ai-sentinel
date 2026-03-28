@@ -36,6 +36,15 @@ public class SentinelProperties {
     /** Score returned during warmup (cold-start) to avoid bypass. Default 0.4 (MONITOR). */
     private double warmupScore = 0.4;
 
+    /** Policy: scores at or above this map to MONITOR (below elevated). Default 0.2. */
+    private double thresholdModerate = 0.2;
+    /** Policy: scores at or above this map to THROTTLE. Default 0.4. */
+    private double thresholdElevated = 0.4;
+    /** Policy: scores at or above this map to BLOCK. Default 0.6. */
+    private double thresholdHigh = 0.6;
+    /** Policy: scores at or above this map to QUARANTINE. Default 0.8. */
+    private double thresholdCritical = 0.8;
+
     private IsolationForest isolationForest = new IsolationForest();
     private Telemetry telemetry = new Telemetry();
 

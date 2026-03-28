@@ -48,7 +48,7 @@ public final class RequestFeatures {
     public int ipBucket() { return ipBucket; }
 
     /**
-     * Returns features as a double array for ML scoring (statistical / isolation forest).
+     * Full feature vector for statistical scoring (Welford / z-score path).
      * Order: requestsPerWindow, endpointEntropy, tokenAgeSeconds, parameterCount, payloadSizeBytes, headerFingerprintHash, ipBucket
      */
     public double[] toArray() {
@@ -60,6 +60,20 @@ public final class RequestFeatures {
             payloadSizeBytes,
             headerFingerprintHash,
             ipBucket
+        };
+    }
+
+    /**
+     * Subset for Isolation Forest only: behavioral / magnitude features (no hash-derived ordinals).
+     * Order: requestsPerWindow, endpointEntropy, tokenAgeSeconds, parameterCount, payloadSizeBytes
+     */
+    public double[] toIsolationForestArray() {
+        return new double[] {
+            requestsPerWindow,
+            endpointEntropy,
+            tokenAgeSeconds,
+            parameterCount,
+            payloadSizeBytes
         };
     }
 
