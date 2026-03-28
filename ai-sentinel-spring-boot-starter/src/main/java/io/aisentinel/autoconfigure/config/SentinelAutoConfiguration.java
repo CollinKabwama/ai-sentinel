@@ -169,8 +169,13 @@ public class SentinelAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
-    public PolicyEngine policyEngine() {
-        return new ThresholdPolicyEngine();
+    public PolicyEngine policyEngine(SentinelProperties props) {
+        return new ThresholdPolicyEngine(
+            props.getThresholdModerate(),
+            props.getThresholdElevated(),
+            props.getThresholdHigh(),
+            props.getThresholdCritical()
+        );
     }
 
     @Bean
