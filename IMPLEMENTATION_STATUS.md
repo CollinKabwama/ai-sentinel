@@ -26,7 +26,7 @@ The project follows a staged roadmap: **Stage 0** (core engine) → **Stage 1** 
 | Stage | Name | Status | Notes |
 |-------|------|--------|--------|
 | **0** | Core Engine Foundation | **Complete** | FeatureExtractor, StatisticalScorer (Welford), warmup, ThresholdPolicyEngine, enforcement (Composite + MonitorOnly), CompositeScorer, TelemetryEmitter, bounded maps (TTL + maxKeys), concurrency fixes, unit + concurrency tests. Deterministic scoring, thread-safe state, no unbounded maps. |
-| **1** | Spring Boot Operational Integration | **Complete** | AutoConfiguration, SentinelFilter, application config (enabled, mode, warmup, trusted-proxies, map sizes/TTL, telemetry). Actuator endpoint with quarantineCount. Fail-open, MONITOR/ENFORCE. Gaps: policy thresholds not in config (D4), filter order fixed (D6), actuator cache sizes not yet (D8 partial). |
+| **1** | Spring Boot Operational Integration | **Complete** | AutoConfiguration, SentinelFilter, application config (enabled, mode, warmup, trusted-proxies, policy thresholds, map sizes/TTL, telemetry). Actuator endpoint with quarantineCount. Fail-open, MONITOR/ENFORCE. Remaining gaps: filter order fixed (D6), actuator cache sizes not yet (D8 partial). |
 | **2** | Real ML Integration | **In progress** | Bounded training buffer, minimal in-core Isolation Forest (fixed seed, path-length score), IsolationForestScorer with fallback when no model, async retrain via scheduler, actuator metadata (lastRetrainTime, modelVersion, bufferedSampleCount, modelLoaded). Config: training-buffer-size, min-training-samples, retrain-interval, random-seed, score-weight, sample-rate, fallback-score. Inference lock-free; training failures do not affect request path. |
 | **3** | Security Hardening & Adversarial Defense | **Partial** | Proxy trust (trusted-proxies, X-Forwarded-For / Forwarded / X-Real-IP) done. CIDR not supported (exact IP list only). Per-endpoint quarantine (E4), poisoning resistance, gradual enforcement ramp, 5k RPS stress tests — not done. |
 | **4** | Observability & SRE Maturity | **Partial** | Micrometer counters, JSON logging, actuator basic info. Missing: score histograms, cache/eviction metrics, scoring latency p95/p99, fail-open counters, OpenTelemetry. |
@@ -62,7 +62,7 @@ Build: Maven multi-module (root `pom.xml`). Run demo: `mvn -pl ai-sentinel-demo 
 ### 4.2 Spring Boot integration
 
 - **Filter** — `SentinelFilter`: identity resolution (IP + optional Spring Security principal), pipeline invocation, exclude paths, MONITOR vs ENFORCE.
-- **Configuration** — `SentinelProperties`: enabled, mode, excludePaths, blockStatusCode, quarantineDurationMs, throttleRequestsPerSecond, baselineTtl, baselineMaxKeys, internalMapMaxKeys, internalMapTtl, trustedProxies, warmupMinSamples, warmupScore, isolationForest, telemetry.
+- **Configuration** — `SentinelProperties`: enabled, mode, excludePaths, blockStatusCode, quarantineDurationMs, throttleRequestsPerSecond, baselineTtl, baselineMaxKeys, internalMapMaxKeys, internalMapTtl, trustedProxies, threshold-moderate / threshold-elevated / threshold-high / threshold-critical, warmupMinSamples, warmupScore, isolationForest, telemetry.
 - **Actuator** — `/actuator/sentinel`: enabled, mode, isolationForestEnabled, quarantineCount; when IF enabled also **isolationForestModelLoaded**, **isolationForestBufferedSampleCount**, **isolationForestModelVersion**, **isolationForestLastRetrainTimeMillis**, **isolationForestModelAgeMillis**, **isolationForestRetrainFailureCount**, **isolationForestLastRetrainFailureTimeMillis**.
 
 #### Stage 2.2 — Operational Hardening
@@ -82,13 +82,19 @@ Addressed items from the production review and audit:
 | Area | What was done |
 |------|----------------|
 | **Concurrency / data races** | A1/C1: `StatisticalScorer` — `score()` and `update()` use same lock on `WelfordState`; reads via `getMeansCopy()` / `getStds()` under lock. C4: `CompositeEnforcementHandler.isQuarantined()` uses `quarantinedUntil.compute()` for atomic check-and-remove (no TOCTOU). |
-| **Proxy identity** | A5: `SentinelFilter.resolveClientIp(request, trustedProxies)` — when remote is in trusted list, client IP from X-Forwarded-For (leftmost), Forwarded `for=`, or X-Real-IP. Config: `ai.sentinel.trusted-proxies`. |
+| **Proxy identity** | A5: `ClientIpResolver` / `SentinelFilter` — when remote is trusted, client IP from X-Forwarded-For (rightmost-untrusted), then Forwarded `for=`, then X-Real-IP only if there is no forward-chain hint (no non-blank X-Forwarded-For or Forwarded header). Config: `ai.sentinel.trusted-proxies`. |
 | **Map growth / OOM** | A4: All four maps bounded: `stateByKey`, `endpointHistory`, `throttleTokens`, `quarantinedUntil` use maxKeys + TTL/expiry; eviction in StatisticalScorer, DefaultFeatureExtractor, CompositeEnforcementHandler. Config: `internalMapMaxKeys`, `internalMapTtl`. |
 | **Endpoint history** | A2: Atomic counters (`AtomicIntegerArray`) and saturation at `MAX_HISTORY_COUNT` to avoid overflow/NaN. A3: `safeHistoryIndex()` — no `Math.abs(Integer.MIN_VALUE)`; index in [0, HISTORY_SIZE). |
 | **NaN / bypass** | A6: NaN and negative scores clamped to high risk: `SentinelPipeline.clampScore()`, `CompositeScorer`, `StatisticalScorer` (z/sigmoid NaN handling). Policy then sees 1.0 → no ALLOW bypass. |
 | **Cold start** | D3: `StatisticalScorer` warmup — when state is null or `n < warmupMinSamples`, return `warmupScore` (default 0.4) instead of 0.0. Config: `warmupMinSamples`, `warmupScore`. |
 | **Path parameter explosion** | E2: `DefaultFeatureExtractor.normalizeEndpoint()` — truncate to 256 chars; `normalizePathParams()` replaces numeric and UUID path segments with `{id}` so `/api/users/123` and `/api/users/456` share one baseline. |
 | **Monitor visibility** | A7: `MonitorOnlyEnforcementHandler.isQuarantined()` delegates to delegate; actuator `info()` exposes `quarantineCount` from `CompositeEnforcementHandler.getQuarantineCount()`. |
+
+### 4.4 Pre-Stage 5 Critical Fixes
+
+- **Configurable policy thresholds** — `ai.sentinel.threshold-moderate`, `threshold-elevated`, `threshold-high`, and `threshold-critical` (defaults 0.2 / 0.4 / 0.6 / 0.8) are bound via `SentinelProperties` and `SentinelAutoConfiguration` into `ThresholdPolicyEngine`. Invalid configuration (not strictly increasing, out of `[0.0, 1.0]`, or non-finite) fails fast at startup with a clear `IllegalArgumentException`.
+- **X-Real-IP trust** — `X-Real-IP` is used only when the TCP peer is a trusted proxy and there is no forward-chain hint (no non-blank `X-Forwarded-For` or `Forwarded` header). If a hint is present but no client IP is parsed, resolution falls back to `getRemoteAddr()` instead of trusting `X-Real-IP`.
+- **Isolation Forest feature vector** — `RequestFeatures.toIsolationForestArray()` feeds five behavioral features into IF scoring and training; `toArray()` remains unchanged for the statistical scorer (still includes `headerFingerprintHash` and `ipBucket`).
 
 ---
 
@@ -99,10 +105,14 @@ Addressed items from the production review and audit:
 - **CompositeScorerTest:** `nanScoreReturnsOneNotBypass`, `negativeScoreReturnsOne`.
 - **CompositeEnforcementHandlerTest:** `throttleMapBoundedWhenOverMaxKeys`, `quarantineBoundedMapDoesNotThrow`, `getQuarantineCountReturnsActiveQuarantines`, `isQuarantinedExpiredEntryRemovedAtomically`.
 - **MonitorOnlyEnforcementHandlerTest:** `isQuarantinedDelegatesToDelegate`.
-- **SentinelFilterProxyTest:** trusted proxy + X-Forwarded-For / Forwarded / X-Real-IP behavior.
+- **SentinelFilterProxyTest:** trusted proxy + X-Forwarded-For / Forwarded / X-Real-IP behavior; untrusted `X-Real-IP`; placeholder XFF ignores `X-Real-IP`; fallback to `getRemoteAddr()`.
+- **ClientIpResolverTest:** forward-chain hint / `X-Real-IP` trust cases (mirrors resolver unit coverage).
+- **ThresholdPolicyEngineTest:** custom thresholds, validation errors for ordering and range.
+- **SentinelAutoConfigurationTest:** invalid threshold ordering fails context; custom thresholds bind to `PolicyEngine`.
+- **RequestFeaturesTest:** `toIsolationForestArray` five-feature shape.
+- **IsolationForestScorerTest:** fallback when no model, score in [0,1] after training, retrain failure does not break inference, atomic model swap, five-dimensional training buffer, IF ignores hash/ip bucket for inference, metadata.
 - **SentinelActuatorEndpointTest:** endpoint structure, `quarantineCount`, and when IF enabled the IF metadata keys.
 - **BoundedTrainingBufferTest:** boundedness, snapshot, concurrent adds, null/empty ignored.
-- **IsolationForestScorerTest:** fallback when no model, score in [0,1] after training, retrain failure does not break inference, atomic model swap, metadata.
 - **Demo:** `DemoIntegrationTest` (hello + actuator); test profile uses MONITOR and higher throttle for stability.
 
 ---
@@ -122,6 +132,10 @@ ai:
     internal-map-ttl: 5m
     warmup-min-samples: 2
     warmup-score: 0.4
+    threshold-moderate: 0.2
+    threshold-elevated: 0.4
+    threshold-high: 0.6
+    threshold-critical: 0.8
     throttle-requests-per-second: 5.0
     isolation-forest:
       enabled: false
@@ -144,7 +158,7 @@ From the audit, the following remain **not fixed** or **partially fixed** (see `
 
 - **Performance:** B1–B7 (e.g. MessageDigest per request, reflection per request, string concat hot path, telemetry streams, Counter.builder per emit, BaselineStore eviction stampede, multiple `currentTimeMillis`).
 - **Concurrency:** C2 (BaselineStore bucket count window), C3 (CompositeScorer ArrayList).
-- **Design / ops:** D1 (RequestContext unused), D2 (hash features in z-score), D4–D7 (policy thresholds not in properties, no Content-Type on error, filter order, no graceful degradation), D8 (actuator only has quarantineCount so far).
+- **Design / ops:** D1 (RequestContext unused), D2 (hash features in z-score), D4 partial (policy thresholds now configurable), D5–D7 (no Content-Type on error, filter order, no graceful degradation), D8 (actuator only has quarantineCount so far).
 - **Edge cases:** E1, E3–E7 (token age semantics, response committed, quarantine scope, BaselineStore TTL cliff, entropy gaming, parameterCount for JSON).
 
 These are documented in the audit with evidence and recommended follow-up.

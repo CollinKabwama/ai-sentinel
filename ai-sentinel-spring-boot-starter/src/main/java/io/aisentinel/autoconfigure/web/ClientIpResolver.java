@@ -10,7 +10,18 @@ import java.util.Locale;
 
 /**
  * Resolves the client IP from a request when the direct remote address is a trusted proxy.
- * Uses rightmost-untrusted selection for X-Forwarded-For and Forwarded (RFC 7239) headers.
+ * <p>
+ * When the TCP remote is trusted, resolution order is:
+ * <ol>
+ *   <li>{@code X-Forwarded-For} — rightmost-untrusted hop</li>
+ *   <li>{@code Forwarded} (RFC 7239) — same rightmost-untrusted logic on {@code for=}</li>
+ *   <li>{@code X-Real-IP} — only if there is <strong>no forward-chain hint</strong>: no non-blank
+ *       {@code X-Forwarded-For} and no non-blank {@code Forwarded} header. If either header is present
+ *       (even when parsing yields no client IP), {@code X-Real-IP} is ignored so an untrusted client
+ *       cannot pair a forged {@code X-Real-IP} with a dummy forward header while appearing as a trusted proxy.</li>
+ *   <li>Fallback: {@link HttpServletRequest#getRemoteAddr()}</li>
+ * </ol>
+ * If {@code trustedProxyEntries} is empty, or the remote is not trusted, headers are ignored and the remote address is returned.
  */
 public final class ClientIpResolver {
 
@@ -20,7 +31,7 @@ public final class ClientIpResolver {
     /**
      * If {@code trustedProxyEntries} is empty, returns {@link HttpServletRequest#getRemoteAddr()}.
      * If remote is not trusted, returns remote (headers ignored — spoof resistance).
-     * Otherwise parses X-Forwarded-For, then Forwarded, then X-Real-IP; falls back to remote.
+     * Otherwise parses X-Forwarded-For, then Forwarded; uses X-Real-IP only when no forward-chain hint exists.
      */
     public static String resolveClientIp(HttpServletRequest request, List<String> trustedProxyEntries) {
         String remote = request.getRemoteAddr();
@@ -41,11 +52,35 @@ public final class ClientIpResolver {
         if (fromForwarded != null) {
             return fromForwarded;
         }
+        if (hasForwardedChainHint(request)) {
+            return remote;
+        }
         String realIp = request.getHeader("X-Real-IP");
         if (realIp != null && !realIp.isBlank()) {
             return stripIpv6Brackets(realIp.trim());
         }
         return remote;
+    }
+
+    /**
+     * True when a non-blank {@code X-Forwarded-For} or {@code Forwarded} header is present.
+     */
+    static boolean hasForwardedChainHint(HttpServletRequest request) {
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            return true;
+        }
+        Enumeration<String> forwardedMulti = request.getHeaders("Forwarded");
+        if (forwardedMulti != null) {
+            while (forwardedMulti.hasMoreElements()) {
+                String v = forwardedMulti.nextElement();
+                if (v != null && !v.isBlank()) {
+                    return true;
+                }
+            }
+        }
+        String forwardedSingle = request.getHeader("Forwarded");
+        return forwardedSingle != null && !forwardedSingle.isBlank();
     }
 
     static String resolveFromXForwardedFor(String xff, List<String> trustedProxyEntries) {
