@@ -187,6 +187,11 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
         return h.hashCode();
     }
 
+    @Override
+    public int metricsEndpointHistoryEntryCount() {
+        return endpointHistory.size();
+    }
+
     private int extractIpBucket(HttpServletRequest request) {
         String ip = request.getRemoteAddr();
         if (ip == null) return 0;
