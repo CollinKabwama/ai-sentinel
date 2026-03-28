@@ -8,32 +8,33 @@ This document summarizes what has been built and what has been done to date (cod
 
 **AI-Sentinel** is a modular Spring Boot starter for **AI-assisted zero-trust API defense**: per-request behavioral anomaly detection, risk scoring, policy-driven enforcement (allow / throttle / block / quarantine), and telemetry. It uses in-process, unsupervised ML (statistical baseline + optional Isolation Forest) with privacy-aware features and fail-open behavior.
 
-**References:**
+**References (tracked in this repository):**
 
-- **Architecture:** `ARCHITECTURE.md` — design goals, module layout, request lifecycle, interfaces.
-- **Production review:** `docs/review-feedback.md` — full code review (sections A–G).
-- **Audit:** `docs/AUDIT_RESULTS.md` — strict audit of each review issue (FIXED / NOT FIXED).
-- **P0 verification:** `P0_VERIFICATION.md` — manual verification steps for P0 fixes.
+- **`README.md`** — Quick start, prerequisites, configuration overview, scripts, license.
+- **`ARCHITECTURE.md`** — Current modules, pipeline, scoring (statistical + IF), enforcement, proxy rules, observability, extension points.
+- **`scripts/README.md`** — Python traffic and training-monitor utilities.
+
+**Note:** Paths such as `docs/` or ad-hoc audit markdown may exist **locally** but are listed in `.gitignore` and are **not** part of the published tree; do not rely on them in CI or for onboarding.
 
 ---
 
 ## 2. Development Stage (vs. Formal Roadmap)
 
-The project follows a staged roadmap: **Stage 0** (core engine) → **Stage 1** (Spring Boot integration) → **Stage 2** (real ML) → **Stage 3** (security hardening) → **Stage 4** (observability) → **Stage 5** (distributed) → **Stage 6** (research).
+Roadmap: **Stage 0** (core) → **1** (Spring Boot) → **2** (Isolation Forest) → **3** (security / ops hardening) → **4** (observability) → **5** (distributed) → **6** (research).
 
-**Current position: Stage 2 in progress.**
+**Current position: Stages 0–4 are implemented in code; pre–Stage 5 critical fixes are merged. Stage 5 (distributed) is next.**
 
 | Stage | Name | Status | Notes |
 |-------|------|--------|--------|
-| **0** | Core Engine Foundation | **Complete** | FeatureExtractor, StatisticalScorer (Welford), warmup, ThresholdPolicyEngine, enforcement (Composite + MonitorOnly), CompositeScorer, TelemetryEmitter, bounded maps (TTL + maxKeys), concurrency fixes, unit + concurrency tests. Deterministic scoring, thread-safe state, no unbounded maps. |
-| **1** | Spring Boot Operational Integration | **Complete** | AutoConfiguration, SentinelFilter, application config (enabled, mode, warmup, trusted-proxies, policy thresholds, map sizes/TTL, telemetry). Actuator endpoint with quarantineCount. Fail-open, MONITOR/ENFORCE. Remaining gaps: filter order fixed (D6), actuator cache sizes not yet (D8 partial). |
-| **2** | Real ML Integration | **In progress** | Bounded training buffer, minimal in-core Isolation Forest (fixed seed, path-length score), IsolationForestScorer with fallback when no model, async retrain via scheduler, actuator metadata (lastRetrainTime, modelVersion, bufferedSampleCount, modelLoaded). Config: training-buffer-size, min-training-samples, retrain-interval, random-seed, score-weight, sample-rate, fallback-score. Inference lock-free; training failures do not affect request path. |
-| **3** | Security Hardening & Adversarial Defense | **Partial** | Proxy trust (trusted-proxies, X-Forwarded-For / Forwarded / X-Real-IP) done. CIDR not supported (exact IP list only). Per-endpoint quarantine (E4), poisoning resistance, gradual enforcement ramp, 5k RPS stress tests — not done. |
-| **4** | Observability & SRE Maturity | **Partial** | Micrometer counters, JSON logging, actuator basic info. Missing: score histograms, cache/eviction metrics, scoring latency p95/p99, fail-open counters, OpenTelemetry. |
-| **5** | Distributed & Enterprise | **Not started** | Redis store, shared quarantine, cluster coordination, tenant isolation, admin API — none. |
-| **6** | Research & Publication | **Not started** | Benchmarks, FP/FN study, adversarial sim, whitepaper — none. |
+| **0** | Core Engine Foundation | **Complete** | `DefaultFeatureExtractor`, `StatisticalScorer` (Welford), warmup, `ThresholdPolicyEngine`, `CompositeEnforcementHandler` + `MonitorOnlyEnforcementHandler`, `CompositeScorer`, `TelemetryEmitter`, bounded maps (TTL + maxKeys), concurrency-focused tests. |
+| **1** | Spring Boot Operational Integration | **Complete** | Auto-configuration, `SentinelFilter`, `SentinelProperties` (`ai.sentinel.*`), MONITOR/ENFORCE/OFF, actuator **`/actuator/sentinel`**, fail-open on filter errors. |
+| **2** | Real ML Integration | **Complete** | Bounded training buffer, **in-core** Isolation Forest (no external IF library), `IsolationForestScorer`, async retrain scheduler, anti-poisoning sample rejection, five-dimensional IF feature vector; actuator exposes model/buffer/retrain/training-count fields. |
+| **3** | Security Hardening & Ops | **Largely complete** | Trusted proxies with **CIDR**, X-Forwarded-For / Forwarded / guarded X-Real-IP, `startupGracePeriod`, `enforcementScope`, training rejection threshold. Still deferred: full adversarial/stress program (e.g. high-RPS harness), some audit edge cases (see §7). |
+| **4** | Observability & SRE | **Largely complete** | `MicrometerSentinelMetrics`: score distribution summaries (percentiles), pipeline/scoring/IF latency timers, per-action counters, retrain success/failure, fail-open / NaN / scoring-error counters; actuator **`scoreSummary`**, **`latencySummary`**, training accept/reject counts. OpenTelemetry and some audit-listed niceties remain out of scope. |
+| **5** | Distributed & Enterprise | **Not started** | Shared store, cluster-wide quarantine, tenant isolation, admin API — none. |
+| **6** | Research & Publication | **Not started** | Benchmarks, FP/FN studies, whitepaper — none. |
 
-**Summary:** Stage 0 and Stage 1 are done; Stage 2 is **in progress** (real Isolation Forest scoring, bounded buffer, async retrain, actuator metadata). The codebase is a production-deployable anomaly filter with statistical + optional IF scoring. Stage 3–4 have partial progress; Stages 5–6 are ahead.
+**Summary:** The repo is a deployable single-node anomaly filter (statistical + optional IF) with solid metrics and operator-facing actuator data. **Stage 5 (distributed)** is the next major milestone; see **§10** for how that lines up with optional ML-focused follow-ups.
 
 ---
 
@@ -63,7 +64,7 @@ Build: Maven multi-module (root `pom.xml`). Run demo: `mvn -pl ai-sentinel-demo 
 
 - **Filter** — `SentinelFilter`: identity resolution (IP + optional Spring Security principal), pipeline invocation, exclude paths, MONITOR vs ENFORCE.
 - **Configuration** — `SentinelProperties`: enabled, mode, excludePaths, blockStatusCode, quarantineDurationMs, throttleRequestsPerSecond, baselineTtl, baselineMaxKeys, internalMapMaxKeys, internalMapTtl, trustedProxies, threshold-moderate / threshold-elevated / threshold-high / threshold-critical, warmupMinSamples, warmupScore, isolationForest, telemetry.
-- **Actuator** — `/actuator/sentinel`: enabled, mode, isolationForestEnabled, quarantineCount; when IF enabled also **isolationForestModelLoaded**, **isolationForestBufferedSampleCount**, **isolationForestModelVersion**, **isolationForestLastRetrainTimeMillis**, **isolationForestModelAgeMillis**, **isolationForestRetrainFailureCount**, **isolationForestLastRetrainFailureTimeMillis**.
+- **Actuator** — `/actuator/sentinel`: `enabled`, `mode`, `isolationForestEnabled`, `startupGraceActive`, `enforcementScope`, `activeThrottleCount`, `quarantineCount` (and `activeQuarantineCount`); **`lastScoreComponents`** — map from the **most recent** `CompositeScorer.score()` (`statistical`, optional `isolationForest`, `composite`, `evaluatedAtMillis`; empty `{}` until traffic has been scored); when IF enabled: **isolationForestModelLoaded**, **isolationForestBufferedSampleCount**, **isolationForestModelVersion**, retrain timestamps, **isolationForestModelAgeMillis**, retrain failure fields, **acceptedTrainingSampleCount**, **rejectedTrainingSampleCount**; with Micrometer: **scoreSummary**, **latencySummary**, **modelRetrainSuccessCount**, **modelRetrainFailureCount** (see `SentinelActuatorEndpoint`).
 
 #### Stage 2.2 — Operational Hardening
 
@@ -102,7 +103,7 @@ Addressed items from the production review and audit:
 
 - **StatisticalScorerTest:** `stateByKeyEvictsWhenOverMaxKeys`, `concurrentUpdateAndScoreNoDataRace`, `scoreReturnsWarmupScoreWhenInsufficientData`, `warmupScoreConfigurable`.
 - **DefaultFeatureExtractorTest:** `endpointWithHashCodeIntegerMinValueDoesNotThrow`, `endpointHistoryEvictsWhenOverMaxKeys`, `pathParamsNormalizedToPreventMapExplosion`, `uuidPathParamNormalized`, `normalizePathParamsStaticMethod`.
-- **CompositeScorerTest:** `nanScoreReturnsOneNotBypass`, `negativeScoreReturnsOne`.
+- **CompositeScorerTest:** `nanScoreReturnsOneNotBypass`, `negativeScoreReturnsOne`, `lastSnapshotCapturesStatisticalAndIsolationForestComponents`.
 - **CompositeEnforcementHandlerTest:** `throttleMapBoundedWhenOverMaxKeys`, `quarantineBoundedMapDoesNotThrow`, `getQuarantineCountReturnsActiveQuarantines`, `isQuarantinedExpiredEntryRemovedAtomically`.
 - **MonitorOnlyEnforcementHandlerTest:** `isQuarantinedDelegatesToDelegate`.
 - **SentinelFilterProxyTest:** trusted proxy + X-Forwarded-For / Forwarded / X-Real-IP behavior; untrusted `X-Real-IP`; placeholder XFF ignores `X-Real-IP`; fallback to `getRemoteAddr()`.
@@ -111,7 +112,7 @@ Addressed items from the production review and audit:
 - **SentinelAutoConfigurationTest:** invalid threshold ordering fails context; custom thresholds bind to `PolicyEngine`.
 - **RequestFeaturesTest:** `toIsolationForestArray` five-feature shape.
 - **IsolationForestScorerTest:** fallback when no model, score in [0,1] after training, retrain failure does not break inference, atomic model swap, five-dimensional training buffer, IF ignores hash/ip bucket for inference, metadata.
-- **SentinelActuatorEndpointTest:** endpoint structure, `quarantineCount`, and when IF enabled the IF metadata keys.
+- **SentinelActuatorEndpointTest:** endpoint structure, `quarantineCount`, `lastScoreComponents`, and when IF enabled the IF metadata keys.
 - **BoundedTrainingBufferTest:** boundedness, snapshot, concurrent adds, null/empty ignored.
 - **Demo:** `DemoIntegrationTest` (hello + actuator); test profile uses MONITOR and higher throttle for stability.
 
@@ -154,14 +155,14 @@ ai:
 
 ## 7. What Is Not Done (Deferred)
 
-From the audit, the following remain **not fixed** or **partially fixed** (see `docs/AUDIT_RESULTS.md` for full table):
+The following categories still contain **gaps** relative to an idealized audit wishlist (local audit copies, if any, are not tracked in git):
 
-- **Performance:** B1–B7 (e.g. MessageDigest per request, reflection per request, string concat hot path, telemetry streams, Counter.builder per emit, BaselineStore eviction stampede, multiple `currentTimeMillis`).
-- **Concurrency:** C2 (BaselineStore bucket count window), C3 (CompositeScorer ArrayList).
-- **Design / ops:** D1 (RequestContext unused), D2 (hash features in z-score), D4 partial (policy thresholds now configurable), D5–D7 (no Content-Type on error, filter order, no graceful degradation), D8 (actuator only has quarantineCount so far).
-- **Edge cases:** E1, E3–E7 (token age semantics, response committed, quarantine scope, BaselineStore TTL cliff, entropy gaming, parameterCount for JSON).
+- **Performance:** Hot-path micro-optimizations (e.g. repeated digests/reflection, allocation patterns, BaselineStore stampede mitigations).
+- **Concurrency:** BaselineStore bucket window edge cases; `CompositeScorer` internal structure under extreme contention.
+- **Design / ops:** Some D-items remain (e.g. filter ordering guarantees vs. all Spring setups, graceful degradation modes, error response Content-Type). **Policy thresholds** and **rich actuator metrics** are done.
+- **Edge cases:** Token age semantics, response committed handling, advanced quarantine scoping, JSON `parameterCount`, entropy gaming—see code and tests for current behavior.
 
-These are documented in the audit with evidence and recommended follow-up.
+**Stage 5** will require new design for **shared state** and **multi-instance** enforcement; not covered here.
 
 ---
 
@@ -182,8 +183,25 @@ mvn -pl ai-sentinel-demo spring-boot:run
 
 ## 9. Repo Hygiene
 
-- **.gitignore:** `design_info.txt`, `docs/`, `target/`, `**/target/`, `**/build/`, `**/out/`, IDE/OS patterns. Previously committed `target/` directories were removed from the Git index with `git rm -r --cached ...` so they are no longer tracked.
+- **`.gitignore`** — Ignores `docs/`, `design_info.txt`, build outputs (`target/`, etc.), IDE and OS cruft.
+- **`LICENSE`** — MIT (see file header; also noted in `README.md`).
+- **`design_info.txt`** — Removed from version control (was redundant with tracked docs); keep private notes under ignored paths if needed.
 
 ---
 
-*Last updated to reflect implementation and audit state as of the current codebase.*
+## 10. Next phase: strategic options
+
+Two complementary directions are possible after Stages 0–4:
+
+| Option | Focus | Fit |
+|--------|--------|-----|
+| **A1 — Stage 5 (Distributed)** | Shared store (e.g. Redis), cluster-wide quarantine/throttle, tenant isolation, coordination APIs | **Primary** next milestone for production fleet / data-platform style maturity (e.g. multi-node consistency, Netflix-class operational concerns). |
+| **A2 — Strengthen ML** | Feature quality, validation harnesses, A/B comparison of statistical vs IF, hyperparameter tuning | **Incremental** wins alongside Stage 5 prep; avoids blocking distributed work on model tweaks. |
+
+**In-repo A2 support:** `CompositeScorer` records the latest per-scorer inputs used for the blended score, and **`/actuator/sentinel`** exposes them as **`lastScoreComponents`** for side-by-side inspection (with Micrometer `aisentinel.score.*` summaries for aggregate comparison). This is a **point-in-time, last-request** snapshot—not a full offline evaluation pipeline.
+
+**Recommendation:** Treat **A1 (Stage 5)** as the next **major** effort; continue **A2** improvements opportunistically using metrics, actuator snapshots, and external analysis (notebooks, load tests) without derailing distributed design.
+
+---
+
+*Last updated: docs + roadmap + score-component actuator; implementation is the source of truth.*
