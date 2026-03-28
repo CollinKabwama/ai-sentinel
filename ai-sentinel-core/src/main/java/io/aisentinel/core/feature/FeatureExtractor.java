@@ -10,4 +10,11 @@ import jakarta.servlet.http.HttpServletRequest;
 public interface FeatureExtractor {
 
     RequestFeatures extract(HttpServletRequest request, String identityHash, RequestContext ctx);
+
+    /**
+     * Size of extractor-internal caches for metrics (e.g. endpoint history). Default none.
+     */
+    default int metricsEndpointHistoryEntryCount() {
+        return 0;
+    }
 }
