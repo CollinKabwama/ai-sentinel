@@ -1,6 +1,7 @@
 package io.aisentinel.autoconfigure.actuator;
 
 import io.aisentinel.autoconfigure.config.SentinelProperties;
+import io.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
 import io.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.scoring.IsolationForestScorer;
@@ -30,9 +31,10 @@ public class SentinelEndpointAutoConfiguration {
     public SentinelActuatorEndpoint sentinelActuatorEndpoint(SentinelProperties props,
                                                             CompositeEnforcementHandler enforcementHandlerImpl,
                                                             ObjectProvider<IsolationForestScorer> isolationForestScorerProvider,
-                                                            ObjectProvider<StartupGrace> startupGraceProvider) {
+                                                            ObjectProvider<StartupGrace> startupGraceProvider,
+                                                            ObjectProvider<MicrometerSentinelMetrics> micrometerSentinelMetricsProvider) {
         log.debug("Registering Sentinel actuator endpoint");
         return new SentinelActuatorEndpoint(props, enforcementHandlerImpl, isolationForestScorerProvider.getIfAvailable(),
-            startupGraceProvider.getIfAvailable());
+            startupGraceProvider.getIfAvailable(), micrometerSentinelMetricsProvider.getIfAvailable());
     }
 }

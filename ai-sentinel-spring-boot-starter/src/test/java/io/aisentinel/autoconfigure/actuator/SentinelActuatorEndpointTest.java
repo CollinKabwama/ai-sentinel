@@ -23,7 +23,7 @@ class SentinelActuatorEndpointTest {
     @Test
     void infoReturnsExpectedStructure() {
         SentinelProperties props = new SentinelProperties();
-        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER);
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null);
 
         Map<String, Object> info = endpoint.info();
 
@@ -42,7 +42,7 @@ class SentinelActuatorEndpointTest {
         props.setEnabled(false);
         props.setMode(SentinelProperties.Mode.MONITOR);
         props.getIsolationForest().setEnabled(true);
-        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER);
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null);
 
         Map<String, Object> info = endpoint.info();
 
@@ -59,7 +59,7 @@ class SentinelActuatorEndpointTest {
         var buffer = new BoundedTrainingBuffer(100);
         var config = new IsolationForestConfig(0.5, 10, 5, 5, 42L, 0.1);
         IsolationForestScorer ifScorer = new IsolationForestScorer(buffer, config);
-        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), ifScorer, StartupGrace.NEVER);
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), ifScorer, StartupGrace.NEVER, null);
 
         Map<String, Object> info = endpoint.info();
 

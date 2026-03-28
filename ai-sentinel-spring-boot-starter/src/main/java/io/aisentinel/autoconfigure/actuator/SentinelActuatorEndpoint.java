@@ -1,6 +1,7 @@
 package io.aisentinel.autoconfigure.actuator;
 
 import io.aisentinel.autoconfigure.config.SentinelProperties;
+import io.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
 import io.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.scoring.IsolationForestScorer;
@@ -19,15 +20,18 @@ public class SentinelActuatorEndpoint {
     private final CompositeEnforcementHandler enforcementHandlerImpl;
     private final IsolationForestScorer isolationForestScorer;
     private final StartupGrace startupGrace;
+    private final MicrometerSentinelMetrics micrometerSentinelMetrics;
 
     public SentinelActuatorEndpoint(SentinelProperties props,
                                     CompositeEnforcementHandler enforcementHandlerImpl,
                                     IsolationForestScorer isolationForestScorer,
-                                    StartupGrace startupGrace) {
+                                    StartupGrace startupGrace,
+                                    MicrometerSentinelMetrics micrometerSentinelMetrics) {
         this.props = props;
         this.enforcementHandlerImpl = enforcementHandlerImpl;
         this.isolationForestScorer = isolationForestScorer;
         this.startupGrace = startupGrace != null ? startupGrace : StartupGrace.NEVER;
+        this.micrometerSentinelMetrics = micrometerSentinelMetrics;
     }
 
     @ReadOperation
@@ -55,6 +59,12 @@ public class SentinelActuatorEndpoint {
         } else {
             map.put("acceptedTrainingSampleCount", 0L);
             map.put("rejectedTrainingSampleCount", 0L);
+        }
+        if (micrometerSentinelMetrics != null) {
+            map.put("scoreSummary", micrometerSentinelMetrics.scoreSummaryForActuator());
+            map.put("latencySummary", micrometerSentinelMetrics.latencySummaryForActuator());
+            map.put("modelRetrainSuccessCount", micrometerSentinelMetrics.getRetrainSuccessCount());
+            map.put("modelRetrainFailureCount", micrometerSentinelMetrics.getRetrainFailureCount());
         }
         return map;
     }
