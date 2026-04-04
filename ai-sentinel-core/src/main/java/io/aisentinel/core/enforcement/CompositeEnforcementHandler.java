@@ -3,6 +3,8 @@ package io.aisentinel.core.enforcement;
 import io.aisentinel.core.policy.EnforcementAction;
 import io.aisentinel.core.telemetry.TelemetryEmitter;
 import io.aisentinel.core.telemetry.TelemetryEvent;
+import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
+import io.aisentinel.distributed.quarantine.NoopClusterQuarantineWriter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -28,23 +30,37 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
     private final int maxKeys;
     private final long throttleTtlMs;
     private final EnforcementScope enforcementScope;
+    private final ClusterQuarantineWriter clusterQuarantineWriter;
+    private final String distributedTenantId;
 
     public CompositeEnforcementHandler(int blockStatusCode, long quarantineDurationMs,
                                        double throttleRequestsPerSecond, TelemetryEmitter telemetry) {
         this(blockStatusCode, quarantineDurationMs, throttleRequestsPerSecond, telemetry, 100_000, 300_000L,
-            EnforcementScope.IDENTITY_ENDPOINT);
+            EnforcementScope.IDENTITY_ENDPOINT, NoopClusterQuarantineWriter.INSTANCE, "default");
     }
 
     public CompositeEnforcementHandler(int blockStatusCode, long quarantineDurationMs,
                                        double throttleRequestsPerSecond, TelemetryEmitter telemetry,
                                        int maxKeys, long throttleTtlMs) {
         this(blockStatusCode, quarantineDurationMs, throttleRequestsPerSecond, telemetry, maxKeys, throttleTtlMs,
-            EnforcementScope.IDENTITY_ENDPOINT);
+            EnforcementScope.IDENTITY_ENDPOINT, NoopClusterQuarantineWriter.INSTANCE, "default");
     }
 
     public CompositeEnforcementHandler(int blockStatusCode, long quarantineDurationMs,
                                        double throttleRequestsPerSecond, TelemetryEmitter telemetry,
                                        int maxKeys, long throttleTtlMs, EnforcementScope enforcementScope) {
+        this(blockStatusCode, quarantineDurationMs, throttleRequestsPerSecond, telemetry, maxKeys, throttleTtlMs,
+            enforcementScope, NoopClusterQuarantineWriter.INSTANCE, "default");
+    }
+
+    /**
+     * @param clusterQuarantineWriter optional cluster replication (defaults to noop); must not block the request thread
+     * @param distributedTenantId tenant segment for {@link ClusterQuarantineWriter#publishQuarantine}
+     */
+    public CompositeEnforcementHandler(int blockStatusCode, long quarantineDurationMs,
+                                       double throttleRequestsPerSecond, TelemetryEmitter telemetry,
+                                       int maxKeys, long throttleTtlMs, EnforcementScope enforcementScope,
+                                       ClusterQuarantineWriter clusterQuarantineWriter, String distributedTenantId) {
         this.blockStatusCode = blockStatusCode;
         this.quarantineDurationMs = quarantineDurationMs;
         this.throttleRequestsPerSecond = Math.max(0.1, throttleRequestsPerSecond);
@@ -52,6 +68,12 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
         this.maxKeys = Math.max(1, maxKeys);
         this.throttleTtlMs = Math.max(1000L, throttleTtlMs);
         this.enforcementScope = enforcementScope != null ? enforcementScope : EnforcementScope.IDENTITY_ENDPOINT;
+        this.clusterQuarantineWriter = clusterQuarantineWriter != null
+            ? clusterQuarantineWriter
+            : NoopClusterQuarantineWriter.INSTANCE;
+        this.distributedTenantId = distributedTenantId != null && !distributedTenantId.isBlank()
+            ? distributedTenantId
+            : "default";
     }
 
     private String buildEnforcementStateKey(String identityHash, String endpoint) {
@@ -188,7 +210,13 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
         log.debug("Quarantining identityHash={} for endpoint={} durationMs={}", maskHash(identityHash), endpoint, quarantineDurationMs);
         evictQuarantineIfNeeded();
         String key = buildEnforcementStateKey(identityHash, endpoint);
-        quarantinedUntil.put(key, System.currentTimeMillis() + quarantineDurationMs);
+        long until = System.currentTimeMillis() + quarantineDurationMs;
+        quarantinedUntil.put(key, until);
+        try {
+            clusterQuarantineWriter.publishQuarantine(distributedTenantId, key, until);
+        } catch (RuntimeException e) {
+            log.debug("Cluster quarantine publish failed after local quarantine applied; ignoring", e);
+        }
         try {
             response.setStatus(blockStatusCode);
             response.setContentType("text/plain;charset=UTF-8");

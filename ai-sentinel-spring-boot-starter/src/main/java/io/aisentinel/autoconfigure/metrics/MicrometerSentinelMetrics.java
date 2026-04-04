@@ -46,6 +46,14 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Counter distributedRedisFailure;
     private final Timer distributedRedisLookup;
 
+    private final Counter distributedQuarantineWriteAttempt;
+    private final Counter distributedQuarantineWriteSuccess;
+    private final Counter distributedQuarantineWriteFailure;
+    private final Counter distributedQuarantineWriteSkippedExpired;
+    private final Counter distributedQuarantineWriteDropped;
+    private final Counter distributedQuarantineWriteSchedulerRejected;
+    private final Timer distributedQuarantineWrite;
+
     public MicrometerSentinelMetrics(MeterRegistry registry) {
         this.scoreComposite = DistributionSummary.builder("aisentinel.score.composite")
             .description("Blended anomaly score after composite weighting")
@@ -101,6 +109,29 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         this.distributedRedisFailure = Counter.builder("aisentinel.distributed.redis.failure").register(registry);
         this.distributedRedisLookup = Timer.builder("aisentinel.distributed.redis.lookup")
             .description("Redis GET for cluster quarantine (runs on cache miss)")
+            .publishPercentiles(0.5, 0.99)
+            .register(registry);
+
+        this.distributedQuarantineWriteAttempt = Counter.builder("aisentinel.distributed.quarantine.write.attempt")
+            .description("Cluster quarantine Redis write tasks scheduled")
+            .register(registry);
+        this.distributedQuarantineWriteSuccess = Counter.builder("aisentinel.distributed.quarantine.write.success")
+            .description("Cluster quarantine Redis SET completed successfully")
+            .register(registry);
+        this.distributedQuarantineWriteFailure = Counter.builder("aisentinel.distributed.quarantine.write.failure")
+            .description("Cluster quarantine Redis SET failures on worker thread")
+            .register(registry);
+        this.distributedQuarantineWriteSkippedExpired = Counter.builder("aisentinel.distributed.quarantine.write.skipped_expired")
+            .description("Worker skipped SET because untilEpochMillis was already past")
+            .register(registry);
+        this.distributedQuarantineWriteDropped = Counter.builder("aisentinel.distributed.quarantine.write.dropped")
+            .description("Publish dropped due to in-flight cap (semaphore)")
+            .register(registry);
+        this.distributedQuarantineWriteSchedulerRejected = Counter.builder("aisentinel.distributed.quarantine.write.scheduler_rejected")
+            .description("Executor rejected task after permit acquired (rare)")
+            .register(registry);
+        this.distributedQuarantineWrite = Timer.builder("aisentinel.distributed.quarantine.write")
+            .description("Redis SET for cluster quarantine (async worker)")
             .publishPercentiles(0.5, 0.99)
             .register(registry);
     }
@@ -226,6 +257,43 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         }
     }
 
+    @Override
+    public void recordDistributedQuarantineWriteAttempt() {
+        distributedQuarantineWriteAttempt.increment();
+    }
+
+    @Override
+    public void recordDistributedQuarantineWriteSuccess() {
+        distributedQuarantineWriteSuccess.increment();
+    }
+
+    @Override
+    public void recordDistributedQuarantineWriteFailure() {
+        distributedQuarantineWriteFailure.increment();
+    }
+
+    @Override
+    public void recordDistributedQuarantineWriteDurationNanos(long nanos) {
+        if (nanos >= 0) {
+            distributedQuarantineWrite.record(nanos, TimeUnit.NANOSECONDS);
+        }
+    }
+
+    @Override
+    public void recordDistributedQuarantineWriteSkippedExpired() {
+        distributedQuarantineWriteSkippedExpired.increment();
+    }
+
+    @Override
+    public void recordDistributedQuarantineWriteDropped() {
+        distributedQuarantineWriteDropped.increment();
+    }
+
+    @Override
+    public void recordDistributedQuarantineWriteSchedulerRejected() {
+        distributedQuarantineWriteSchedulerRejected.increment();
+    }
+
     public Map<String, Object> scoreSummaryForActuator() {
         Map<String, Object> m = new LinkedHashMap<>();
         putSummary(m, "composite", scoreComposite);
@@ -274,6 +342,30 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         return (long) distributedRedisFailure.count();
     }
 
+    public long getDistributedQuarantineWriteAttemptCount() {
+        return (long) distributedQuarantineWriteAttempt.count();
+    }
+
+    public long getDistributedQuarantineWriteSuccessCount() {
+        return (long) distributedQuarantineWriteSuccess.count();
+    }
+
+    public long getDistributedQuarantineWriteFailureCount() {
+        return (long) distributedQuarantineWriteFailure.count();
+    }
+
+    public long getDistributedQuarantineWriteSkippedExpiredCount() {
+        return (long) distributedQuarantineWriteSkippedExpired.count();
+    }
+
+    public long getDistributedQuarantineWriteDroppedCount() {
+        return (long) distributedQuarantineWriteDropped.count();
+    }
+
+    public long getDistributedQuarantineWriteSchedulerRejectedCount() {
+        return (long) distributedQuarantineWriteSchedulerRejected.count();
+    }
+
     public Map<String, Object> distributedSummaryForActuator() {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("quarantineLookupCount", getDistributedQuarantineLookupCount());
@@ -283,6 +375,13 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         m.put("redisTimeoutCount", getDistributedRedisTimeoutCount());
         m.put("redisFailureCount", getDistributedRedisFailureCount());
         putTimer(m, "redisLookup", distributedRedisLookup);
+        m.put("quarantineWriteAttemptCount", getDistributedQuarantineWriteAttemptCount());
+        m.put("quarantineWriteSuccessCount", getDistributedQuarantineWriteSuccessCount());
+        m.put("quarantineWriteFailureCount", getDistributedQuarantineWriteFailureCount());
+        m.put("quarantineWriteSkippedExpiredCount", getDistributedQuarantineWriteSkippedExpiredCount());
+        m.put("quarantineWriteDroppedCount", getDistributedQuarantineWriteDroppedCount());
+        m.put("quarantineWriteSchedulerRejectedCount", getDistributedQuarantineWriteSchedulerRejectedCount());
+        putTimer(m, "quarantineWrite", distributedQuarantineWrite);
         return m;
     }
 

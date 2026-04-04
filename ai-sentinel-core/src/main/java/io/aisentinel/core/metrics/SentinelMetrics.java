@@ -62,4 +62,27 @@ public interface SentinelMetrics {
      * Includes successful reads, timeouts, and failures.
      */
     default void recordDistributedRedisLookupDurationNanos(long nanos) {}
+
+    /** Cluster quarantine write requested (before async Redis work). */
+    default void recordDistributedQuarantineWriteAttempt() {}
+
+    default void recordDistributedQuarantineWriteSuccess() {}
+
+    /** Redis SET failed on the async worker (not scheduler/backpressure skips). */
+    default void recordDistributedQuarantineWriteFailure() {}
+
+    /**
+     * Worker determined {@code untilEpochMillis} is already in the past; no SET performed.
+     * Does not indicate a healthy write and must not be confused with {@link #recordDistributedQuarantineWriteSuccess()}.
+     */
+    default void recordDistributedQuarantineWriteSkippedExpired() {}
+
+    /** Dropped because in-flight cap was reached ({@code tryAcquire} on bounded work). */
+    default void recordDistributedQuarantineWriteDropped() {}
+
+    /** {@link java.util.concurrent.Executor#execute} rejected the task (after permit was acquired). */
+    default void recordDistributedQuarantineWriteSchedulerRejected() {}
+
+    /** Duration of async cluster quarantine write work unit (worker thread, including expired skip). */
+    default void recordDistributedQuarantineWriteDurationNanos(long nanos) {}
 }
