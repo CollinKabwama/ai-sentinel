@@ -26,13 +26,15 @@ class SentinelActuatorEndpointTest {
     @Test
     void infoReturnsExpectedStructure() {
         SentinelProperties props = new SentinelProperties();
-        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, null);
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, null,
+            null, null);
 
         Map<String, Object> info = endpoint.info();
 
         assertThat(info).containsKeys("enabled", "mode", "isolationForestEnabled", "quarantineCount",
             "startupGraceActive", "enforcementScope", "activeThrottleCount", "activeQuarantineCount",
-            "acceptedTrainingSampleCount", "rejectedTrainingSampleCount", "lastScoreComponents");
+            "acceptedTrainingSampleCount", "rejectedTrainingSampleCount", "lastScoreComponents",
+            "distributedEnabled", "distributedClusterQuarantineReadEnabled", "distributedRedisEnabled", "distributedRedisKeyPrefix");
         assertThat(info.get("enabled")).isEqualTo(true);
         assertThat(info.get("mode")).isEqualTo("ENFORCE");
         assertThat(info.get("isolationForestEnabled")).isEqualTo(false);
@@ -45,7 +47,8 @@ class SentinelActuatorEndpointTest {
         props.setEnabled(false);
         props.setMode(SentinelProperties.Mode.MONITOR);
         props.getIsolationForest().setEnabled(true);
-        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, null);
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, null,
+            null, null);
 
         Map<String, Object> info = endpoint.info();
 
@@ -62,7 +65,8 @@ class SentinelActuatorEndpointTest {
         var buffer = new BoundedTrainingBuffer(100);
         var config = new IsolationForestConfig(0.5, 10, 5, 5, 42L, 0.1);
         IsolationForestScorer ifScorer = new IsolationForestScorer(buffer, config);
-        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), ifScorer, StartupGrace.NEVER, null, null);
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), ifScorer, StartupGrace.NEVER, null, null,
+            null, null);
 
         Map<String, Object> info = endpoint.info();
 
@@ -95,7 +99,8 @@ class SentinelActuatorEndpointTest {
         composite.addScorer(new StatisticalScorer(100, 60_000L, 999, 0.55), 1.0);
         composite.score(features);
 
-        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, composite);
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, composite,
+            null, null);
 
         @SuppressWarnings("unchecked")
         Map<String, Object> components = (Map<String, Object>) endpoint.info().get("lastScoreComponents");

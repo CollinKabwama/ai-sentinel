@@ -38,6 +38,14 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Counter nanClamped;
     private final Counter scoringErrors;
 
+    private final Counter distributedQuarantineLookup;
+    private final Counter distributedQuarantineClusterHit;
+    private final Counter distributedQuarantineCacheHit;
+    private final Counter distributedQuarantineCacheMiss;
+    private final Counter distributedRedisTimeout;
+    private final Counter distributedRedisFailure;
+    private final Timer distributedRedisLookup;
+
     public MicrometerSentinelMetrics(MeterRegistry registry) {
         this.scoreComposite = DistributionSummary.builder("aisentinel.score.composite")
             .description("Blended anomaly score after composite weighting")
@@ -80,6 +88,21 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         this.failOpen = Counter.builder("aisentinel.failopen.count").register(registry);
         this.nanClamped = Counter.builder("aisentinel.nan.clamped.count").register(registry);
         this.scoringErrors = Counter.builder("aisentinel.errors.scoring.count").register(registry);
+
+        this.distributedQuarantineLookup = Counter.builder("aisentinel.distributed.quarantine.lookup")
+            .description("Cluster quarantine read invocations (Redis reader path)")
+            .register(registry);
+        this.distributedQuarantineClusterHit = Counter.builder("aisentinel.distributed.quarantine.cluster_hit")
+            .description("Times cluster quarantine was active (until after now)")
+            .register(registry);
+        this.distributedQuarantineCacheHit = Counter.builder("aisentinel.distributed.quarantine.cache_hit").register(registry);
+        this.distributedQuarantineCacheMiss = Counter.builder("aisentinel.distributed.quarantine.cache_miss").register(registry);
+        this.distributedRedisTimeout = Counter.builder("aisentinel.distributed.redis.timeout").register(registry);
+        this.distributedRedisFailure = Counter.builder("aisentinel.distributed.redis.failure").register(registry);
+        this.distributedRedisLookup = Timer.builder("aisentinel.distributed.redis.lookup")
+            .description("Redis GET for cluster quarantine (runs on cache miss)")
+            .publishPercentiles(0.5, 0.99)
+            .register(registry);
     }
 
     @Override
@@ -166,6 +189,43 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         modelRetrainFailure.increment();
     }
 
+    @Override
+    public void recordDistributedQuarantineLookup() {
+        distributedQuarantineLookup.increment();
+    }
+
+    @Override
+    public void recordDistributedQuarantineClusterHit() {
+        distributedQuarantineClusterHit.increment();
+    }
+
+    @Override
+    public void recordDistributedQuarantineCacheHit() {
+        distributedQuarantineCacheHit.increment();
+    }
+
+    @Override
+    public void recordDistributedQuarantineCacheMiss() {
+        distributedQuarantineCacheMiss.increment();
+    }
+
+    @Override
+    public void recordDistributedRedisTimeout() {
+        distributedRedisTimeout.increment();
+    }
+
+    @Override
+    public void recordDistributedRedisFailure() {
+        distributedRedisFailure.increment();
+    }
+
+    @Override
+    public void recordDistributedRedisLookupDurationNanos(long nanos) {
+        if (nanos >= 0) {
+            distributedRedisLookup.record(nanos, TimeUnit.NANOSECONDS);
+        }
+    }
+
     public Map<String, Object> scoreSummaryForActuator() {
         Map<String, Object> m = new LinkedHashMap<>();
         putSummary(m, "composite", scoreComposite);
@@ -188,6 +248,42 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
 
     public long getRetrainFailureCount() {
         return (long) modelRetrainFailure.count();
+    }
+
+    public long getDistributedQuarantineLookupCount() {
+        return (long) distributedQuarantineLookup.count();
+    }
+
+    public long getDistributedQuarantineClusterHitCount() {
+        return (long) distributedQuarantineClusterHit.count();
+    }
+
+    public long getDistributedCacheHitCount() {
+        return (long) distributedQuarantineCacheHit.count();
+    }
+
+    public long getDistributedCacheMissCount() {
+        return (long) distributedQuarantineCacheMiss.count();
+    }
+
+    public long getDistributedRedisTimeoutCount() {
+        return (long) distributedRedisTimeout.count();
+    }
+
+    public long getDistributedRedisFailureCount() {
+        return (long) distributedRedisFailure.count();
+    }
+
+    public Map<String, Object> distributedSummaryForActuator() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("quarantineLookupCount", getDistributedQuarantineLookupCount());
+        m.put("quarantineClusterHitCount", getDistributedQuarantineClusterHitCount());
+        m.put("cacheHitCount", getDistributedCacheHitCount());
+        m.put("cacheMissCount", getDistributedCacheMissCount());
+        m.put("redisTimeoutCount", getDistributedRedisTimeoutCount());
+        m.put("redisFailureCount", getDistributedRedisFailureCount());
+        putTimer(m, "redisLookup", distributedRedisLookup);
+        return m;
     }
 
     private static void putSummary(Map<String, Object> out, String key, DistributionSummary summary) {
