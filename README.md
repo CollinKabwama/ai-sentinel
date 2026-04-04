@@ -25,9 +25,9 @@ Traditional WAFs and static rules miss gradual abuse and novel patterns. This pr
 
 ## Current maturity
 
-Stages **0–4** are implemented in this repository (core engine, Spring Boot integration, Isolation Forest, security/ops hardening, Micrometer/actuator depth). **Pre–Stage 5** fixes (configurable thresholds, safer X-Real-IP, IF-only feature vector) are included. **Stage 5** (distributed state, shared quarantine, multi-node) is **not** started.
+Stages **0–4** are implemented in this repository (core engine, Spring Boot integration, Isolation Forest, security/ops hardening, Micrometer/actuator depth). **Pre–Stage 5** fixes (configurable thresholds, safer X-Real-IP, IF-only feature vector) are included. **Stage 5** is **partially** started: **shared quarantine visibility** can be enabled with **Redis** (read-only merge with local quarantine; optional dependency, fail-open). Kafka, trainer, model registry, and **distributed quarantine writes** from the app are **not** implemented yet. Extended Phase 5 scope and failure-mode notes may be kept locally at **`docs/PHASE5_DISTRIBUTED_DESIGN.md`** (the `docs/` tree is gitignored and is not part of the published repository).
 
-Authoritative detail: [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md). Architecture and data flow: [`ARCHITECTURE.md`](ARCHITECTURE.md).
+Architecture and data flow: [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ---
 
@@ -115,8 +115,16 @@ ai:
 | `ai.sentinel.enforcement-scope` | `IDENTITY_ENDPOINT` | Throttle/quarantine key scope |
 | `ai.sentinel.isolation-forest.enabled` | `false` | Real in-core IF (not a stub) |
 | `ai.sentinel.telemetry.log-verbosity` | `ANOMALY_ONLY` | `FULL`, `ANOMALY_ONLY`, `SAMPLED`, `NONE` |
+| `ai.sentinel.distributed.cluster-quarantine-read-enabled` | `false` | Merge cluster quarantine into `isQuarantined` (local OR Redis view) |
+| `ai.sentinel.distributed.enabled` | `false` | Phase 5 master switch for Redis reader wiring |
+| `ai.sentinel.distributed.redis.enabled` | `false` | Use `RedisClusterQuarantineReader` when `spring-boot-starter-data-redis` is on the classpath |
+| `ai.sentinel.distributed.redis.key-prefix` | `aisentinel` | Redis key prefix: `{prefix}:{tenant}:q:{enforcementKey}` |
+| `ai.sentinel.distributed.redis.lookup-timeout` | `50ms` | Max wait on the async future for each Redis GET; set `spring.data.redis.timeout` (Lettuce) to a similar or lower value so client timeouts align with this budget |
+| `ai.sentinel.distributed.cache.enabled` | `true` | When `false`, skip the local cache (every lookup hits Redis within `lookup-timeout`) |
+| `ai.sentinel.distributed.cache.ttl` / `cache.max-entries` | `2s` / `10000` | Local bounded cache for Redis quarantine lookups |
+| `ai.sentinel.distributed.cache.negative-ttl` | _(unset)_ | TTL for negative (miss) cache lines; if unset, derived as `max(100ms, min(positiveTtl/2, 2s))` |
 
-A fuller YAML example lives in [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) §6.
+Add `spring-boot-starter-data-redis` and Redis connection settings (`spring.data.redis.*`) to your application when using cluster quarantine reads.
 
 ### Enable Isolation Forest locally (demo)
 
@@ -175,10 +183,10 @@ Typical flow: start the demo with **`stage2`** profile, then `python scripts/tra
 
 | Stage | Focus | Status in this repo |
 |-------|--------|---------------------|
-| 5 | Distributed store, shared quarantine, cluster coordination | **Next** — not implemented |
+| 5 | Distributed store, shared quarantine, cluster coordination | **In progress** — Redis read path for shared quarantine visibility; optional local notes under `docs/` (gitignored) |
 | 6 | Research, benchmarks, publications | Not started |
 
-See [`IMPLEMENTATION_STATUS.md`](IMPLEMENTATION_STATUS.md) §2 and §7 for deferred audit items and gaps.
+Deferred items and Phase 5 boundaries are summarized in this README; longer design notes may exist only in a local **`docs/`** copy (not versioned here).
 
 ---
 

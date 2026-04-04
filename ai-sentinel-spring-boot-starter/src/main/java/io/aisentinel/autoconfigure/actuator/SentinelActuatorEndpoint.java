@@ -1,8 +1,11 @@
 package io.aisentinel.autoconfigure.actuator;
 
 import io.aisentinel.autoconfigure.config.SentinelProperties;
+import io.aisentinel.autoconfigure.distributed.DistributedQuarantineStatus;
 import io.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
 import io.aisentinel.core.enforcement.CompositeEnforcementHandler;
+import io.aisentinel.distributed.quarantine.ClusterQuarantineReader;
+import io.aisentinel.distributed.quarantine.NoopClusterQuarantineReader;
 import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.scoring.CompositeScorer;
 import io.aisentinel.core.scoring.IsolationForestScorer;
@@ -23,19 +26,25 @@ public class SentinelActuatorEndpoint {
     private final StartupGrace startupGrace;
     private final MicrometerSentinelMetrics micrometerSentinelMetrics;
     private final CompositeScorer compositeScorer;
+    private final DistributedQuarantineStatus distributedQuarantineStatus;
+    private final ClusterQuarantineReader clusterQuarantineReader;
 
     public SentinelActuatorEndpoint(SentinelProperties props,
                                     CompositeEnforcementHandler enforcementHandlerImpl,
                                     IsolationForestScorer isolationForestScorer,
                                     StartupGrace startupGrace,
                                     MicrometerSentinelMetrics micrometerSentinelMetrics,
-                                    CompositeScorer compositeScorer) {
+                                    CompositeScorer compositeScorer,
+                                    DistributedQuarantineStatus distributedQuarantineStatus,
+                                    ClusterQuarantineReader clusterQuarantineReader) {
         this.props = props;
         this.enforcementHandlerImpl = enforcementHandlerImpl;
         this.isolationForestScorer = isolationForestScorer;
         this.startupGrace = startupGrace != null ? startupGrace : StartupGrace.NEVER;
         this.micrometerSentinelMetrics = micrometerSentinelMetrics;
         this.compositeScorer = compositeScorer;
+        this.distributedQuarantineStatus = distributedQuarantineStatus;
+        this.clusterQuarantineReader = clusterQuarantineReader;
     }
 
     @ReadOperation
@@ -69,6 +78,25 @@ public class SentinelActuatorEndpoint {
             map.put("latencySummary", micrometerSentinelMetrics.latencySummaryForActuator());
             map.put("modelRetrainSuccessCount", micrometerSentinelMetrics.getRetrainSuccessCount());
             map.put("modelRetrainFailureCount", micrometerSentinelMetrics.getRetrainFailureCount());
+            map.put("distributedMetrics", micrometerSentinelMetrics.distributedSummaryForActuator());
+        }
+        var d = props.getDistributed();
+        map.put("distributedEnabled", d.isEnabled());
+        map.put("distributedClusterQuarantineReadEnabled", d.isClusterQuarantineReadEnabled());
+        map.put("distributedRedisEnabled", d.getRedis().isEnabled());
+        map.put("distributedRedisKeyPrefix", d.getRedis().getKeyPrefix());
+        if (clusterQuarantineReader != null) {
+            map.put("clusterQuarantineReaderType", clusterQuarantineReader.getClass().getSimpleName());
+            map.put("clusterQuarantineReaderNoop",
+                clusterQuarantineReader == NoopClusterQuarantineReader.INSTANCE);
+        }
+        if (distributedQuarantineStatus != null) {
+            Map<String, Object> dq = new LinkedHashMap<>();
+            dq.put("redisReaderDegraded", distributedQuarantineStatus.isRedisReaderDegraded());
+            dq.put("lastRedisErrorTimeMillis", distributedQuarantineStatus.getLastRedisErrorTimeMillis());
+            dq.put("lastRedisErrorSummary", distributedQuarantineStatus.getLastRedisErrorSummary());
+            dq.put("approximateQuarantineCacheSize", distributedQuarantineStatus.getApproximateCacheSize());
+            map.put("distributedQuarantine", dq);
         }
         map.put("lastScoreComponents", lastScoreComponentsPayload());
         return map;

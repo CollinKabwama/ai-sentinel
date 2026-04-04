@@ -42,4 +42,24 @@ public interface SentinelMetrics {
     default void recordRetrainSuccessNanos(long nanos) {}
 
     default void recordRetrainFailureNanos(long nanos) {}
+
+    /** Cluster quarantine read path invoked (includes cache hits). */
+    default void recordDistributedQuarantineLookup() {}
+
+    /** Cluster reader reported active quarantine (expiry in the future). */
+    default void recordDistributedQuarantineClusterHit() {}
+
+    default void recordDistributedQuarantineCacheHit() {}
+
+    default void recordDistributedQuarantineCacheMiss() {}
+
+    default void recordDistributedRedisTimeout() {}
+
+    default void recordDistributedRedisFailure() {}
+
+    /**
+     * Wall-clock duration of a Redis GET attempt for cluster quarantine (cache miss path only).
+     * Includes successful reads, timeouts, and failures.
+     */
+    default void recordDistributedRedisLookupDurationNanos(long nanos) {}
 }

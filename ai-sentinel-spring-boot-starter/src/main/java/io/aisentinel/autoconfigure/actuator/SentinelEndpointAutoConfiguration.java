@@ -1,7 +1,9 @@
 package io.aisentinel.autoconfigure.actuator;
 
 import io.aisentinel.autoconfigure.config.SentinelProperties;
+import io.aisentinel.autoconfigure.distributed.DistributedQuarantineStatus;
 import io.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
+import io.aisentinel.distributed.quarantine.ClusterQuarantineReader;
 import io.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.scoring.CompositeScorer;
@@ -34,10 +36,14 @@ public class SentinelEndpointAutoConfiguration {
                                                             ObjectProvider<IsolationForestScorer> isolationForestScorerProvider,
                                                             ObjectProvider<StartupGrace> startupGraceProvider,
                                                             ObjectProvider<MicrometerSentinelMetrics> micrometerSentinelMetricsProvider,
-                                                            ObjectProvider<CompositeScorer> compositeScorerProvider) {
+                                                            ObjectProvider<CompositeScorer> compositeScorerProvider,
+                                                            ObjectProvider<DistributedQuarantineStatus> distributedQuarantineStatusProvider,
+                                                            ObjectProvider<ClusterQuarantineReader> clusterQuarantineReaderProvider) {
         log.debug("Registering Sentinel actuator endpoint");
         return new SentinelActuatorEndpoint(props, enforcementHandlerImpl, isolationForestScorerProvider.getIfAvailable(),
             startupGraceProvider.getIfAvailable(), micrometerSentinelMetricsProvider.getIfAvailable(),
-            compositeScorerProvider.getIfAvailable());
+            compositeScorerProvider.getIfAvailable(),
+            distributedQuarantineStatusProvider.getIfAvailable(),
+            clusterQuarantineReaderProvider.getIfAvailable());
     }
 }

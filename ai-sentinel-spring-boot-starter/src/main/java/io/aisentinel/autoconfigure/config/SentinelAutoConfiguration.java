@@ -1,9 +1,13 @@
 package io.aisentinel.autoconfigure.config;
 
 import io.aisentinel.core.SentinelPipeline;
+import io.aisentinel.autoconfigure.distributed.DistributedQuarantineStatus;
 import io.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import io.aisentinel.core.enforcement.EnforcementHandler;
 import io.aisentinel.core.enforcement.MonitorOnlyEnforcementHandler;
+import io.aisentinel.distributed.enforcement.ClusterAwareEnforcementHandler;
+import io.aisentinel.distributed.quarantine.ClusterQuarantineReader;
+import io.aisentinel.distributed.quarantine.NoopClusterQuarantineReader;
 import io.aisentinel.core.feature.DefaultFeatureExtractor;
 import io.aisentinel.core.feature.FeatureExtractor;
 import io.aisentinel.core.policy.PolicyEngine;
@@ -24,6 +28,7 @@ import io.aisentinel.autoconfigure.web.SentinelFilter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.MeterBinder;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -212,15 +217,66 @@ public class SentinelAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnProperty(name = "ai.sentinel.distributed.cluster-quarantine-read-enabled", havingValue = "true")
+    @ConditionalOnMissingBean(ClusterQuarantineReader.class)
+    public ClusterQuarantineReader noopClusterQuarantineReader() {
+        return NoopClusterQuarantineReader.INSTANCE;
+    }
+
+    /**
+     * Runs after the context is ready so {@link ClusterQuarantineReader} (Redis or noop) is resolved.
+     */
+    @Bean
+    @ConditionalOnProperty(name = "ai.sentinel.distributed.cluster-quarantine-read-enabled", havingValue = "true")
+    public ApplicationRunner distributedQuarantineStartupRunner(SentinelProperties props,
+                                                                ObjectProvider<ClusterQuarantineReader> readerProvider) {
+        return args -> {
+            var d = props.getDistributed();
+            var reader = readerProvider.getIfAvailable();
+            String readerKind = reader == null
+                ? "none"
+                : (reader == NoopClusterQuarantineReader.INSTANCE ? "noop" : reader.getClass().getSimpleName());
+            log.info(
+                "AI-Sentinel distributed quarantine read: distributed.enabled={}, clusterQuarantineRead=true, "
+                    + "redis.enabled={}, reader={}, cache.enabled={}, tenantId={}",
+                d.isEnabled(),
+                d.getRedis().isEnabled(),
+                readerKind,
+                d.getCache().isEnabled(),
+                d.getTenantId() != null && !d.getTenantId().isBlank() ? d.getTenantId() : "default");
+        };
+    }
+
+    @Bean
+    @ConditionalOnBean({DistributedQuarantineStatus.class, MeterRegistry.class})
+    public MeterBinder distributedQuarantineDegradedGauge(DistributedQuarantineStatus status) {
+        return registry -> registry.gauge("aisentinel.distributed.quarantine.degraded", status,
+            s -> s.isRedisReaderDegraded() ? 1.0 : 0.0);
+    }
+
+    @Bean
     @ConditionalOnMissingBean
     public EnforcementHandler enforcementHandler(CompositeEnforcementHandler enforcementHandlerImpl,
+                                                 ObjectProvider<ClusterQuarantineReader> clusterQuarantineReaderProvider,
                                                  TelemetryEmitter telemetry,
                                                  SentinelProperties props) {
+        EnforcementHandler delegate = enforcementHandlerImpl;
+        if (props.getDistributed().isClusterQuarantineReadEnabled()) {
+            ClusterQuarantineReader reader = clusterQuarantineReaderProvider.getIfAvailable();
+            if (reader == null) {
+                reader = NoopClusterQuarantineReader.INSTANCE;
+            }
+            delegate = new ClusterAwareEnforcementHandler(
+                enforcementHandlerImpl,
+                reader,
+                props.getDistributed().getTenantId(),
+                props.getEnforcementScope());
+        }
         if (props.getMode() == SentinelProperties.Mode.MONITOR) {
             log.info("Sentinel running in MONITOR mode - no requests will be blocked");
-            return new MonitorOnlyEnforcementHandler(enforcementHandlerImpl, telemetry);
+            return new MonitorOnlyEnforcementHandler(delegate, telemetry);
         }
-        return enforcementHandlerImpl;
+        return delegate;
     }
 
     @Bean

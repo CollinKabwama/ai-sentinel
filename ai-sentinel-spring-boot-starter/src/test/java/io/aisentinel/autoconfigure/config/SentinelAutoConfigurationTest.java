@@ -1,15 +1,27 @@
 package io.aisentinel.autoconfigure.config;
 
+import io.aisentinel.autoconfigure.distributed.DistributedQuarantineAutoConfiguration;
+import io.aisentinel.autoconfigure.distributed.DistributedQuarantineStatusAutoConfiguration;
+import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineReader;
 import io.aisentinel.autoconfigure.web.SentinelFilter;
 import io.aisentinel.core.model.RequestFeatures;
 import io.aisentinel.core.policy.EnforcementAction;
 import io.aisentinel.core.policy.PolicyEngine;
 import io.aisentinel.core.policy.ThresholdPolicyEngine;
+import io.aisentinel.distributed.quarantine.ClusterQuarantineReader;
+import io.aisentinel.distributed.quarantine.NoopClusterQuarantineReader;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ValueOperations;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 class SentinelAutoConfigurationTest {
 
@@ -78,5 +90,64 @@ class SentinelAutoConfigurationTest {
                 assertThat(policy.evaluate(0.55, f, "/api")).isEqualTo(EnforcementAction.BLOCK);
                 assertThat(policy.evaluate(0.75, f, "/api")).isEqualTo(EnforcementAction.QUARANTINE);
             });
+    }
+
+    @Test
+    void registersRedisClusterQuarantineReaderWhenDistributedRedisFlagsAndTemplate() {
+        new WebApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(
+                DistributedQuarantineStatusAutoConfiguration.class,
+                DistributedQuarantineAutoConfiguration.class,
+                SentinelAutoConfiguration.class))
+            .withUserConfiguration(RedisTemplateStub.class)
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.distributed.enabled=true",
+                "ai.sentinel.distributed.cluster-quarantine-read-enabled=true",
+                "ai.sentinel.distributed.redis.enabled=true")
+            .run(ctx -> {
+                assertThat(ctx).hasSingleBean(ClusterQuarantineReader.class);
+                assertThat(ctx.getBean(ClusterQuarantineReader.class)).isInstanceOf(RedisClusterQuarantineReader.class);
+            });
+    }
+
+    @Test
+    void noopClusterReaderWhenClusterReadButRedisDisabled() {
+        new WebApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(DistributedQuarantineAutoConfiguration.class, SentinelAutoConfiguration.class))
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.distributed.enabled=true",
+                "ai.sentinel.distributed.cluster-quarantine-read-enabled=true",
+                "ai.sentinel.distributed.redis.enabled=false")
+            .run(ctx -> assertThat(ctx.getBean(ClusterQuarantineReader.class)).isSameAs(NoopClusterQuarantineReader.INSTANCE));
+    }
+
+    @Test
+    void noClusterReaderBeanWhenClusterReadDisabled() {
+        contextRunner
+            .withPropertyValues("ai.sentinel.enabled=true", "ai.sentinel.distributed.cluster-quarantine-read-enabled=false")
+            .run(ctx -> assertThat(ctx.getBeansOfType(ClusterQuarantineReader.class)).isEmpty());
+    }
+
+    @Configuration
+    static class RedisTemplateStub {
+        @Bean
+        StringRedisTemplate stringRedisTemplate() {
+            @SuppressWarnings("unchecked")
+            ValueOperations<String, String> ops = mock(ValueOperations.class);
+            when(ops.get(anyString())).thenReturn(null);
+            return new StringRedisTemplate() {
+                @Override
+                public void afterPropertiesSet() {
+                    // Skip RedisConnectionFactory requirement in slice tests
+                }
+
+                @Override
+                public ValueOperations<String, String> opsForValue() {
+                    return ops;
+                }
+            };
+        }
     }
 }
