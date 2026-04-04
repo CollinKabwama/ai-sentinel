@@ -190,6 +190,23 @@ Typical flow: start the demo with **`stage2`** profile, then `python scripts/tra
 
 Deferred items and Phase 5 boundaries are summarized in this README; longer design notes may exist only in a local **`docs/`** copy (not versioned here).
 
+### Phase 5.3 — Distributed validation
+
+This milestone is **verification**, not new product features. Automated coverage in `ai-sentinel-spring-boot-starter` includes:
+
+- **Multi-node style E2E (Docker):** `DistributedQuarantineValidationTest` — one Spring context writes quarantine to Redis (Testcontainers); a second `RedisClusterQuarantineReader` with the same tenant/key strategy observes the same `until` (independent `DistributedQuarantineStatus` / cache instance). These methods are skipped when Docker is unavailable (`@Testcontainers(disabledWithoutDocker = true)`).
+- **Redis unavailable:** `DistributedQuarantineRedisFailureTest` — reader returns empty (fail-open), reader degraded flag set; `CompositeEnforcementHandler` still quarantines locally; async writer failures do not break the request thread.
+- **Slow Redis / lookup budget:** `RedisClusterQuarantineReaderTest#failOpenOnTimeout` — GET slower than `lookup-timeout` yields empty result, timeout metric, degraded reader (caller not blocked beyond the future timeout).
+- **Dropped writes:** `RedisClusterQuarantineWriterTest#secondPublishDroppedWhileFirstWriteBlocksRedis` plus `DistributedQuarantineDroppedWriteCompositeTest` — `maxInFlightQuarantineWrites = 1` with a blocking SET drops the second publish, increments dropped counter, both identities stay locally quarantined, only the first Redis key is written.
+- **Cache staleness:** `DistributedQuarantineValidationTest#cacheServesStalePositiveUntilRedisKeyDeletedThenExpiresAndFailsOpen` — positive cache survives Redis key deletion until TTL elapses, then fail-open empty (no permanent cluster quarantine from cache alone).
+- **Actuator / metrics:** `DistributedQuarantineValidationTest#actuatorExposesDistributedFlagsAndMetricSummary` — `/actuator/sentinel`-style payload includes distributed quarantine status fields and Micrometer-backed distributed write/read counters.
+
+**Guarantees reinforced by 5.3:** local quarantine remains authoritative; cluster view is additive; Redis is optional; read and write paths stay fail-open; publish path does not block on Redis I/O; bounded in-flight writes can drop excess work with observability.
+
+**Still not implemented:** distributed throttling, Kafka training pipeline, trainer service, model registry, and other Phase 5 items called out above.
+
+**Optional manual two-instance check:** start Redis (`docker compose up -d` using repo-root `docker-compose.yml` if you use it), run two JVMs (e.g. two terminals with `mvn -pl ai-sentinel-demo spring-boot:run` on different `server.port` values) with the same `spring.data.redis.*` and `ai.sentinel.distributed.*` settings, trigger `QUARANTINE` on instance A, then call an endpoint on instance B with the same identity and confirm cluster quarantine merges into enforcement when read path is enabled.
+
 ---
 
 ## Contributing
