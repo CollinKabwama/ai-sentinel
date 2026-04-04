@@ -5,7 +5,9 @@ import io.aisentinel.autoconfigure.distributed.DistributedQuarantineStatus;
 import io.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
 import io.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineReader;
+import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
 import io.aisentinel.distributed.quarantine.NoopClusterQuarantineReader;
+import io.aisentinel.distributed.quarantine.NoopClusterQuarantineWriter;
 import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.scoring.CompositeScorer;
 import io.aisentinel.core.scoring.IsolationForestScorer;
@@ -28,6 +30,7 @@ public class SentinelActuatorEndpoint {
     private final CompositeScorer compositeScorer;
     private final DistributedQuarantineStatus distributedQuarantineStatus;
     private final ClusterQuarantineReader clusterQuarantineReader;
+    private final ClusterQuarantineWriter clusterQuarantineWriter;
 
     public SentinelActuatorEndpoint(SentinelProperties props,
                                     CompositeEnforcementHandler enforcementHandlerImpl,
@@ -36,7 +39,8 @@ public class SentinelActuatorEndpoint {
                                     MicrometerSentinelMetrics micrometerSentinelMetrics,
                                     CompositeScorer compositeScorer,
                                     DistributedQuarantineStatus distributedQuarantineStatus,
-                                    ClusterQuarantineReader clusterQuarantineReader) {
+                                    ClusterQuarantineReader clusterQuarantineReader,
+                                    ClusterQuarantineWriter clusterQuarantineWriter) {
         this.props = props;
         this.enforcementHandlerImpl = enforcementHandlerImpl;
         this.isolationForestScorer = isolationForestScorer;
@@ -45,6 +49,7 @@ public class SentinelActuatorEndpoint {
         this.compositeScorer = compositeScorer;
         this.distributedQuarantineStatus = distributedQuarantineStatus;
         this.clusterQuarantineReader = clusterQuarantineReader;
+        this.clusterQuarantineWriter = clusterQuarantineWriter;
     }
 
     @ReadOperation
@@ -83,6 +88,7 @@ public class SentinelActuatorEndpoint {
         var d = props.getDistributed();
         map.put("distributedEnabled", d.isEnabled());
         map.put("distributedClusterQuarantineReadEnabled", d.isClusterQuarantineReadEnabled());
+        map.put("distributedClusterQuarantineWriteEnabled", d.isClusterQuarantineWriteEnabled());
         map.put("distributedRedisEnabled", d.getRedis().isEnabled());
         map.put("distributedRedisKeyPrefix", d.getRedis().getKeyPrefix());
         if (clusterQuarantineReader != null) {
@@ -90,11 +96,19 @@ public class SentinelActuatorEndpoint {
             map.put("clusterQuarantineReaderNoop",
                 clusterQuarantineReader == NoopClusterQuarantineReader.INSTANCE);
         }
+        if (clusterQuarantineWriter != null) {
+            map.put("clusterQuarantineWriterType", clusterQuarantineWriter.getClass().getSimpleName());
+            map.put("clusterQuarantineWriterNoop",
+                clusterQuarantineWriter == NoopClusterQuarantineWriter.INSTANCE);
+        }
         if (distributedQuarantineStatus != null) {
             Map<String, Object> dq = new LinkedHashMap<>();
             dq.put("redisReaderDegraded", distributedQuarantineStatus.isRedisReaderDegraded());
             dq.put("lastRedisErrorTimeMillis", distributedQuarantineStatus.getLastRedisErrorTimeMillis());
             dq.put("lastRedisErrorSummary", distributedQuarantineStatus.getLastRedisErrorSummary());
+            dq.put("redisWriterDegraded", distributedQuarantineStatus.isRedisWriterDegraded());
+            dq.put("lastWriteErrorTimeMillis", distributedQuarantineStatus.getLastWriteErrorTimeMillis());
+            dq.put("lastWriteErrorSummary", distributedQuarantineStatus.getLastWriteErrorSummary());
             dq.put("approximateQuarantineCacheSize", distributedQuarantineStatus.getApproximateCacheSize());
             map.put("distributedQuarantine", dq);
         }

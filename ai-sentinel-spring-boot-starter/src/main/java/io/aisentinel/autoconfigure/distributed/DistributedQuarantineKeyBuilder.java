@@ -1,7 +1,7 @@
 package io.aisentinel.autoconfigure.distributed;
 
 /**
- * Redis key layout for shared quarantine visibility (read path).
+ * Redis key layout for shared quarantine visibility (read and write paths).
  * <p>
  * Format: {@code {keyPrefix}:{tenant}:q:{enforcementKey}}
  * <ul>

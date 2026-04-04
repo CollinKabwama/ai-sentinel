@@ -94,6 +94,11 @@ public class SentinelProperties {
          * local quarantine with {@link io.aisentinel.distributed.quarantine.ClusterQuarantineReader} (Redis or noop).
          */
         private boolean clusterQuarantineReadEnabled = false;
+        /**
+         * When true, local {@link io.aisentinel.core.enforcement.CompositeEnforcementHandler} QUARANTINE actions
+         * also publish to Redis (requires {@link #enabled}, {@link Redis#enabled}, {@code StringRedisTemplate}).
+         */
+        private boolean clusterQuarantineWriteEnabled = false;
         /** Redis cluster-quarantine client settings (no effect unless {@link #isEnabled()} and redis.enabled). */
         private Redis redis = new Redis();
         /** Bounded local cache for Redis quarantine GETs (request-path protection). */
@@ -115,6 +120,11 @@ public class SentinelProperties {
              * the client does not hold work longer than this; see README (distributed Redis / timeouts).
              */
             private Duration lookupTimeout = Duration.ofMillis(50);
+            /**
+             * Max concurrent async cluster quarantine Redis SETs per JVM; additional {@code publishQuarantine} calls
+             * are dropped (metric) without blocking the caller. Bounded to a sane range when bound from config.
+             */
+            private int maxInFlightQuarantineWrites = 256;
         }
 
         @Data

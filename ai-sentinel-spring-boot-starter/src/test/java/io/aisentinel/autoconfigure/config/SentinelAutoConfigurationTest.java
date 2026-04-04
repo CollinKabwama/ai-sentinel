@@ -3,12 +3,14 @@ package io.aisentinel.autoconfigure.config;
 import io.aisentinel.autoconfigure.distributed.DistributedQuarantineAutoConfiguration;
 import io.aisentinel.autoconfigure.distributed.DistributedQuarantineStatusAutoConfiguration;
 import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineReader;
+import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineWriter;
 import io.aisentinel.autoconfigure.web.SentinelFilter;
 import io.aisentinel.core.model.RequestFeatures;
 import io.aisentinel.core.policy.EnforcementAction;
 import io.aisentinel.core.policy.PolicyEngine;
 import io.aisentinel.core.policy.ThresholdPolicyEngine;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineReader;
+import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
 import io.aisentinel.distributed.quarantine.NoopClusterQuarantineReader;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -128,6 +130,37 @@ class SentinelAutoConfigurationTest {
         contextRunner
             .withPropertyValues("ai.sentinel.enabled=true", "ai.sentinel.distributed.cluster-quarantine-read-enabled=false")
             .run(ctx -> assertThat(ctx.getBeansOfType(ClusterQuarantineReader.class)).isEmpty());
+    }
+
+    @Test
+    void registersRedisClusterQuarantineWriterWhenWriteFlagsAndTemplate() {
+        new WebApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(
+                DistributedQuarantineStatusAutoConfiguration.class,
+                DistributedQuarantineAutoConfiguration.class,
+                SentinelAutoConfiguration.class))
+            .withUserConfiguration(RedisTemplateStub.class)
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.distributed.enabled=true",
+                "ai.sentinel.distributed.cluster-quarantine-read-enabled=false",
+                "ai.sentinel.distributed.cluster-quarantine-write-enabled=true",
+                "ai.sentinel.distributed.redis.enabled=true")
+            .run(ctx -> {
+                assertThat(ctx).hasSingleBean(ClusterQuarantineWriter.class);
+                assertThat(ctx.getBean(ClusterQuarantineWriter.class)).isInstanceOf(RedisClusterQuarantineWriter.class);
+            });
+    }
+
+    @Test
+    void noClusterQuarantineWriterBeanWhenWriteDisabled() {
+        contextRunner
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.distributed.enabled=true",
+                "ai.sentinel.distributed.cluster-quarantine-write-enabled=false",
+                "ai.sentinel.distributed.redis.enabled=true")
+            .run(ctx -> assertThat(ctx.getBeansOfType(ClusterQuarantineWriter.class)).isEmpty());
     }
 
     @Configuration

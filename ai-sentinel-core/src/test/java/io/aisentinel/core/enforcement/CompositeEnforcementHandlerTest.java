@@ -2,7 +2,7 @@ package io.aisentinel.core.enforcement;
 
 import io.aisentinel.core.policy.EnforcementAction;
 import io.aisentinel.core.telemetry.TelemetryEmitter;
-import io.aisentinel.core.telemetry.TelemetryEvent;
+import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,6 +13,9 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 class CompositeEnforcementHandlerTest {
@@ -87,5 +90,28 @@ class CompositeEnforcementHandlerTest {
         assertThat(handler.isQuarantined("h1", "/api")).isFalse();
         handler.apply(EnforcementAction.QUARANTINE, request, response, "h1", "/api");
         assertThat(handler.isQuarantined("h1", "/api")).isTrue();
+    }
+
+    @Test
+    void localQuarantineStillAppliedWhenClusterWriterThrows() throws Exception {
+        ClusterQuarantineWriter writer = mock(ClusterQuarantineWriter.class);
+        doThrow(new RuntimeException("redis down")).when(writer).publishQuarantine(anyString(), anyString(), anyLong());
+        handler = new CompositeEnforcementHandler(429, 60_000L, 5.0, telemetry, 100, 60_000L,
+            EnforcementScope.IDENTITY_ENDPOINT, writer, "tenant-a");
+        when(response.getWriter()).thenReturn(new java.io.PrintWriter(java.io.OutputStream.nullOutputStream()));
+        boolean allowed = handler.apply(EnforcementAction.QUARANTINE, request, response, "id1", "/api");
+        assertThat(allowed).isFalse();
+        assertThat(handler.isQuarantined("id1", "/api")).isTrue();
+        verify(writer).publishQuarantine(eq("tenant-a"), eq("id1|/api"), anyLong());
+    }
+
+    @Test
+    void clusterWriterReceivesIdentityGlobalKey() throws Exception {
+        ClusterQuarantineWriter writer = mock(ClusterQuarantineWriter.class);
+        handler = new CompositeEnforcementHandler(429, 60_000L, 5.0, telemetry, 100, 60_000L,
+            EnforcementScope.IDENTITY_GLOBAL, writer, "t");
+        when(response.getWriter()).thenReturn(new java.io.PrintWriter(java.io.OutputStream.nullOutputStream()));
+        handler.apply(EnforcementAction.QUARANTINE, request, response, "gh", "/x");
+        verify(writer).publishQuarantine(eq("t"), eq("gh"), anyLong());
     }
 }

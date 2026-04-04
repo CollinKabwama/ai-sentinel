@@ -6,8 +6,11 @@ import io.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import io.aisentinel.core.enforcement.EnforcementHandler;
 import io.aisentinel.core.enforcement.MonitorOnlyEnforcementHandler;
 import io.aisentinel.distributed.enforcement.ClusterAwareEnforcementHandler;
+import io.aisentinel.autoconfigure.distributed.OnDistributedQuarantineStatusNeededCondition;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineReader;
+import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
 import io.aisentinel.distributed.quarantine.NoopClusterQuarantineReader;
+import io.aisentinel.distributed.quarantine.NoopClusterQuarantineWriter;
 import io.aisentinel.core.feature.DefaultFeatureExtractor;
 import io.aisentinel.core.feature.FeatureExtractor;
 import io.aisentinel.core.policy.PolicyEngine;
@@ -37,6 +40,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.context.annotation.Conditional;
 
 @Slf4j
 @AutoConfiguration
@@ -202,9 +206,14 @@ public class SentinelAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(name = "enforcementHandlerImpl")
-    public CompositeEnforcementHandler enforcementHandlerImpl(TelemetryEmitter telemetry, SentinelProperties props) {
+    public CompositeEnforcementHandler enforcementHandlerImpl(TelemetryEmitter telemetry, SentinelProperties props,
+                                                               ObjectProvider<ClusterQuarantineWriter> clusterQuarantineWriterProvider) {
         int maxKeys = props.getInternalMapMaxKeys() > 0 ? props.getInternalMapMaxKeys() : 100_000;
         long throttleTtlMs = props.getInternalMapTtl() != null ? props.getInternalMapTtl().toMillis() : 300_000L;
+        ClusterQuarantineWriter writer = clusterQuarantineWriterProvider.getIfAvailable();
+        if (writer == null) {
+            writer = NoopClusterQuarantineWriter.INSTANCE;
+        }
         return new CompositeEnforcementHandler(
             props.getBlockStatusCode(),
             props.getQuarantineDurationMs(),
@@ -212,7 +221,9 @@ public class SentinelAutoConfiguration {
             telemetry,
             maxKeys,
             throttleTtlMs,
-            props.getEnforcementScope()
+            props.getEnforcementScope(),
+            writer,
+            props.getDistributed().getTenantId()
         );
     }
 
@@ -224,34 +235,58 @@ public class SentinelAutoConfiguration {
     }
 
     /**
-     * Runs after the context is ready so {@link ClusterQuarantineReader} (Redis or noop) is resolved.
+     * Runs after the context is ready so distributed quarantine reader/writer beans are resolved.
      */
     @Bean
-    @ConditionalOnProperty(name = "ai.sentinel.distributed.cluster-quarantine-read-enabled", havingValue = "true")
+    @Conditional(OnDistributedQuarantineStatusNeededCondition.class)
     public ApplicationRunner distributedQuarantineStartupRunner(SentinelProperties props,
-                                                                ObjectProvider<ClusterQuarantineReader> readerProvider) {
+                                                                ObjectProvider<ClusterQuarantineReader> readerProvider,
+                                                                ObjectProvider<ClusterQuarantineWriter> writerProvider) {
         return args -> {
             var d = props.getDistributed();
-            var reader = readerProvider.getIfAvailable();
-            String readerKind = reader == null
-                ? "none"
-                : (reader == NoopClusterQuarantineReader.INSTANCE ? "noop" : reader.getClass().getSimpleName());
-            log.info(
-                "AI-Sentinel distributed quarantine read: distributed.enabled={}, clusterQuarantineRead=true, "
-                    + "redis.enabled={}, reader={}, cache.enabled={}, tenantId={}",
-                d.isEnabled(),
-                d.getRedis().isEnabled(),
-                readerKind,
-                d.getCache().isEnabled(),
-                d.getTenantId() != null && !d.getTenantId().isBlank() ? d.getTenantId() : "default");
+            String tenant = d.getTenantId() != null && !d.getTenantId().isBlank() ? d.getTenantId() : "default";
+            if (d.isClusterQuarantineReadEnabled()) {
+                var reader = readerProvider.getIfAvailable();
+                String readerKind = reader == null
+                    ? "none"
+                    : (reader == NoopClusterQuarantineReader.INSTANCE ? "noop" : reader.getClass().getSimpleName());
+                log.info(
+                    "AI-Sentinel distributed quarantine read: distributed.enabled={}, clusterQuarantineRead=true, "
+                        + "redis.enabled={}, reader={}, cache.enabled={}, tenantId={}",
+                    d.isEnabled(),
+                    d.getRedis().isEnabled(),
+                    readerKind,
+                    d.getCache().isEnabled(),
+                    tenant);
+            }
+            if (d.isClusterQuarantineWriteEnabled()) {
+                var w = writerProvider.getIfAvailable();
+                String writerKind = w == null
+                    ? "none"
+                    : (w == NoopClusterQuarantineWriter.INSTANCE ? "noop" : w.getClass().getSimpleName());
+                log.info(
+                    "AI-Sentinel distributed quarantine write: distributed.enabled={}, clusterQuarantineWrite=true, "
+                        + "redis.enabled={}, writer={}, tenantId={}",
+                    d.isEnabled(),
+                    d.getRedis().isEnabled(),
+                    writerKind,
+                    tenant);
+            }
         };
     }
 
     @Bean
     @ConditionalOnBean({DistributedQuarantineStatus.class, MeterRegistry.class})
-    public MeterBinder distributedQuarantineDegradedGauge(DistributedQuarantineStatus status) {
+    public MeterBinder distributedQuarantineReaderDegradedGauge(DistributedQuarantineStatus status) {
         return registry -> registry.gauge("aisentinel.distributed.quarantine.degraded", status,
             s -> s.isRedisReaderDegraded() ? 1.0 : 0.0);
+    }
+
+    @Bean
+    @ConditionalOnBean({DistributedQuarantineStatus.class, MeterRegistry.class})
+    public MeterBinder distributedQuarantineWriterDegradedGauge(DistributedQuarantineStatus status) {
+        return registry -> registry.gauge("aisentinel.distributed.quarantine.writer.degraded", status,
+            s -> s.isRedisWriterDegraded() ? 1.0 : 0.0);
     }
 
     @Bean

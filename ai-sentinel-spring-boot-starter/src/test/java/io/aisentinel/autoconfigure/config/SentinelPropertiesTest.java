@@ -25,6 +25,7 @@ class SentinelPropertiesTest {
             assertThat(props.getBlockStatusCode()).isEqualTo(429);
             assertThat(props.getBaselineTtl()).isEqualTo(Duration.ofMinutes(5));
             assertThat(props.getIsolationForest().isEnabled()).isFalse();
+            assertThat(props.getDistributed().isClusterQuarantineWriteEnabled()).isFalse();
         });
     }
 
@@ -35,7 +36,8 @@ class SentinelPropertiesTest {
                 "ai.sentinel.enabled=false",
                 "ai.sentinel.mode=MONITOR",
                 "ai.sentinel.block-status-code=403",
-                "ai.sentinel.isolation-forest.enabled=true"
+                "ai.sentinel.isolation-forest.enabled=true",
+                "ai.sentinel.distributed.cluster-quarantine-write-enabled=true"
             )
             .run(context -> {
                 SentinelProperties props = context.getBean(SentinelProperties.class);
@@ -43,6 +45,7 @@ class SentinelPropertiesTest {
                 assertThat(props.getMode()).isEqualTo(SentinelProperties.Mode.MONITOR);
                 assertThat(props.getBlockStatusCode()).isEqualTo(403);
                 assertThat(props.getIsolationForest().isEnabled()).isTrue();
+                assertThat(props.getDistributed().isClusterQuarantineWriteEnabled()).isTrue();
             });
     }
 }

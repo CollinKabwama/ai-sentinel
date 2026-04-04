@@ -4,7 +4,9 @@ import io.aisentinel.autoconfigure.config.SentinelAutoConfiguration;
 import io.aisentinel.autoconfigure.config.SentinelProperties;
 import io.aisentinel.core.metrics.SentinelMetrics;
 import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineReader;
+import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineWriter;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineReader;
+import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -14,7 +16,7 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 /**
- * Registers {@link RedisClusterQuarantineReader} when Redis and Sentinel distributed flags are on.
+ * Registers Redis-backed {@link ClusterQuarantineReader} and {@link ClusterQuarantineWriter} when flags match.
  */
 @AutoConfiguration(
     before = SentinelAutoConfiguration.class,
@@ -22,16 +24,28 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 )
 @ConditionalOnClass(StringRedisTemplate.class)
 @ConditionalOnBean(StringRedisTemplate.class)
-@Conditional(OnDistributedRedisQuarantineEnabledCondition.class)
+@Conditional(OnDistributedRedisQuarantineClientEnabledCondition.class)
 public class DistributedQuarantineAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean(ClusterQuarantineReader.class)
+    @Conditional(OnDistributedRedisQuarantineEnabledCondition.class)
     public ClusterQuarantineReader redisClusterQuarantineReader(StringRedisTemplate stringRedisTemplate,
                                                                  SentinelProperties sentinelProperties,
                                                                  SentinelMetrics sentinelMetrics,
                                                                  DistributedQuarantineStatus distributedQuarantineStatus) {
         return new RedisClusterQuarantineReader(stringRedisTemplate, sentinelProperties, sentinelMetrics,
+            distributedQuarantineStatus);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ClusterQuarantineWriter.class)
+    @Conditional(OnDistributedRedisQuarantineWriteEnabledCondition.class)
+    public ClusterQuarantineWriter redisClusterQuarantineWriter(StringRedisTemplate stringRedisTemplate,
+                                                                  SentinelProperties sentinelProperties,
+                                                                  SentinelMetrics sentinelMetrics,
+                                                                  DistributedQuarantineStatus distributedQuarantineStatus) {
+        return new RedisClusterQuarantineWriter(stringRedisTemplate, sentinelProperties, sentinelMetrics,
             distributedQuarantineStatus);
     }
 }
