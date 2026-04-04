@@ -193,4 +193,4 @@ Trusted entries may be literal IPs or **CIDR** prefixes.
 
 ## 14. Historical / roadmap note
 
-Earlier planning documents referred to Smile-based Isolation Forest, strict per-stage timeouts, and a dashboard module. **Those are not the current implementation.** For up-to-date delivery status and deferred audit items, use **`IMPLEMENTATION_STATUS.md`**. **Stage 5** work is expected to focus on shared state and cluster-safe enforcement—not on redesigning this single-node pipeline.
+Earlier planning documents referred to Smile-based Isolation Forest, strict per-stage timeouts, and a dashboard module. **Those are not the current implementation.** For Phase 5 distributed behavior, Redis optional integration, and roadmap detail, see **[`PHASE5_DISTRIBUTED_DESIGN.md`](PHASE5_DISTRIBUTED_DESIGN.md)** and the root [`README.md`](README.md). **Stage 5** extends shared quarantine visibility and related coordination—not a redesign of the local scoring and policy pipeline.
