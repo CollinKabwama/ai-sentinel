@@ -1,2 +1,4 @@
+io.aisentinel.autoconfigure.distributed.DistributedQuarantineStatusAutoConfiguration
+io.aisentinel.autoconfigure.distributed.DistributedQuarantineAutoConfiguration
 io.aisentinel.autoconfigure.config.SentinelAutoConfiguration
 io.aisentinel.autoconfigure.actuator.SentinelEndpointAutoConfiguration

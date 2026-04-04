@@ -47,6 +47,8 @@ public class SentinelProperties {
 
     private IsolationForest isolationForest = new IsolationForest();
     private Telemetry telemetry = new Telemetry();
+    /** Phase 5 — distributed coordination (disabled by default; see PHASE5_DISTRIBUTED_DESIGN.md). */
+    private Distributed distributed = new Distributed();
 
     @Data
     public static class Telemetry {
@@ -77,5 +79,60 @@ public class SentinelProperties {
         private int maxDepth = 10;
         /** When a model is loaded, training buffer rejects samples with IF score above this (anti-poisoning). Default 0.7 */
         private double trainingRejectionScoreThreshold = 0.7;
+    }
+
+    @Data
+    public static class Distributed {
+        /** Master switch for Phase 5 integration beans (Redis/Kafka wiring comes in later steps). */
+        private boolean enabled = false;
+        /** Logical tenant segment in shared Redis keys (see PHASE5_DISTRIBUTED_DESIGN.md). */
+        private String tenantId = "default";
+        /** Kafka topic for {@link io.aisentinel.distributed.training.TrainingCandidateRecord} export. */
+        private String trainingCandidatesTopic = "aisentinel.training.candidates";
+        /**
+         * When true, {@link io.aisentinel.distributed.enforcement.ClusterAwareEnforcementHandler} merges
+         * local quarantine with {@link io.aisentinel.distributed.quarantine.ClusterQuarantineReader} (Redis or noop).
+         */
+        private boolean clusterQuarantineReadEnabled = false;
+        /** Redis cluster-quarantine client settings (no effect unless {@link #isEnabled()} and redis.enabled). */
+        private Redis redis = new Redis();
+        /** Bounded local cache for Redis quarantine GETs (request-path protection). */
+        private Cache cache = new Cache();
+
+        @Data
+        public static class Redis {
+            /**
+             * When true and {@link Distributed#enabled} and {@link Distributed#clusterQuarantineReadEnabled}
+             * and a {@link org.springframework.data.redis.core.StringRedisTemplate} bean exists,
+             * {@link io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineReader} is registered.
+             */
+            private boolean enabled = false;
+            /** First segment of Redis keys; full key: {@code {keyPrefix}:{tenant}:q:{enforcementKey}}. */
+            private String keyPrefix = "aisentinel";
+            /**
+             * Upper bound for how long the caller waits on a cluster quarantine Redis GET (async future).
+             * Configure {@code spring.data.redis.timeout} (Lettuce command timeout) to a similar or lower value so
+             * the client does not hold work longer than this; see PHASE5_DISTRIBUTED_DESIGN.md (timeouts).
+             */
+            private Duration lookupTimeout = Duration.ofMillis(50);
+        }
+
+        @Data
+        public static class Cache {
+            /**
+             * When false, {@link io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineReader}
+             * skips the local cache (more Redis round-trips within the lookup timeout).
+             */
+            private boolean enabled = true;
+            /** Wall-clock TTL for positive cache entries (parsed until-millis from Redis). */
+            private Duration ttl = Duration.ofSeconds(2);
+            /**
+             * TTL for negative (not quarantined / miss) cache lines. If unset, derived as
+             * {@code max(100ms, min(positiveTtl/2, 2s))}.
+             */
+            private Duration negativeTtl;
+            /** Max cached enforcement keys; evicts when exceeded. */
+            private int maxEntries = 10_000;
+        }
     }
 }
