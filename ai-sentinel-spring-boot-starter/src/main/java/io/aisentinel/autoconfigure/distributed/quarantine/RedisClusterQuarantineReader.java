@@ -26,7 +26,7 @@ import java.util.concurrent.TimeoutException;
  * <strong>Timeouts:</strong> The caller waits at most {@link SentinelProperties.Distributed.Redis#getLookupTimeout()} on
  * a {@link CompletableFuture}. That does not cancel in-flight Lettuce I/O; configure
  * {@code spring.data.redis.timeout} (and client resources) so network/command timeouts align with this budget.
- * See {@code PHASE5_DISTRIBUTED_DESIGN.md} (timeouts section).
+ * See README (distributed quarantine Redis timeouts).
  */
 @Slf4j
 public final class RedisClusterQuarantineReader implements ClusterQuarantineReader, DisposableBean {

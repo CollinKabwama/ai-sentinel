@@ -47,7 +47,7 @@ public class SentinelProperties {
 
     private IsolationForest isolationForest = new IsolationForest();
     private Telemetry telemetry = new Telemetry();
-    /** Phase 5 — distributed coordination (disabled by default; see PHASE5_DISTRIBUTED_DESIGN.md). */
+    /** Phase 5 — distributed coordination (disabled by default; see README). */
     private Distributed distributed = new Distributed();
 
     @Data
@@ -85,7 +85,7 @@ public class SentinelProperties {
     public static class Distributed {
         /** Master switch for Phase 5 integration beans (Redis/Kafka wiring comes in later steps). */
         private boolean enabled = false;
-        /** Logical tenant segment in shared Redis keys (see PHASE5_DISTRIBUTED_DESIGN.md). */
+        /** Logical tenant segment in shared Redis keys (see README distributed properties). */
         private String tenantId = "default";
         /** Kafka topic for {@link io.aisentinel.distributed.training.TrainingCandidateRecord} export. */
         private String trainingCandidatesTopic = "aisentinel.training.candidates";
@@ -112,7 +112,7 @@ public class SentinelProperties {
             /**
              * Upper bound for how long the caller waits on a cluster quarantine Redis GET (async future).
              * Configure {@code spring.data.redis.timeout} (Lettuce command timeout) to a similar or lower value so
-             * the client does not hold work longer than this; see PHASE5_DISTRIBUTED_DESIGN.md (timeouts).
+             * the client does not hold work longer than this; see README (distributed Redis / timeouts).
              */
             private Duration lookupTimeout = Duration.ofMillis(50);
         }
