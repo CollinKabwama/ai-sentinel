@@ -1,13 +1,19 @@
 package io.aisentinel.autoconfigure.config;
 
 import io.aisentinel.core.enforcement.EnforcementScope;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import lombok.Data;
+import org.hibernate.validator.constraints.time.DurationMin;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.validation.annotation.Validated;
 
 import java.time.Duration;
 import java.util.List;
 
 @Data
+@Validated
 @ConfigurationProperties(prefix = "ai.sentinel")
 public class SentinelProperties {
 
@@ -48,6 +54,7 @@ public class SentinelProperties {
     private IsolationForest isolationForest = new IsolationForest();
     private Telemetry telemetry = new Telemetry();
     /** Phase 5 — distributed coordination (disabled by default; see README). */
+    @Valid
     private Distributed distributed = new Distributed();
 
     @Data
@@ -82,6 +89,7 @@ public class SentinelProperties {
     }
 
     @Data
+    @Validated
     public static class Distributed {
         /** Master switch for Phase 5 integration beans (Redis/Kafka wiring comes in later steps). */
         private boolean enabled = false;
@@ -99,6 +107,35 @@ public class SentinelProperties {
          * also publish to Redis (requires {@link #enabled}, {@link Redis#enabled}, {@code StringRedisTemplate}).
          */
         private boolean clusterQuarantineWriteEnabled = false;
+        /**
+         * When true, THROTTLE enforcement consults a Redis-backed fixed-window counter per enforcement key so
+         * high-risk identities cannot bypass throttling by spreading requests across nodes (fail-open if Redis fails).
+         * Requires {@link #enabled}, {@link Redis#enabled}, and {@code StringRedisTemplate}.
+         */
+        private boolean clusterThrottleEnabled = false;
+        /**
+         * Wall-clock length of each cluster throttle window. Default 1s.
+         */
+        @DurationMin(millis = 100)
+        private Duration clusterThrottleWindow = Duration.ofSeconds(1);
+        /**
+         * Max requests allowed cluster-wide per enforcement key per window when {@link #clusterThrottleEnabled}.
+         */
+        @Min(1)
+        @Max(10_000_000)
+        private int clusterThrottleMaxRequestsPerWindow = 30;
+        /**
+         * Max concurrent Redis throttle script evaluations per JVM (semaphore). Additional THROTTLE-path checks
+         * fail-open. Clamped to {@code [1, 50000]} at runtime if outside range.
+         */
+        @Min(1)
+        @Max(50_000)
+        private int clusterThrottleMaxInFlight = 1024;
+        /**
+         * Max wait on the cluster throttle Redis future. When unset or non-positive, uses
+         * {@link Redis#getLookupTimeout()}.
+         */
+        private Duration clusterThrottleTimeout;
         /** Redis cluster-quarantine client settings (no effect unless {@link #isEnabled()} and redis.enabled). */
         private Redis redis = new Redis();
         /** Bounded local cache for Redis quarantine GETs (request-path protection). */

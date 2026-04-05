@@ -54,6 +54,14 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Counter distributedQuarantineWriteSchedulerRejected;
     private final Timer distributedQuarantineWrite;
 
+    private final Counter distributedThrottleEval;
+    private final Counter distributedThrottleAllow;
+    private final Counter distributedThrottleReject;
+    private final Counter distributedThrottleRedisTimeout;
+    private final Counter distributedThrottleRedisFailure;
+    private final Counter distributedThrottleExecutorRejected;
+    private final Timer distributedThrottleEvalTimer;
+
     public MicrometerSentinelMetrics(MeterRegistry registry) {
         this.scoreComposite = DistributionSummary.builder("aisentinel.score.composite")
             .description("Blended anomaly score after composite weighting")
@@ -132,6 +140,27 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
             .register(registry);
         this.distributedQuarantineWrite = Timer.builder("aisentinel.distributed.quarantine.write")
             .description("Redis SET for cluster quarantine (async worker)")
+            .publishPercentiles(0.5, 0.99)
+            .register(registry);
+
+        this.distributedThrottleEval = Counter.builder("aisentinel.distributed.throttle.evaluation")
+            .description("Cluster throttle Redis evaluations (THROTTLE path)")
+            .register(registry);
+        this.distributedThrottleAllow = Counter.builder("aisentinel.distributed.throttle.allow")
+            .description("Cluster throttle under window cap")
+            .register(registry);
+        this.distributedThrottleReject = Counter.builder("aisentinel.distributed.throttle.reject")
+            .description("Cluster throttle window exhausted")
+            .register(registry);
+        this.distributedThrottleRedisTimeout = Counter.builder("aisentinel.distributed.throttle.redis.timeout")
+            .register(registry);
+        this.distributedThrottleRedisFailure = Counter.builder("aisentinel.distributed.throttle.redis.failure")
+            .register(registry);
+        this.distributedThrottleExecutorRejected = Counter.builder("aisentinel.distributed.throttle.executor.rejected")
+            .description("Semaphore saturated or executor rejected async throttle work (fail-open path)")
+            .register(registry);
+        this.distributedThrottleEvalTimer = Timer.builder("aisentinel.distributed.throttle.redis.eval")
+            .description("Redis Lua eval for cluster throttle")
             .publishPercentiles(0.5, 0.99)
             .register(registry);
     }
@@ -294,6 +323,43 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         distributedQuarantineWriteSchedulerRejected.increment();
     }
 
+    @Override
+    public void recordDistributedThrottleEvaluation() {
+        distributedThrottleEval.increment();
+    }
+
+    @Override
+    public void recordDistributedThrottleClusterAllow() {
+        distributedThrottleAllow.increment();
+    }
+
+    @Override
+    public void recordDistributedThrottleClusterReject() {
+        distributedThrottleReject.increment();
+    }
+
+    @Override
+    public void recordDistributedThrottleRedisTimeout() {
+        distributedThrottleRedisTimeout.increment();
+    }
+
+    @Override
+    public void recordDistributedThrottleRedisFailure() {
+        distributedThrottleRedisFailure.increment();
+    }
+
+    @Override
+    public void recordDistributedThrottleExecutorRejected() {
+        distributedThrottleExecutorRejected.increment();
+    }
+
+    @Override
+    public void recordDistributedThrottleEvalDurationNanos(long nanos) {
+        if (nanos >= 0) {
+            distributedThrottleEvalTimer.record(nanos, TimeUnit.NANOSECONDS);
+        }
+    }
+
     public Map<String, Object> scoreSummaryForActuator() {
         Map<String, Object> m = new LinkedHashMap<>();
         putSummary(m, "composite", scoreComposite);
@@ -364,6 +430,42 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
 
     public long getDistributedQuarantineWriteSchedulerRejectedCount() {
         return (long) distributedQuarantineWriteSchedulerRejected.count();
+    }
+
+    public long getDistributedThrottleEvaluationCount() {
+        return (long) distributedThrottleEval.count();
+    }
+
+    public long getDistributedThrottleAllowCount() {
+        return (long) distributedThrottleAllow.count();
+    }
+
+    public long getDistributedThrottleRejectCount() {
+        return (long) distributedThrottleReject.count();
+    }
+
+    public long getDistributedThrottleRedisTimeoutCount() {
+        return (long) distributedThrottleRedisTimeout.count();
+    }
+
+    public long getDistributedThrottleRedisFailureCount() {
+        return (long) distributedThrottleRedisFailure.count();
+    }
+
+    public long getDistributedThrottleExecutorRejectedCount() {
+        return (long) distributedThrottleExecutorRejected.count();
+    }
+
+    public Map<String, Object> distributedThrottleSummaryForActuator() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("throttleEvaluationCount", getDistributedThrottleEvaluationCount());
+        m.put("throttleClusterAllowCount", getDistributedThrottleAllowCount());
+        m.put("throttleClusterRejectCount", getDistributedThrottleRejectCount());
+        m.put("throttleRedisTimeoutCount", getDistributedThrottleRedisTimeoutCount());
+        m.put("throttleRedisFailureCount", getDistributedThrottleRedisFailureCount());
+        m.put("throttleExecutorRejectedCount", getDistributedThrottleExecutorRejectedCount());
+        putTimer(m, "throttleRedisEval", distributedThrottleEvalTimer);
+        return m;
     }
 
     public Map<String, Object> distributedSummaryForActuator() {

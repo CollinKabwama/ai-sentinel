@@ -5,11 +5,9 @@ import org.springframework.context.annotation.ConditionContext;
 import org.springframework.core.type.AnnotatedTypeMetadata;
 
 /**
- * True when distributed + Redis flags are on and at least one of cluster quarantine read, write, or
- * cluster throttle is enabled. Used to load {@link DistributedQuarantineAutoConfiguration} so Redis-backed
- * distributed beans can register.
+ * True when distributed mode, cluster throttle, and Redis are enabled.
  */
-public final class OnDistributedRedisQuarantineClientEnabledCondition implements Condition {
+public final class OnDistributedClusterThrottleEnabledCondition implements Condition {
 
     @Override
     public boolean matches(ConditionContext context, AnnotatedTypeMetadata metadata) {
@@ -19,9 +17,7 @@ public final class OnDistributedRedisQuarantineClientEnabledCondition implements
         }
         boolean dist = env.getProperty("ai.sentinel.distributed.enabled", Boolean.class, false);
         boolean redis = env.getProperty("ai.sentinel.distributed.redis.enabled", Boolean.class, false);
-        boolean read = env.getProperty("ai.sentinel.distributed.cluster-quarantine-read-enabled", Boolean.class, false);
-        boolean write = env.getProperty("ai.sentinel.distributed.cluster-quarantine-write-enabled", Boolean.class, false);
         boolean throttle = env.getProperty("ai.sentinel.distributed.cluster-throttle-enabled", Boolean.class, false);
-        return dist && redis && (read || write || throttle);
+        return dist && redis && throttle;
     }
 }

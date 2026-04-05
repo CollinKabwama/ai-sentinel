@@ -7,10 +7,14 @@ import io.aisentinel.core.enforcement.EnforcementHandler;
 import io.aisentinel.core.enforcement.MonitorOnlyEnforcementHandler;
 import io.aisentinel.distributed.enforcement.ClusterAwareEnforcementHandler;
 import io.aisentinel.autoconfigure.distributed.OnDistributedQuarantineStatusNeededCondition;
+import io.aisentinel.autoconfigure.distributed.DistributedThrottleStatus;
+import io.aisentinel.autoconfigure.distributed.OnDistributedClusterThrottleEnabledCondition;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineReader;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
 import io.aisentinel.distributed.quarantine.NoopClusterQuarantineReader;
 import io.aisentinel.distributed.quarantine.NoopClusterQuarantineWriter;
+import io.aisentinel.distributed.throttle.ClusterThrottleStore;
+import io.aisentinel.distributed.throttle.NoopClusterThrottleStore;
 import io.aisentinel.core.feature.DefaultFeatureExtractor;
 import io.aisentinel.core.feature.FeatureExtractor;
 import io.aisentinel.core.policy.PolicyEngine;
@@ -207,12 +211,17 @@ public class SentinelAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean(name = "enforcementHandlerImpl")
     public CompositeEnforcementHandler enforcementHandlerImpl(TelemetryEmitter telemetry, SentinelProperties props,
-                                                               ObjectProvider<ClusterQuarantineWriter> clusterQuarantineWriterProvider) {
+                                                               ObjectProvider<ClusterQuarantineWriter> clusterQuarantineWriterProvider,
+                                                               ObjectProvider<ClusterThrottleStore> clusterThrottleStoreProvider) {
         int maxKeys = props.getInternalMapMaxKeys() > 0 ? props.getInternalMapMaxKeys() : 100_000;
         long throttleTtlMs = props.getInternalMapTtl() != null ? props.getInternalMapTtl().toMillis() : 300_000L;
         ClusterQuarantineWriter writer = clusterQuarantineWriterProvider.getIfAvailable();
         if (writer == null) {
             writer = NoopClusterQuarantineWriter.INSTANCE;
+        }
+        ClusterThrottleStore throttleStore = clusterThrottleStoreProvider.getIfAvailable();
+        if (throttleStore == null) {
+            throttleStore = NoopClusterThrottleStore.INSTANCE;
         }
         return new CompositeEnforcementHandler(
             props.getBlockStatusCode(),
@@ -223,8 +232,15 @@ public class SentinelAutoConfiguration {
             throttleTtlMs,
             props.getEnforcementScope(),
             writer,
+            throttleStore,
             props.getDistributed().getTenantId()
         );
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ClusterThrottleStore.class)
+    public ClusterThrottleStore clusterThrottleStoreNoop() {
+        return NoopClusterThrottleStore.INSTANCE;
     }
 
     @Bean
@@ -287,6 +303,32 @@ public class SentinelAutoConfiguration {
     public MeterBinder distributedQuarantineWriterDegradedGauge(DistributedQuarantineStatus status) {
         return registry -> registry.gauge("aisentinel.distributed.quarantine.writer.degraded", status,
             s -> s.isRedisWriterDegraded() ? 1.0 : 0.0);
+    }
+
+    @Bean
+    @ConditionalOnBean({DistributedThrottleStatus.class, MeterRegistry.class})
+    public MeterBinder distributedThrottleDegradedGauge(DistributedThrottleStatus status) {
+        return registry -> registry.gauge("aisentinel.distributed.throttle.degraded", status,
+            s -> s.isRedisThrottleDegraded() ? 1.0 : 0.0);
+    }
+
+    @Bean
+    @Conditional(OnDistributedClusterThrottleEnabledCondition.class)
+    public ApplicationRunner distributedClusterThrottleStartupRunner(SentinelProperties props,
+                                                                     ObjectProvider<ClusterThrottleStore> throttleProvider) {
+        return args -> {
+            var t = throttleProvider.getIfAvailable();
+            String kind = t == null
+                ? "none"
+                : (t == NoopClusterThrottleStore.INSTANCE ? "noop" : t.getClass().getSimpleName());
+            log.info(
+                "AI-Sentinel distributed cluster throttle: store={}, window={}, maxRequestsPerWindow={}, tenantId={}, lookupTimeout={}",
+                kind,
+                props.getDistributed().getClusterThrottleWindow(),
+                props.getDistributed().getClusterThrottleMaxRequestsPerWindow(),
+                props.getDistributed().getTenantId(),
+                props.getDistributed().getRedis().getLookupTimeout());
+        };
     }
 
     @Bean
