@@ -125,7 +125,8 @@ class SentinelActuatorEndpointTest {
         assertThat(info).containsKeys("isolationForestModelLoaded", "isolationForestBufferedSampleCount",
             "isolationForestModelVersion", "isolationForestLastRetrainTimeMillis",
             "isolationForestModelAgeMillis", "isolationForestRetrainFailureCount",
-            "isolationForestLastRetrainFailureTimeMillis");
+            "isolationForestLastRetrainFailureTimeMillis",
+            "modelRegistryArtifactVersion", "modelRegistryLastInstallTimeMillis", "modelRegistryInstallFailureCount");
         assertThat(info.get("isolationForestModelLoaded")).isEqualTo(false);
         assertThat(info.get("isolationForestBufferedSampleCount")).isEqualTo(0);
         assertThat(info.get("isolationForestModelAgeMillis")).isEqualTo(-1L);
