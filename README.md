@@ -141,6 +141,9 @@ ai:
 | `ai.sentinel.distributed.cache.enabled` | `true` | When `false`, skip the local cache (every lookup hits Redis within `lookup-timeout`) |
 | `ai.sentinel.distributed.cache.ttl` / `cache.max-entries` | `2s` / `10000` | Local bounded cache for Redis quarantine lookups |
 | `ai.sentinel.distributed.cache.negative-ttl` | _(unset)_ | TTL for negative (miss) cache lines; if unset, derived as `max(100ms, min(positiveTtl/2, 2s))` |
+| `ai.sentinel.model-registry.refresh-enabled` | `false` | Phase 5.6: background poll filesystem registry for newer IF artifacts (requires IF enabled + non-blank `filesystem-root`) |
+| `ai.sentinel.model-registry.filesystem-root` | _(empty)_ | Registry root shared with `ai-sentinel-trainer` output (`{root}/{tenant}/active.json` + `artifacts/`) |
+| `ai.sentinel.model-registry.poll-interval` | `5m` | Poll interval (validated 10s–24h) |
 
 Add `spring-boot-starter-data-redis` and Redis connection settings (`spring.data.redis.*`) when using cluster quarantine read/write and/or cluster throttle. Quarantine write propagation runs **asynchronously** after local quarantine is applied; Redis failures do not roll back local quarantine. Cluster throttle uses a short-budget async Redis **INCR** + **EXPIRE** script; on timeout or error the check **allows** the request (fail-open) and local per-node throttling still applies afterward. The **filter thread** waits up to the configured throttle/quarantine timeout for the Redis future, so **Redis round-trip latency is part of the request-path budget** for that check (async handoff only; no unbounded blocking beyond the timeout).
 
@@ -251,7 +254,7 @@ This milestone is **verification**, not new product features. Automated coverage
 
 Actuator **`distributedThrottle`** exposes `redisThrottleDegraded` and `lastRedisErrorSummary` with reason prefixes: `redis_timeout`, `redis_failure`, `inflight_exhausted`, `executor_rejected`.
 
-**Still deferred:** Trainer service, model registry, automated multi-JVM throttle validation (starter unit tests cover burst, timeout, recovery, and in-flight saturation).
+**Still deferred:** Automated multi-JVM throttle validation beyond current starter tests (burst, timeout, recovery, in-flight saturation).
 
 ### Phase 5.5 — Training candidate publishing
 
@@ -265,7 +268,23 @@ Actuator **`distributedThrottle`** exposes `redisThrottleDegraded` and `lastRedi
 
 **Metrics:** `aisentinel.distributed.training.publish.*` (attempt, success, failure, **failure.timeout**, **failure.serialization**, dropped, skipped_sample, skipped_gate, executor_rejected, unexpected_failure), **`aisentinel.distributed.training.publish.transport`** timer; gauge `aisentinel.distributed.training.publish.degraded` when status bean is present. Actuator: `distributedTrainingPublishMetrics`, `trainingPublish`, flags for publish/Kafka/topic.
 
-**Phase 5.6+ (not here):** Hardened Kafka reliability, trainer-side consumption contract, schema registry, replay tooling.
+### Phase 5.6 — Trainer + filesystem model registry / rollout
+
+**Trainer module (`ai-sentinel-trainer`):** Separate Spring Boot app that optionally consumes **Kafka** (`aisentinel.trainer.kafka.enabled=true`) from the same topic as Phase 5.5, parses **schema v2** JSON, applies **bounded** FIFO buffering and **admission** gates (tenant match, composite floor, optional IF-score anti-poisoning), trains an **Isolation Forest** with the same in-core trainer, and **atomically publishes** `{version}.meta.json` + `{version}.payload.bin` plus `active.json` under `aisentinel.trainer.registry.filesystem-root` / tenant. A train cycle **drains** the buffer into a snapshot so samples arriving **during** training remain in the buffer; failed cycles **restore** the drained snapshot. **Bounded** in-memory dedup of `eventId` (default 50_000; `aisentinel.trainer.dedup.max-recent-event-ids`, `0` disables) drops duplicates with metric **`aisentinel.trainer.candidates.duplicate_event_id`**; wrong-tenant records increment **`aisentinel.trainer.candidates.wrong_tenant`**. Dedup is **process-local** only (restarts and new trainer instances can see duplicates again).
+
+**Serving nodes (starter):** When `isolation-forest.enabled`, `model-registry.refresh-enabled`, and a non-empty **`model-registry.filesystem-root`** are set, `ModelRefreshScheduler` runs an **immediate** off-thread refresh tick at startup, then polls **`active.json`** on the configured interval, loads metadata + payload **off-request**, verifies **SHA-256**, decodes **`AIF1` binary codec**, and calls **`IsolationForestScorer.tryInstallFromRegistry`**. Failures keep the **last-known-good** volatile model; HTTP handling is unaffected.
+
+**Local retrain vs registry (single writer):** When registry refresh is fully wired (`refresh-enabled` + non-empty `filesystem-root`), **`IsolationForestRetrainScheduler` is not registered** so it cannot race `ModelRefreshScheduler`. For standalone nodes using only the in-process buffer, keep `model-registry.refresh-enabled=false` (or leave `filesystem-root` unset) so local retrain runs. Property **`ai.sentinel.isolation-forest.local-retrain-enabled`** (default `true`) disables local retrain when set to `false`. **Authoritative model source** on a node is either registry-installed or locally retrained, never both schedulers at once in a correctly configured deployment.
+
+**Artifact format:** Canonical **`io.aisentinel.model.ModelArtifactMetadata`** (artifact schema v1, type `isolation_forest_v1`) + binary **`IsolationForestModelCodec`** payload (max 16 MiB). Checksum over payload bytes is mandatory before swap.
+
+**Rollback:** Operators point `active.json` at a previous `modelVersion` whose files remain under `artifacts/`; the next poll installs that version if checksums match.
+
+**Observability:** Micrometer `aisentinel.model.registry.*` on nodes; gauge **`aisentinel.isolation_forest.model.source`** (ordinal: `0` = none, `1` = local retrain, `2` = registry); actuator **`modelRegistryMetrics`**, **`modelRegistryArtifactVersion`**, install failure counts. No request-path registry or trainer calls.
+
+**Registry retention:** The filesystem registry **does not** expire old artifact files automatically; operators should plan disk retention or external cleanup.
+
+**Not in this milestone:** Central inference service, Redis-backed registry (filesystem only), schema registry product, Phase 6 hyperparameter / research tooling.
 
 ---
 

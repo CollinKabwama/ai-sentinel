@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: aisentinel-trainer
+  kafka:
+    consumer:
+      auto-offset-reset: earliest
+      group-id: aisentinel-trainer
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:127.0.0.1:9092}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,metrics
+
+aisentinel:
+  trainer:
+    tenant-id: default
+    registry:
+      filesystem-root: ${MODEL_REGISTRY_ROOT:./var/aisentinel-model-registry}
+    buffer:
+      max-samples: 50000
+    train:
+      interval-millis: 300000
+      min-samples: 100
+    if-model:
+      num-trees: 100
+      max-depth: 10
+      random-seed: 42
+    admission:
+      min-composite-score: 0.0
+      max-isolation-forest-score: 0.7
+    kafka:
+      enabled: false
+      topic: aisentinel.training.candidates
+      group-id: aisentinel-trainer
