@@ -3,6 +3,7 @@ package io.aisentinel.core.enforcement;
 import io.aisentinel.core.policy.EnforcementAction;
 import io.aisentinel.core.telemetry.TelemetryEmitter;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
+import io.aisentinel.distributed.throttle.ClusterThrottleStore;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
@@ -113,5 +114,25 @@ class CompositeEnforcementHandlerTest {
         when(response.getWriter()).thenReturn(new java.io.PrintWriter(java.io.OutputStream.nullOutputStream()));
         handler.apply(EnforcementAction.QUARANTINE, request, response, "gh", "/x");
         verify(writer).publishQuarantine(eq("t"), eq("gh"), anyLong());
+    }
+
+    @Test
+    void clusterThrottleRejectsBeforeLocalTokenBucket() {
+        ClusterThrottleStore store = mock(ClusterThrottleStore.class);
+        when(store.tryAcquire(eq("default"), eq("id|/api"))).thenReturn(false);
+        handler = new CompositeEnforcementHandler(429, 60_000L, 1000.0, telemetry, 100, 60_000L,
+            EnforcementScope.IDENTITY_ENDPOINT, NoopClusterQuarantineWriter.INSTANCE, store, "default");
+        assertThat(handler.tryAcquireThrottlePermit("id", "/api")).isFalse();
+        verify(store).tryAcquire(eq("default"), eq("id|/api"));
+    }
+
+    @Test
+    void clusterThrottleWhenAllowsLocalThrottleStillApplies() {
+        ClusterThrottleStore store = mock(ClusterThrottleStore.class);
+        when(store.tryAcquire(anyString(), anyString())).thenReturn(true);
+        handler = new CompositeEnforcementHandler(429, 60_000L, 1.0, telemetry, 100, 60_000L,
+            EnforcementScope.IDENTITY_ENDPOINT, NoopClusterQuarantineWriter.INSTANCE, store, "t");
+        assertThat(handler.tryAcquireThrottlePermit("x", "/a")).isTrue();
+        assertThat(handler.tryAcquireThrottlePermit("x", "/a")).isFalse();
     }
 }
