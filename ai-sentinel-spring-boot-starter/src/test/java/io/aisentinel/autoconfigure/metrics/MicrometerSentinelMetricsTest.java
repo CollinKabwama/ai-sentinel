@@ -40,5 +40,9 @@ class MicrometerSentinelMetricsTest {
 
         assertThat(m.scoreSummaryForActuator()).containsKeys("composite", "statistical", "if");
         assertThat(m.latencySummaryForActuator()).containsKeys("pipeline", "scoring", "if");
+
+        m.recordDistributedThrottleExecutorRejected();
+        assertThat(registry.find("aisentinel.distributed.throttle.executor.rejected").counter().count()).isEqualTo(1.0);
+        assertThat(m.getDistributedThrottleExecutorRejectedCount()).isEqualTo(1L);
     }
 }

@@ -2,12 +2,15 @@ package io.aisentinel.autoconfigure.actuator;
 
 import io.aisentinel.autoconfigure.config.SentinelProperties;
 import io.aisentinel.autoconfigure.distributed.DistributedQuarantineStatus;
+import io.aisentinel.autoconfigure.distributed.DistributedThrottleStatus;
 import io.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
 import io.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineReader;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
 import io.aisentinel.distributed.quarantine.NoopClusterQuarantineReader;
 import io.aisentinel.distributed.quarantine.NoopClusterQuarantineWriter;
+import io.aisentinel.distributed.throttle.ClusterThrottleStore;
+import io.aisentinel.distributed.throttle.NoopClusterThrottleStore;
 import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.scoring.CompositeScorer;
 import io.aisentinel.core.scoring.IsolationForestScorer;
@@ -29,8 +32,10 @@ public class SentinelActuatorEndpoint {
     private final MicrometerSentinelMetrics micrometerSentinelMetrics;
     private final CompositeScorer compositeScorer;
     private final DistributedQuarantineStatus distributedQuarantineStatus;
+    private final DistributedThrottleStatus distributedThrottleStatus;
     private final ClusterQuarantineReader clusterQuarantineReader;
     private final ClusterQuarantineWriter clusterQuarantineWriter;
+    private final ClusterThrottleStore clusterThrottleStore;
 
     public SentinelActuatorEndpoint(SentinelProperties props,
                                     CompositeEnforcementHandler enforcementHandlerImpl,
@@ -39,8 +44,10 @@ public class SentinelActuatorEndpoint {
                                     MicrometerSentinelMetrics micrometerSentinelMetrics,
                                     CompositeScorer compositeScorer,
                                     DistributedQuarantineStatus distributedQuarantineStatus,
+                                    DistributedThrottleStatus distributedThrottleStatus,
                                     ClusterQuarantineReader clusterQuarantineReader,
-                                    ClusterQuarantineWriter clusterQuarantineWriter) {
+                                    ClusterQuarantineWriter clusterQuarantineWriter,
+                                    ClusterThrottleStore clusterThrottleStore) {
         this.props = props;
         this.enforcementHandlerImpl = enforcementHandlerImpl;
         this.isolationForestScorer = isolationForestScorer;
@@ -48,8 +55,10 @@ public class SentinelActuatorEndpoint {
         this.micrometerSentinelMetrics = micrometerSentinelMetrics;
         this.compositeScorer = compositeScorer;
         this.distributedQuarantineStatus = distributedQuarantineStatus;
+        this.distributedThrottleStatus = distributedThrottleStatus;
         this.clusterQuarantineReader = clusterQuarantineReader;
         this.clusterQuarantineWriter = clusterQuarantineWriter;
+        this.clusterThrottleStore = clusterThrottleStore;
     }
 
     @ReadOperation
@@ -84,11 +93,18 @@ public class SentinelActuatorEndpoint {
             map.put("modelRetrainSuccessCount", micrometerSentinelMetrics.getRetrainSuccessCount());
             map.put("modelRetrainFailureCount", micrometerSentinelMetrics.getRetrainFailureCount());
             map.put("distributedMetrics", micrometerSentinelMetrics.distributedSummaryForActuator());
+            map.put("distributedThrottleMetrics", micrometerSentinelMetrics.distributedThrottleSummaryForActuator());
         }
         var d = props.getDistributed();
         map.put("distributedEnabled", d.isEnabled());
         map.put("distributedClusterQuarantineReadEnabled", d.isClusterQuarantineReadEnabled());
         map.put("distributedClusterQuarantineWriteEnabled", d.isClusterQuarantineWriteEnabled());
+        map.put("distributedClusterThrottleEnabled", d.isClusterThrottleEnabled());
+        map.put("distributedClusterThrottleWindow", d.getClusterThrottleWindow() != null ? d.getClusterThrottleWindow().toMillis() : null);
+        map.put("distributedClusterThrottleMaxRequestsPerWindow", d.getClusterThrottleMaxRequestsPerWindow());
+        map.put("distributedClusterThrottleMaxInFlight", d.getClusterThrottleMaxInFlight());
+        map.put("distributedClusterThrottleTimeoutMillis",
+            d.getClusterThrottleTimeout() != null ? d.getClusterThrottleTimeout().toMillis() : null);
         map.put("distributedRedisEnabled", d.getRedis().isEnabled());
         map.put("distributedRedisKeyPrefix", d.getRedis().getKeyPrefix());
         if (clusterQuarantineReader != null) {
@@ -100,6 +116,17 @@ public class SentinelActuatorEndpoint {
             map.put("clusterQuarantineWriterType", clusterQuarantineWriter.getClass().getSimpleName());
             map.put("clusterQuarantineWriterNoop",
                 clusterQuarantineWriter == NoopClusterQuarantineWriter.INSTANCE);
+        }
+        if (clusterThrottleStore != null) {
+            map.put("clusterThrottleStoreType", clusterThrottleStore.getClass().getSimpleName());
+            map.put("clusterThrottleStoreNoop", clusterThrottleStore == NoopClusterThrottleStore.INSTANCE);
+        }
+        if (distributedThrottleStatus != null) {
+            Map<String, Object> dt = new LinkedHashMap<>();
+            dt.put("redisThrottleDegraded", distributedThrottleStatus.isRedisThrottleDegraded());
+            dt.put("lastRedisErrorTimeMillis", distributedThrottleStatus.getLastRedisErrorTimeMillis());
+            dt.put("lastRedisErrorSummary", distributedThrottleStatus.getLastRedisErrorSummary());
+            map.put("distributedThrottle", dt);
         }
         if (distributedQuarantineStatus != null) {
             Map<String, Object> dq = new LinkedHashMap<>();

@@ -2,8 +2,10 @@ package io.aisentinel.autoconfigure.config;
 
 import io.aisentinel.autoconfigure.distributed.DistributedQuarantineAutoConfiguration;
 import io.aisentinel.autoconfigure.distributed.DistributedQuarantineStatusAutoConfiguration;
+import io.aisentinel.autoconfigure.distributed.DistributedThrottleStatusAutoConfiguration;
 import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineReader;
 import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineWriter;
+import io.aisentinel.autoconfigure.distributed.throttle.RedisClusterThrottleStore;
 import io.aisentinel.autoconfigure.web.SentinelFilter;
 import io.aisentinel.core.model.RequestFeatures;
 import io.aisentinel.core.policy.EnforcementAction;
@@ -12,6 +14,7 @@ import io.aisentinel.core.policy.ThresholdPolicyEngine;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineReader;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
 import io.aisentinel.distributed.quarantine.NoopClusterQuarantineReader;
+import io.aisentinel.distributed.throttle.ClusterThrottleStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
@@ -19,6 +22,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
+import org.springframework.data.redis.core.script.RedisScript;
+
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -163,6 +169,27 @@ class SentinelAutoConfigurationTest {
             .run(ctx -> assertThat(ctx.getBeansOfType(ClusterQuarantineWriter.class)).isEmpty());
     }
 
+    @Test
+    void registersRedisClusterThrottleStoreWhenThrottleOnlyAndTemplate() {
+        new WebApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(
+                DistributedThrottleStatusAutoConfiguration.class,
+                DistributedQuarantineAutoConfiguration.class,
+                SentinelAutoConfiguration.class))
+            .withUserConfiguration(ClusterThrottleRedisTemplateStub.class)
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.distributed.enabled=true",
+                "ai.sentinel.distributed.cluster-quarantine-read-enabled=false",
+                "ai.sentinel.distributed.cluster-quarantine-write-enabled=false",
+                "ai.sentinel.distributed.cluster-throttle-enabled=true",
+                "ai.sentinel.distributed.redis.enabled=true")
+            .run(ctx -> {
+                assertThat(ctx).hasSingleBean(ClusterThrottleStore.class);
+                assertThat(ctx.getBean(ClusterThrottleStore.class)).isInstanceOf(RedisClusterThrottleStore.class);
+            });
+    }
+
     @Configuration
     static class RedisTemplateStub {
         @Bean
@@ -179,6 +206,24 @@ class SentinelAutoConfigurationTest {
                 @Override
                 public ValueOperations<String, String> opsForValue() {
                     return ops;
+                }
+            };
+        }
+    }
+
+    @Configuration
+    static class ClusterThrottleRedisTemplateStub {
+        @Bean
+        StringRedisTemplate stringRedisTemplate() {
+            return new StringRedisTemplate() {
+                @Override
+                public void afterPropertiesSet() {
+                }
+
+                @Override
+                @SuppressWarnings("unchecked")
+                public <T> T execute(RedisScript<T> script, List<String> keys, Object... args) {
+                    return (T) Long.valueOf(1L);
                 }
             };
         }
