@@ -3,6 +3,8 @@ package io.aisentinel.autoconfigure.actuator;
 import io.aisentinel.autoconfigure.config.SentinelProperties;
 import io.aisentinel.autoconfigure.distributed.DistributedQuarantineStatus;
 import io.aisentinel.autoconfigure.distributed.DistributedThrottleStatus;
+import io.aisentinel.autoconfigure.distributed.training.TrainingPublishStatus;
+import io.aisentinel.distributed.training.TrainingCandidatePublisher;
 import io.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineReader;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
@@ -44,7 +46,9 @@ public class SentinelEndpointAutoConfiguration {
                                                             ObjectProvider<DistributedThrottleStatus> distributedThrottleStatusProvider,
                                                             ObjectProvider<ClusterQuarantineReader> clusterQuarantineReaderProvider,
                                                             ObjectProvider<ClusterQuarantineWriter> clusterQuarantineWriterProvider,
-                                                            ObjectProvider<ClusterThrottleStore> clusterThrottleStoreProvider) {
+                                                            ObjectProvider<ClusterThrottleStore> clusterThrottleStoreProvider,
+                                                            ObjectProvider<TrainingPublishStatus> trainingPublishStatusProvider,
+                                                            ObjectProvider<TrainingCandidatePublisher> trainingCandidatePublisherProvider) {
         log.debug("Registering Sentinel actuator endpoint");
         return new SentinelActuatorEndpoint(props, enforcementHandlerImpl, isolationForestScorerProvider.getIfAvailable(),
             startupGraceProvider.getIfAvailable(), micrometerSentinelMetricsProvider.getIfAvailable(),
@@ -53,6 +57,8 @@ public class SentinelEndpointAutoConfiguration {
             distributedThrottleStatusProvider.getIfAvailable(),
             clusterQuarantineReaderProvider.getIfAvailable(),
             clusterQuarantineWriterProvider.getIfAvailable(),
-            clusterThrottleStoreProvider.getIfAvailable());
+            clusterThrottleStoreProvider.getIfAvailable(),
+            trainingPublishStatusProvider,
+            trainingCandidatePublisherProvider);
     }
 }
