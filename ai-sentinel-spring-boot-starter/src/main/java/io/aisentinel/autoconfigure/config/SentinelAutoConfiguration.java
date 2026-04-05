@@ -30,8 +30,15 @@ import io.aisentinel.core.telemetry.DefaultTelemetryEmitter;
 import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.telemetry.TelemetryConfig;
 import io.aisentinel.core.telemetry.TelemetryEmitter;
+import io.aisentinel.autoconfigure.distributed.training.AsyncTrainingCandidatePublisher;
+import io.aisentinel.autoconfigure.distributed.training.LoggingTrainingCandidateTransport;
+import io.aisentinel.autoconfigure.distributed.training.TrainingCandidateTransport;
+import io.aisentinel.autoconfigure.distributed.training.TrainingPublishStatus;
 import io.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
 import io.aisentinel.autoconfigure.web.SentinelFilter;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import io.aisentinel.distributed.training.NoopTrainingCandidatePublisher;
+import io.aisentinel.distributed.training.TrainingCandidatePublisher;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.binder.MeterBinder;
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +52,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Conditional;
-
 @Slf4j
 @AutoConfiguration
 @ConditionalOnWebApplication
@@ -313,6 +319,50 @@ public class SentinelAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnProperty(name = "ai.sentinel.distributed.training-publish-enabled", havingValue = "true")
+    public TrainingPublishStatus trainingPublishStatus() {
+        return new TrainingPublishStatus();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(TrainingCandidateTransport.class)
+    public TrainingCandidateTransport loggingTrainingCandidateTransport(ObjectProvider<ObjectMapper> objectMapperProvider) {
+        ObjectMapper om = objectMapperProvider.getIfAvailable();
+        if (om == null) {
+            om = new ObjectMapper();
+        }
+        return new LoggingTrainingCandidateTransport(om);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(TrainingCandidatePublisher.class)
+    public TrainingCandidatePublisher trainingCandidatePublisher(SentinelProperties props,
+                                                                   SentinelMetrics sentinelMetrics,
+                                                                   ObjectProvider<TrainingPublishStatus> trainingPublishStatusProvider,
+                                                                   ObjectProvider<TrainingCandidateTransport> trainingCandidateTransportProvider) {
+        if (!props.getDistributed().isTrainingPublishEnabled()) {
+            return NoopTrainingCandidatePublisher.INSTANCE;
+        }
+        TrainingPublishStatus status = trainingPublishStatusProvider.getIfAvailable();
+        if (status == null) {
+            status = new TrainingPublishStatus();
+        }
+        TrainingCandidateTransport transport = trainingCandidateTransportProvider.getIfAvailable();
+        if (transport == null) {
+            ObjectMapper om = new ObjectMapper();
+            transport = new LoggingTrainingCandidateTransport(om);
+        }
+        return new AsyncTrainingCandidatePublisher(props, sentinelMetrics, status, transport);
+    }
+
+    @Bean
+    @ConditionalOnBean({TrainingPublishStatus.class, MeterRegistry.class})
+    public MeterBinder trainingPublishDegradedGauge(TrainingPublishStatus status) {
+        return registry -> registry.gauge("aisentinel.distributed.training.publish.degraded", status,
+            s -> s.isDegraded() ? 1.0 : 0.0);
+    }
+
+    @Bean
     @Conditional(OnDistributedClusterThrottleEnabledCondition.class)
     public ApplicationRunner distributedClusterThrottleStartupRunner(SentinelProperties props,
                                                                      ObjectProvider<ClusterThrottleStore> throttleProvider) {
@@ -365,16 +415,27 @@ public class SentinelAutoConfiguration {
                                              TelemetryEmitter telemetry,
                                              StartupGrace sentinelStartupGrace,
                                              SentinelMetrics sentinelMetrics,
+                                             TrainingCandidatePublisher trainingCandidatePublisher,
                                              SentinelProperties props) {
         log.info("Sentinel pipeline configured (mode={})", props.getMode());
+        String nodeId = props.getDistributed().getTrainingPublisherNodeId();
+        if (nodeId == null) {
+            nodeId = "";
+        }
         return new SentinelPipeline(
             featureExtractor,
+            compositeScorer,
             compositeScorer,
             policyEngine,
             enforcementHandler,
             telemetry,
             sentinelStartupGrace,
-            sentinelMetrics
+            sentinelMetrics,
+            trainingCandidatePublisher,
+            props.getEnforcementScope(),
+            props.getDistributed().getTenantId(),
+            nodeId,
+            props.getMode().name()
         );
     }
 
