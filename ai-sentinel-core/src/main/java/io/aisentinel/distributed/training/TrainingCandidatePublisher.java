@@ -1,10 +1,12 @@
 package io.aisentinel.distributed.training;
 
 /**
- * Publishes training candidates off the hot path. Implementations must never block indefinitely and must
- * not throw to callers ( swallow or drop with metrics ).
+ * Exports training candidates asynchronously. Implementations must not block the request thread and must fail-open.
  */
 public interface TrainingCandidatePublisher {
 
-    void publish(TrainingCandidateRecord candidate);
+    /**
+     * Invoked after enforcement has been applied. Must return quickly; heavy or I/O work belongs on a bounded worker.
+     */
+    void publish(TrainingCandidatePublishRequest request);
 }

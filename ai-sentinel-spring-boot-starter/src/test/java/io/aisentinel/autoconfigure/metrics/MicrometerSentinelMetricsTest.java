@@ -44,5 +44,10 @@ class MicrometerSentinelMetricsTest {
         m.recordDistributedThrottleExecutorRejected();
         assertThat(registry.find("aisentinel.distributed.throttle.executor.rejected").counter().count()).isEqualTo(1.0);
         assertThat(m.getDistributedThrottleExecutorRejectedCount()).isEqualTo(1L);
+
+        m.recordTrainingCandidatePublishAttempt();
+        m.recordTrainingCandidatePublishSuccess();
+        assertThat(registry.find("aisentinel.distributed.training.publish.attempt").counter().count()).isEqualTo(1.0);
+        assertThat(registry.find("aisentinel.distributed.training.publish.success").counter().count()).isEqualTo(1.0);
     }
 }

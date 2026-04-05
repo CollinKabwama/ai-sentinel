@@ -64,6 +64,7 @@ class RedisClusterQuarantineWriterTest {
         try {
             writer.publishQuarantine("t", "k", System.currentTimeMillis() + 60_000);
             verify(ops, timeout(2_000).times(1)).set(anyString(), anyString(), any(Duration.class));
+            Thread.sleep(300);
             assertThat(metrics.failures.get()).isEqualTo(1);
             assertThat(status.isRedisWriterDegraded()).isTrue();
         } finally {
