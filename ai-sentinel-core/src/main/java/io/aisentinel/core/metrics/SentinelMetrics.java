@@ -107,4 +107,34 @@ public interface SentinelMetrics {
 
     /** Wall-clock duration of Redis throttle script (success, timeout, or failure). */
     default void recordDistributedThrottleEvalDurationNanos(long nanos) {}
+
+    /** Training candidate async worker began a transport send. */
+    default void recordTrainingCandidatePublishAttempt() {}
+
+    default void recordTrainingCandidatePublishSuccess() {}
+
+    default void recordTrainingCandidatePublishFailure() {}
+
+    /** Dropped before worker (in-flight semaphore saturated). */
+    default void recordTrainingCandidatePublishDropped() {}
+
+    /** Skipped by probabilistic sample gate. */
+    default void recordTrainingCandidatePublishSkippedSample() {}
+
+    /** Skipped by score floor or IF anti-poisoning gate. */
+    default void recordTrainingCandidatePublishSkippedGate() {}
+
+    default void recordTrainingCandidatePublishExecutorRejected() {}
+
+    /** Publisher threw from the request-thread hook (should not happen for well-behaved publishers). */
+    default void recordTrainingCandidatePublishUnexpectedFailure() {}
+
+    /** Wall-clock time for transport send on the async worker (success or failure). */
+    default void recordTrainingCandidatePublishTransportDurationNanos(long nanos) {}
+
+    /** Kafka (or blocking transport) future timed out on the worker. */
+    default void recordTrainingCandidatePublishFailureTimeout() {}
+
+    /** JSON serialization of the training record failed before send. */
+    default void recordTrainingCandidatePublishFailureSerialization() {}
 }

@@ -1,7 +1,7 @@
 package io.aisentinel.distributed.training;
 
 /**
- * Default publisher: no export (local buffer / trainer only).
+ * Default no-op publisher (disabled export).
  */
 public final class NoopTrainingCandidatePublisher implements TrainingCandidatePublisher {
 
@@ -11,7 +11,7 @@ public final class NoopTrainingCandidatePublisher implements TrainingCandidatePu
     }
 
     @Override
-    public void publish(TrainingCandidateRecord candidate) {
-        // no-op
+    public void publish(TrainingCandidatePublishRequest request) {
+        // intentionally empty
     }
 }

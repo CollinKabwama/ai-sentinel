@@ -3,6 +3,7 @@ package io.aisentinel.core.enforcement;
 import io.aisentinel.core.policy.EnforcementAction;
 import io.aisentinel.core.telemetry.TelemetryEmitter;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
+import io.aisentinel.distributed.quarantine.NoopClusterQuarantineWriter;
 import io.aisentinel.distributed.throttle.ClusterThrottleStore;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
