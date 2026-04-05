@@ -62,6 +62,18 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Counter distributedThrottleExecutorRejected;
     private final Timer distributedThrottleEvalTimer;
 
+    private final Counter trainingPublishAttempt;
+    private final Counter trainingPublishSuccess;
+    private final Counter trainingPublishFailure;
+    private final Counter trainingPublishDropped;
+    private final Counter trainingPublishSkippedSample;
+    private final Counter trainingPublishSkippedGate;
+    private final Counter trainingPublishExecutorRejected;
+    private final Counter trainingPublishUnexpectedFailure;
+    private final Timer trainingPublishTransport;
+    private final Counter trainingPublishFailureTimeout;
+    private final Counter trainingPublishFailureSerialization;
+
     public MicrometerSentinelMetrics(MeterRegistry registry) {
         this.scoreComposite = DistributionSummary.builder("aisentinel.score.composite")
             .description("Blended anomaly score after composite weighting")
@@ -162,6 +174,36 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         this.distributedThrottleEvalTimer = Timer.builder("aisentinel.distributed.throttle.redis.eval")
             .description("Redis Lua eval for cluster throttle")
             .publishPercentiles(0.5, 0.99)
+            .register(registry);
+
+        this.trainingPublishAttempt = Counter.builder("aisentinel.distributed.training.publish.attempt")
+            .description("Training candidate transport send started on worker")
+            .register(registry);
+        this.trainingPublishSuccess = Counter.builder("aisentinel.distributed.training.publish.success")
+            .register(registry);
+        this.trainingPublishFailure = Counter.builder("aisentinel.distributed.training.publish.failure")
+            .register(registry);
+        this.trainingPublishDropped = Counter.builder("aisentinel.distributed.training.publish.dropped")
+            .description("Dropped before worker (in-flight cap)")
+            .register(registry);
+        this.trainingPublishSkippedSample = Counter.builder("aisentinel.distributed.training.publish.skipped_sample")
+            .register(registry);
+        this.trainingPublishSkippedGate = Counter.builder("aisentinel.distributed.training.publish.skipped_gate")
+            .register(registry);
+        this.trainingPublishExecutorRejected = Counter.builder("aisentinel.distributed.training.publish.executor_rejected")
+            .register(registry);
+        this.trainingPublishUnexpectedFailure = Counter.builder("aisentinel.distributed.training.publish.unexpected_failure")
+            .description("Publisher threw on request thread (defensive)")
+            .register(registry);
+        this.trainingPublishTransport = Timer.builder("aisentinel.distributed.training.publish.transport")
+            .description("Worker-side transport send wall time (Kafka or logging)")
+            .publishPercentiles(0.5, 0.99)
+            .register(registry);
+        this.trainingPublishFailureTimeout = Counter.builder("aisentinel.distributed.training.publish.failure.timeout")
+            .description("Send future timed out on worker")
+            .register(registry);
+        this.trainingPublishFailureSerialization = Counter.builder("aisentinel.distributed.training.publish.failure.serialization")
+            .description("JSON serialization failed before send")
             .register(registry);
     }
 
@@ -360,6 +402,63 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         }
     }
 
+    @Override
+    public void recordTrainingCandidatePublishAttempt() {
+        trainingPublishAttempt.increment();
+    }
+
+    @Override
+    public void recordTrainingCandidatePublishSuccess() {
+        trainingPublishSuccess.increment();
+    }
+
+    @Override
+    public void recordTrainingCandidatePublishFailure() {
+        trainingPublishFailure.increment();
+    }
+
+    @Override
+    public void recordTrainingCandidatePublishDropped() {
+        trainingPublishDropped.increment();
+    }
+
+    @Override
+    public void recordTrainingCandidatePublishSkippedSample() {
+        trainingPublishSkippedSample.increment();
+    }
+
+    @Override
+    public void recordTrainingCandidatePublishSkippedGate() {
+        trainingPublishSkippedGate.increment();
+    }
+
+    @Override
+    public void recordTrainingCandidatePublishExecutorRejected() {
+        trainingPublishExecutorRejected.increment();
+    }
+
+    @Override
+    public void recordTrainingCandidatePublishUnexpectedFailure() {
+        trainingPublishUnexpectedFailure.increment();
+    }
+
+    @Override
+    public void recordTrainingCandidatePublishTransportDurationNanos(long nanos) {
+        if (nanos >= 0) {
+            trainingPublishTransport.record(nanos, TimeUnit.NANOSECONDS);
+        }
+    }
+
+    @Override
+    public void recordTrainingCandidatePublishFailureTimeout() {
+        trainingPublishFailureTimeout.increment();
+    }
+
+    @Override
+    public void recordTrainingCandidatePublishFailureSerialization() {
+        trainingPublishFailureSerialization.increment();
+    }
+
     public Map<String, Object> scoreSummaryForActuator() {
         Map<String, Object> m = new LinkedHashMap<>();
         putSummary(m, "composite", scoreComposite);
@@ -465,6 +564,57 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         m.put("throttleRedisFailureCount", getDistributedThrottleRedisFailureCount());
         m.put("throttleExecutorRejectedCount", getDistributedThrottleExecutorRejectedCount());
         putTimer(m, "throttleRedisEval", distributedThrottleEvalTimer);
+        return m;
+    }
+
+    public long getTrainingPublishAttemptCount() {
+        return (long) trainingPublishAttempt.count();
+    }
+
+    public long getTrainingPublishSuccessCount() {
+        return (long) trainingPublishSuccess.count();
+    }
+
+    public long getTrainingPublishFailureCount() {
+        return (long) trainingPublishFailure.count();
+    }
+
+    public long getTrainingPublishDroppedCount() {
+        return (long) trainingPublishDropped.count();
+    }
+
+    public long getTrainingPublishSkippedSampleCount() {
+        return (long) trainingPublishSkippedSample.count();
+    }
+
+    public long getTrainingPublishSkippedGateCount() {
+        return (long) trainingPublishSkippedGate.count();
+    }
+
+    public long getTrainingPublishExecutorRejectedCount() {
+        return (long) trainingPublishExecutorRejected.count();
+    }
+
+    public long getTrainingPublishFailureTimeoutCount() {
+        return (long) trainingPublishFailureTimeout.count();
+    }
+
+    public long getTrainingPublishFailureSerializationCount() {
+        return (long) trainingPublishFailureSerialization.count();
+    }
+
+    public Map<String, Object> distributedTrainingPublishSummaryForActuator() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("publishAttemptCount", getTrainingPublishAttemptCount());
+        m.put("publishSuccessCount", getTrainingPublishSuccessCount());
+        m.put("publishFailureCount", getTrainingPublishFailureCount());
+        m.put("publishFailureTimeoutCount", getTrainingPublishFailureTimeoutCount());
+        m.put("publishFailureSerializationCount", getTrainingPublishFailureSerializationCount());
+        m.put("publishDroppedCount", getTrainingPublishDroppedCount());
+        m.put("publishSkippedSampleCount", getTrainingPublishSkippedSampleCount());
+        m.put("publishSkippedGateCount", getTrainingPublishSkippedGateCount());
+        m.put("publishExecutorRejectedCount", getTrainingPublishExecutorRejectedCount());
+        putTimer(m, "publishTransport", trainingPublishTransport);
         return m;
     }
 

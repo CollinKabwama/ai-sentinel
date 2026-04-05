@@ -3,6 +3,7 @@ package io.aisentinel.autoconfigure.actuator;
 import io.aisentinel.autoconfigure.config.SentinelProperties;
 import io.aisentinel.autoconfigure.distributed.DistributedQuarantineStatus;
 import io.aisentinel.autoconfigure.distributed.DistributedThrottleStatus;
+import io.aisentinel.autoconfigure.distributed.training.TrainingPublishStatus;
 import io.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
 import io.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineReader;
@@ -11,12 +12,16 @@ import io.aisentinel.distributed.quarantine.NoopClusterQuarantineReader;
 import io.aisentinel.distributed.quarantine.NoopClusterQuarantineWriter;
 import io.aisentinel.distributed.throttle.ClusterThrottleStore;
 import io.aisentinel.distributed.throttle.NoopClusterThrottleStore;
+import io.aisentinel.distributed.training.NoopTrainingCandidatePublisher;
+import io.aisentinel.distributed.training.TrainingCandidatePublisher;
 import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.scoring.CompositeScorer;
 import io.aisentinel.core.scoring.IsolationForestScorer;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
+
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -36,6 +41,8 @@ public class SentinelActuatorEndpoint {
     private final ClusterQuarantineReader clusterQuarantineReader;
     private final ClusterQuarantineWriter clusterQuarantineWriter;
     private final ClusterThrottleStore clusterThrottleStore;
+    private final TrainingPublishStatus trainingPublishStatus;
+    private final TrainingCandidatePublisher trainingCandidatePublisher;
 
     public SentinelActuatorEndpoint(SentinelProperties props,
                                     CompositeEnforcementHandler enforcementHandlerImpl,
@@ -47,7 +54,9 @@ public class SentinelActuatorEndpoint {
                                     DistributedThrottleStatus distributedThrottleStatus,
                                     ClusterQuarantineReader clusterQuarantineReader,
                                     ClusterQuarantineWriter clusterQuarantineWriter,
-                                    ClusterThrottleStore clusterThrottleStore) {
+                                    ClusterThrottleStore clusterThrottleStore,
+                                    ObjectProvider<TrainingPublishStatus> trainingPublishStatusProvider,
+                                    ObjectProvider<TrainingCandidatePublisher> trainingCandidatePublisherProvider) {
         this.props = props;
         this.enforcementHandlerImpl = enforcementHandlerImpl;
         this.isolationForestScorer = isolationForestScorer;
@@ -59,6 +68,8 @@ public class SentinelActuatorEndpoint {
         this.clusterQuarantineReader = clusterQuarantineReader;
         this.clusterQuarantineWriter = clusterQuarantineWriter;
         this.clusterThrottleStore = clusterThrottleStore;
+        this.trainingPublishStatus = trainingPublishStatusProvider.getIfAvailable();
+        this.trainingCandidatePublisher = trainingCandidatePublisherProvider.getIfAvailable();
     }
 
     @ReadOperation
@@ -94,6 +105,7 @@ public class SentinelActuatorEndpoint {
             map.put("modelRetrainFailureCount", micrometerSentinelMetrics.getRetrainFailureCount());
             map.put("distributedMetrics", micrometerSentinelMetrics.distributedSummaryForActuator());
             map.put("distributedThrottleMetrics", micrometerSentinelMetrics.distributedThrottleSummaryForActuator());
+            map.put("distributedTrainingPublishMetrics", micrometerSentinelMetrics.distributedTrainingPublishSummaryForActuator());
         }
         var d = props.getDistributed();
         map.put("distributedEnabled", d.isEnabled());
@@ -107,6 +119,22 @@ public class SentinelActuatorEndpoint {
             d.getClusterThrottleTimeout() != null ? d.getClusterThrottleTimeout().toMillis() : null);
         map.put("distributedRedisEnabled", d.getRedis().isEnabled());
         map.put("distributedRedisKeyPrefix", d.getRedis().getKeyPrefix());
+        map.put("distributedTrainingPublishEnabled", d.isTrainingPublishEnabled());
+        map.put("distributedTrainingKafkaEnabled", d.isTrainingKafkaEnabled());
+        map.put("distributedTrainingCandidatesTopic", d.getTrainingCandidatesTopic());
+        map.put("distributedTrainingPublishSampleRate", d.getTrainingPublishSampleRate());
+        map.put("distributedTrainingPublisherNodeId", d.getTrainingPublisherNodeId());
+        if (trainingCandidatePublisher != null) {
+            map.put("trainingCandidatePublisherType", trainingCandidatePublisher.getClass().getSimpleName());
+            map.put("trainingCandidatePublisherNoop", trainingCandidatePublisher == NoopTrainingCandidatePublisher.INSTANCE);
+        }
+        if (trainingPublishStatus != null) {
+            Map<String, Object> tp = new LinkedHashMap<>();
+            tp.put("degraded", trainingPublishStatus.isDegraded());
+            tp.put("lastErrorTimeMillis", trainingPublishStatus.getLastErrorTimeMillis());
+            tp.put("lastErrorSummary", trainingPublishStatus.getLastErrorSummary());
+            map.put("trainingPublish", tp);
+        }
         if (clusterQuarantineReader != null) {
             map.put("clusterQuarantineReaderType", clusterQuarantineReader.getClass().getSimpleName());
             map.put("clusterQuarantineReaderNoop",
