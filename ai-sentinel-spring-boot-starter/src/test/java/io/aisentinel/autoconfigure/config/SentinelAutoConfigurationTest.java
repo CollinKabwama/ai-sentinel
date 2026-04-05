@@ -14,6 +14,10 @@ import io.aisentinel.core.policy.ThresholdPolicyEngine;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineReader;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
 import io.aisentinel.distributed.quarantine.NoopClusterQuarantineReader;
+import io.aisentinel.autoconfigure.distributed.training.AsyncTrainingCandidatePublisher;
+import io.aisentinel.autoconfigure.distributed.training.TrainingPublishStatus;
+import io.aisentinel.distributed.training.NoopTrainingCandidatePublisher;
+import io.aisentinel.distributed.training.TrainingCandidatePublisher;
 import io.aisentinel.distributed.throttle.ClusterThrottleStore;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
@@ -167,6 +171,26 @@ class SentinelAutoConfigurationTest {
                 "ai.sentinel.distributed.cluster-quarantine-write-enabled=false",
                 "ai.sentinel.distributed.redis.enabled=true")
             .run(ctx -> assertThat(ctx.getBeansOfType(ClusterQuarantineWriter.class)).isEmpty());
+    }
+
+    @Test
+    void trainingPublishUsesNoopWhenDisabled() {
+        contextRunner
+            .withPropertyValues("ai.sentinel.enabled=true")
+            .run(ctx -> assertThat(ctx.getBean(TrainingCandidatePublisher.class))
+                .isSameAs(NoopTrainingCandidatePublisher.INSTANCE));
+    }
+
+    @Test
+    void trainingPublishUsesAsyncPublisherWhenEnabled() {
+        contextRunner
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.distributed.training-publish-enabled=true")
+            .run(ctx -> {
+                assertThat(ctx.getBean(TrainingCandidatePublisher.class)).isInstanceOf(AsyncTrainingCandidatePublisher.class);
+                assertThat(ctx).hasSingleBean(TrainingPublishStatus.class);
+            });
     }
 
     @Test

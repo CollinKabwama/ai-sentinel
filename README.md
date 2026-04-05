@@ -122,6 +122,17 @@ ai:
 | `ai.sentinel.distributed.cluster-throttle-max-requests-per-window` | `30` | Max requests cluster-wide per enforcement key per window when cluster throttle is enabled (validated ≥ 1) |
 | `ai.sentinel.distributed.cluster-throttle-max-in-flight` | `1024` | Per-JVM semaphore cap for concurrent cluster-throttle Redis evals; extra evaluations fail-open (metric `aisentinel.distributed.throttle.executor.rejected`); runtime clamp `[1, 50000]` |
 | `ai.sentinel.distributed.cluster-throttle-timeout` | _(unset)_ | Max wait on the throttle Redis future; when unset or non-positive, uses `distributed.redis.lookup-timeout` |
+| `ai.sentinel.distributed.training-publish-enabled` | `false` | Phase 5.5: async export of versioned training candidates after enforcement (fail-open; bounded) |
+| `ai.sentinel.distributed.training-publish-sample-rate` | `0.1` | Uniform fraction for the probabilistic sample gate (0–1); high composite scores can bypass when stratified sampling is on |
+| `ai.sentinel.distributed.training-publish-stratified-sampling` | `true` | When true, composite ≥ `training-publish-high-composite-bypass-sample-min-score` skips the uniform sample draw |
+| `ai.sentinel.distributed.training-publish-high-composite-bypass-sample-min-score` | `0.4` | Inclusive floor for bypassing uniform sampling when stratified sampling is enabled (0–1) |
+| `ai.sentinel.distributed.training-publish-max-in-flight` | `256` | Semaphore cap for concurrent publish tasks; excess dropped with metric |
+| `ai.sentinel.distributed.training-publish-timeout` | `2s` | Max wait on Kafka send completion (`future.get`); validated ≤ 30s; transport clamps to 10s |
+| `ai.sentinel.distributed.training-publish-min-composite-score` | `0` | Minimum composite score to export (inclusive) |
+| `ai.sentinel.distributed.training-publish-apply-if-anti-poisoning` | `true` | Skip export when IF score &gt; `isolation-forest.training-rejection-score-threshold` (when IF score present) |
+| `ai.sentinel.distributed.training-publisher-node-id` | _(empty)_ | Optional instance id in exported events (max length 128) |
+| `ai.sentinel.distributed.training-kafka-enabled` | `false` | Use `KafkaTemplate` when present (requires `spring-kafka` + broker config); else JSON log line transport |
+| `ai.sentinel.distributed.training-candidates-topic` | `aisentinel.training.candidates` | Kafka topic when Kafka transport is active |
 | `ai.sentinel.distributed.enabled` | `false` | Phase 5 master switch for Redis-backed distributed features |
 | `ai.sentinel.distributed.redis.enabled` | `false` | Enables Redis-backed beans when `spring-boot-starter-data-redis` and a `StringRedisTemplate` are present |
 | `ai.sentinel.distributed.redis.key-prefix` | `aisentinel` | Key prefix for quarantine keys `{prefix}:{tenant}:q:{enforcementKey}` and throttle keys `{prefix}:{tenant}:th:{bucket}:{enforcementKey}` |
@@ -191,7 +202,7 @@ Typical flow: start the demo with **`stage2`** profile, then `python scripts/tra
 
 | Stage | Focus | Status in this repo |
 |-------|--------|---------------------|
-| 5 | Distributed store, shared quarantine, cluster coordination | **In progress** — Redis quarantine read/write + validation + **selective cluster throttle** (THROTTLE band); not Phase-5-complete (no Kafka/trainer/registry/training pipeline) |
+| 5 | Distributed store, shared quarantine, cluster coordination | **In progress** — Redis quarantine read/write + validation + cluster throttle + **optional training candidate export** (5.5); not Phase-5-complete (no trainer/registry/full Kafka lifecycle) |
 | 6 | Research, benchmarks, publications | Not started |
 
 Deferred items and Phase 5 boundaries are summarized in this README; longer design notes may exist only in a local **`docs/`** copy (not versioned here).
@@ -240,7 +251,21 @@ This milestone is **verification**, not new product features. Automated coverage
 
 Actuator **`distributedThrottle`** exposes `redisThrottleDegraded` and `lastRedisErrorSummary` with reason prefixes: `redis_timeout`, `redis_failure`, `inflight_exhausted`, `executor_rejected`.
 
-**Still deferred:** Kafka training export, trainer, model registry, automated multi-JVM throttle validation (starter unit tests cover burst, timeout, recovery, and in-flight saturation).
+**Still deferred:** Trainer service, model registry, automated multi-JVM throttle validation (starter unit tests cover burst, timeout, recovery, and in-flight saturation).
+
+### Phase 5.5 — Training candidate publishing
+
+**What it does:** After policy and enforcement complete, the pipeline can **offer** a bounded, versioned **`TrainingCandidateRecord`** (schema v2: **`eventId`**, SHA-256 **fingerprints** for endpoint and enforcement-key material, numeric feature snapshots, scores, policy outcome) to an async publisher. **Raw request paths and composite enforcement keys are not exported** (only stable hashes of the same strings used locally). Default transport is a single **JSON log line** at INFO; optional **Kafka** when `spring-kafka` is on the classpath, `KafkaTemplate` exists, and `training-kafka-enabled=true`.
+
+**What it does not do:** No on-request training, no trainer consumer, no model registry, no change to policy or enforcement outcomes.
+
+**Hook:** `SentinelPipeline` calls `TrainingCandidatePublisher.publish` after `enforcementHandler.apply` returns; the request thread runs cheap gates, **copies feature arrays**, computes hashes, builds the record, `Semaphore.tryAcquire`, and schedules work; transport I/O runs on virtual-thread workers.
+
+**Bounded / fail-open:** Score floor and optional IF anti-poisoning run before sampling; **stratified sampling** (default on) lets high composite scores bypass the uniform sample so rare high-risk rows are not starved; in-flight cap with **drop + metric**, executor reject handling, transport errors recorded without affecting the HTTP path.
+
+**Metrics:** `aisentinel.distributed.training.publish.*` (attempt, success, failure, **failure.timeout**, **failure.serialization**, dropped, skipped_sample, skipped_gate, executor_rejected, unexpected_failure), **`aisentinel.distributed.training.publish.transport`** timer; gauge `aisentinel.distributed.training.publish.degraded` when status bean is present. Actuator: `distributedTrainingPublishMetrics`, `trainingPublish`, flags for publish/Kafka/topic.
+
+**Phase 5.6+ (not here):** Hardened Kafka reliability, trainer-side consumption contract, schema registry, replay tooling.
 
 ---
 
