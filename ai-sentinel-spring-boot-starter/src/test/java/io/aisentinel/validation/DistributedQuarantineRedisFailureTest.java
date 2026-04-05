@@ -19,7 +19,9 @@ import org.springframework.data.redis.connection.lettuce.LettuceClientConfigurat
 import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
+import java.io.IOException;
 import java.io.PrintWriter;
+import java.net.ServerSocket;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -44,8 +46,8 @@ class DistributedQuarantineRedisFailureTest {
     }
 
     @Test
-    void clusterReaderFailOpenWhenRedisUnreachable() {
-        StringRedisTemplate badTemplate = badRedisTemplate();
+    void clusterReaderFailOpenWhenRedisUnreachable() throws Exception {
+        StringRedisTemplate badTemplate = badRedisTemplate(freeListeningPort());
         SentinelProperties props = distributedProps();
         var status = new DistributedQuarantineStatus();
         var metrics = new CountingSentinelMetrics();
@@ -62,7 +64,7 @@ class DistributedQuarantineRedisFailureTest {
 
     @Test
     void localQuarantineStillAppliedWhenClusterWriterUsesUnreachableRedis() throws Exception {
-        StringRedisTemplate badTemplate = badRedisTemplate();
+        StringRedisTemplate badTemplate = badRedisTemplate(freeListeningPort());
         SentinelProperties props = distributedProps();
         var status = new DistributedQuarantineStatus();
         var metrics = new CountingSentinelMetrics();
@@ -112,10 +114,16 @@ class DistributedQuarantineRedisFailureTest {
         assertThat(composite.isQuarantined("x", "/y")).isTrue();
     }
 
-    private StringRedisTemplate badRedisTemplate() {
+    private static int freeListeningPort() throws IOException {
+        try (ServerSocket socket = new ServerSocket(0)) {
+            return socket.getLocalPort();
+        }
+    }
+
+    private StringRedisTemplate badRedisTemplate(int port) {
         RedisStandaloneConfiguration cfg = new RedisStandaloneConfiguration();
         cfg.setHostName("127.0.0.1");
-        cfg.setPort(63987);
+        cfg.setPort(port);
         LettuceClientConfiguration client = LettuceClientConfiguration.builder()
             .commandTimeout(Duration.ofMillis(500))
             .build();
