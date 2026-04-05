@@ -2,9 +2,13 @@ package io.aisentinel.autoconfigure.config;
 
 import io.aisentinel.core.enforcement.EnforcementScope;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
+import org.hibernate.validator.constraints.time.DurationMax;
 import org.hibernate.validator.constraints.time.DurationMin;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
@@ -94,9 +98,56 @@ public class SentinelProperties {
         /** Master switch for Phase 5 integration beans (Redis/Kafka wiring comes in later steps). */
         private boolean enabled = false;
         /** Logical tenant segment in shared Redis keys (see README distributed properties). */
+        @Size(max = 128)
         private String tenantId = "default";
         /** Kafka topic for {@link io.aisentinel.distributed.training.TrainingCandidateRecord} export. */
         private String trainingCandidatesTopic = "aisentinel.training.candidates";
+        /**
+         * When true, scored requests may export {@link io.aisentinel.distributed.training.TrainingCandidateRecord}
+         * asynchronously (bounded; fail-open). Requires no extra infrastructure unless {@link #trainingKafkaEnabled}.
+         */
+        private boolean trainingPublishEnabled = false;
+        /** Probabilistic admission; 1.0 = always pass sample gate (subject to other gates). */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double trainingPublishSampleRate = 0.1;
+        /**
+         * When true (default), requests with composite score ≥ {@link #trainingPublishHighCompositeBypassSampleMinScore}
+         * skip the uniform sample draw so higher-risk traffic is not undersampled.
+         */
+        private boolean trainingPublishStratifiedSampling = true;
+        /**
+         * Minimum composite score (inclusive) that bypasses the uniform sample gate when stratified sampling is on.
+         */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double trainingPublishHighCompositeBypassSampleMinScore = 0.4;
+        /** Max concurrent training publish tasks per JVM (semaphore). */
+        @Min(1)
+        @Max(50_000)
+        private int trainingPublishMaxInFlight = 256;
+        /**
+         * Worker-side timeout for Kafka send completion wait ({@code future.get}). Clamped to 10s in the Kafka transport.
+         */
+        @DurationMin(millis = 1)
+        @DurationMax(seconds = 30)
+        private Duration trainingPublishTimeout = Duration.ofSeconds(2);
+        /** Minimum composite score to pass the score gate (inclusive). */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double trainingPublishMinCompositeScore = 0.0;
+        /**
+         * When true, skip export if isolation forest score exceeds {@link IsolationForest#trainingRejectionScoreThreshold}
+         * (aligns with local buffer anti-poisoning when a model is loaded).
+         */
+        private boolean trainingPublishApplyIfAntiPoisoning = true;
+        /** Logical node / instance id for trainer correlation (optional). */
+        @Size(max = 128)
+        private String trainingPublisherNodeId = "";
+        /**
+         * When true and a {@code KafkaTemplate} bean is present, use Kafka; otherwise logging transport is used.
+         */
+        private boolean trainingKafkaEnabled = false;
         /**
          * When true, {@link io.aisentinel.distributed.enforcement.ClusterAwareEnforcementHandler} merges
          * local quarantine with {@link io.aisentinel.distributed.quarantine.ClusterQuarantineReader} (Redis or noop).
