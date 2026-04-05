@@ -190,6 +190,26 @@ Typical flow: start the demo with **`stage2`** profile, then `python scripts/tra
 
 Deferred items and Phase 5 boundaries are summarized in this README; longer design notes may exist only in a local **`docs/`** copy (not versioned here).
 
+### Phase 5.3 — Distributed validation
+
+This milestone is **verification**, not new product features. Automated coverage in `ai-sentinel-spring-boot-starter` includes:
+
+- **Scope (important):** All Phase 5.3 Testcontainers tests run in a **single JVM** and **one Spring `ApplicationContext`**. “Node A” is the wired `CompositeEnforcementHandler` plus the primary `StringRedisTemplate`. “Node B” is modeled with a **second `LettuceConnectionFactory` / `StringRedisTemplate`** to the **same** Redis server, a **new** `RedisClusterQuarantineReader` (separate local cache and `DistributedQuarantineStatus`), and—where enforcement is asserted—a separately built `ClusterAwareEnforcementHandler` + `SentinelPipeline` + `SentinelFilter` over `MockMvc`. There is **no automated two-process / two-JVM** test in CI yet.
+- **Distributed enforcement E2E (Docker):** `DistributedQuarantineValidationTest#nodeAWritesQuarantine_nodeBClusterAwareFilterBlocksHttp` — Node A publishes quarantine to Redis; Node B’s pipeline uses `ClusterAwareEnforcementHandler` with **empty local** quarantine maps; an HTTP GET through `SentinelFilter` receives the configured block status (default **429**) and body **Quarantined**, proving cluster state affects **enforcement**, not only `quarantineUntil`.
+- **Read-path + metrics (Docker):** `DistributedQuarantineValidationTest#nodeAQuarantineWritesRedis_nodeBReaderSeesClusterQuarantine_separateRedisClient_metricDeltas` — second Redis client + reader; **Micrometer counter deltas** (write attempts/successes, lookups) and `redisWriterDegraded == false` on the shared status bean after a successful publish/read (baselines captured per test).
+- **CI / Docker:** Testcontainers Redis tests are **skipped** when Docker is unavailable (`@Testcontainers(disabledWithoutDocker = true)`). To exercise them in CI, run with a Docker-capable agent (or accept skips).
+- **Redis unavailable:** `DistributedQuarantineRedisFailureTest` — reader fail-open; writer async failure; local quarantine preserved; unreachable Redis port chosen dynamically via `ServerSocket(0)` (no hardcoded port).
+- **Slow Redis vs lookup budget:** **Unit-only:** `RedisClusterQuarantineReaderTest#failOpenOnTimeout` (mocked slow `GET`). There is **no** integration test that delays real Lettuce I/O against Testcontainers Redis; align `spring.data.redis.timeout` with `lookup-timeout` in production (see table above).
+- **Dropped writes:** `RedisClusterQuarantineWriterTest#secondPublishDroppedWhileFirstWriteBlocksRedis` plus `DistributedQuarantineDroppedWriteCompositeTest`.
+- **Cache staleness:** `DistributedQuarantineValidationTest#cacheServesStalePositiveUntilRedisKeyDeletedThenExpiresAndFailsOpen`.
+- **Actuator shape:** `DistributedQuarantineValidationTest#actuatorExposesDistributedFlagsAndMetricSummary`.
+
+**Guarantees reinforced by 5.3:** local quarantine remains authoritative; cluster view is additive; Redis is optional; read and write paths stay fail-open; publish path does not block on Redis I/O; bounded in-flight writes can drop excess work with observability.
+
+**Still not implemented:** distributed throttling, Kafka training pipeline, trainer service, model registry, automated multi-JVM validation, and other Phase 5 items called out above.
+
+**Optional manual two-instance check:** start Redis (`docker compose up -d` using repo-root `docker-compose.yml` if you use it), run two JVMs (e.g. two terminals with `mvn -pl ai-sentinel-demo spring-boot:run` on different `server.port` values) with the same `spring.data.redis.*` and `ai.sentinel.distributed.*` settings, trigger `QUARANTINE` on instance A, then call an endpoint on instance B with the same identity and confirm cluster quarantine merges into enforcement when read path is enabled.
+
 ---
 
 ## Contributing

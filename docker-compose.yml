@@ -1,0 +1,7 @@
+# Optional local Redis for multi-instance quarantine experiments (Phase 5).
+# Not required for unit tests (Phase 5.3 uses Testcontainers when Docker is available).
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
