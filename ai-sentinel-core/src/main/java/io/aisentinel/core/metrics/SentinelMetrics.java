@@ -85,4 +85,26 @@ public interface SentinelMetrics {
 
     /** Duration of async cluster quarantine write work unit (worker thread, including expired skip). */
     default void recordDistributedQuarantineWriteDurationNanos(long nanos) {}
+
+    /** Cluster throttle evaluation invoked (THROTTLE path only, when store is non-noop). */
+    default void recordDistributedThrottleEvaluation() {}
+
+    /** Cluster throttle allowed request (under window cap). */
+    default void recordDistributedThrottleClusterAllow() {}
+
+    /** Cluster throttle rejected request (window exhausted). */
+    default void recordDistributedThrottleClusterReject() {}
+
+    default void recordDistributedThrottleRedisTimeout() {}
+
+    default void recordDistributedThrottleRedisFailure() {}
+
+    /**
+     * In-flight semaphore saturated (tryAcquire failed) or executor rejected the async task before it ran.
+     * Distinct from {@link #recordDistributedThrottleRedisFailure()} and {@link #recordDistributedThrottleRedisTimeout()}.
+     */
+    default void recordDistributedThrottleExecutorRejected() {}
+
+    /** Wall-clock duration of Redis throttle script (success, timeout, or failure). */
+    default void recordDistributedThrottleEvalDurationNanos(long nanos) {}
 }
