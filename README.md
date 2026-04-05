@@ -25,7 +25,7 @@ Traditional WAFs and static rules miss gradual abuse and novel patterns. This pr
 
 ## Current maturity
 
-Stages **0–4** are implemented in this repository (core engine, Spring Boot integration, Isolation Forest, security/ops hardening, Micrometer/actuator depth). **Pre–Stage 5** fixes (configurable thresholds, safer X-Real-IP, IF-only feature vector) are included. **Stage 5** is **partially** started: **shared quarantine** can use **Redis** for a **read path** (merge cluster view into `isQuarantined`, fail-open) and an optional **write path** (propagate local `QUARANTINE` to Redis for peer nodes, fail-open, non-blocking). Kafka, trainer, model registry, **distributed throttling**, and other Phase 5 items are **not** implemented yet. Extended Phase 5 scope and failure-mode notes may be kept locally at **`docs/PHASE5_DISTRIBUTED_DESIGN.md`** (the `docs/` tree is gitignored and is not part of the published repository).
+Stages **0–4** are implemented in this repository (core engine, Spring Boot integration, Isolation Forest, security/ops hardening, Micrometer/actuator depth). **Pre–Stage 5** fixes (configurable thresholds, safer X-Real-IP, IF-only feature vector) are included. **Stage 5** is **partially** started: **shared quarantine** can use **Redis** for a **read path** (merge cluster view into `isQuarantined`, fail-open) and an optional **write path** (propagate local `QUARANTINE` to Redis for peer nodes, fail-open, non-blocking). **Phase 5.4** adds optional **cluster throttle** for the THROTTLE band only (fixed-window Redis counter per enforcement key, fail-open). Kafka, trainer, model registry, training pipeline, and broader distributed ML lifecycle items are **not** implemented yet. Extended Phase 5 scope and failure-mode notes may be kept locally at **`docs/PHASE5_DISTRIBUTED_DESIGN.md`** (the `docs/` tree is gitignored and is not part of the published repository).
 
 Architecture and data flow: [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
@@ -117,16 +117,21 @@ ai:
 | `ai.sentinel.telemetry.log-verbosity` | `ANOMALY_ONLY` | `FULL`, `ANOMALY_ONLY`, `SAMPLED`, `NONE` |
 | `ai.sentinel.distributed.cluster-quarantine-read-enabled` | `false` | Merge cluster quarantine into `isQuarantined` (local OR Redis view) |
 | `ai.sentinel.distributed.cluster-quarantine-write-enabled` | `false` | After local `QUARANTINE`, publish `until` to Redis (requires `distributed.enabled`, `redis.enabled`, template; async, fail-open) |
-| `ai.sentinel.distributed.enabled` | `false` | Phase 5 master switch for Redis reader/writer wiring |
-| `ai.sentinel.distributed.redis.enabled` | `false` | Use `RedisClusterQuarantineReader` / `RedisClusterQuarantineWriter` when `spring-boot-starter-data-redis` is on the classpath |
-| `ai.sentinel.distributed.redis.key-prefix` | `aisentinel` | Redis key prefix: `{prefix}:{tenant}:q:{enforcementKey}` |
-| `ai.sentinel.distributed.redis.lookup-timeout` | `50ms` | Max wait on the async future for each Redis GET; set `spring.data.redis.timeout` (Lettuce) to a similar or lower value so client timeouts align with this budget |
+| `ai.sentinel.distributed.cluster-throttle-enabled` | `false` | On the **THROTTLE** action path only, consult a Redis fixed-window counter per enforcement key (cluster-wide cap; fail-open if Redis fails; requires `distributed.enabled`, `redis.enabled`, template) |
+| `ai.sentinel.distributed.cluster-throttle-window` | `1s` | Wall-clock window length for the cluster throttle counter (validated ≥ 100ms) |
+| `ai.sentinel.distributed.cluster-throttle-max-requests-per-window` | `30` | Max requests cluster-wide per enforcement key per window when cluster throttle is enabled (validated ≥ 1) |
+| `ai.sentinel.distributed.cluster-throttle-max-in-flight` | `1024` | Per-JVM semaphore cap for concurrent cluster-throttle Redis evals; extra evaluations fail-open (metric `aisentinel.distributed.throttle.executor.rejected`); runtime clamp `[1, 50000]` |
+| `ai.sentinel.distributed.cluster-throttle-timeout` | _(unset)_ | Max wait on the throttle Redis future; when unset or non-positive, uses `distributed.redis.lookup-timeout` |
+| `ai.sentinel.distributed.enabled` | `false` | Phase 5 master switch for Redis-backed distributed features |
+| `ai.sentinel.distributed.redis.enabled` | `false` | Enables Redis-backed beans when `spring-boot-starter-data-redis` and a `StringRedisTemplate` are present |
+| `ai.sentinel.distributed.redis.key-prefix` | `aisentinel` | Key prefix for quarantine keys `{prefix}:{tenant}:q:{enforcementKey}` and throttle keys `{prefix}:{tenant}:th:{bucket}:{enforcementKey}` |
+| `ai.sentinel.distributed.redis.lookup-timeout` | `50ms` | Max wait on async Redis futures for **cluster quarantine GET** and (when `cluster-throttle-timeout` is unset) **cluster throttle** Lua eval; prefer **Lettuce** as the Redis client and align `spring.data.redis.timeout` with these budgets |
 | `ai.sentinel.distributed.redis.max-in-flight-quarantine-writes` | `256` | Semaphore cap for concurrent async cluster quarantine SETs; extra publishes are dropped (metric) without blocking the caller |
 | `ai.sentinel.distributed.cache.enabled` | `true` | When `false`, skip the local cache (every lookup hits Redis within `lookup-timeout`) |
 | `ai.sentinel.distributed.cache.ttl` / `cache.max-entries` | `2s` / `10000` | Local bounded cache for Redis quarantine lookups |
 | `ai.sentinel.distributed.cache.negative-ttl` | _(unset)_ | TTL for negative (miss) cache lines; if unset, derived as `max(100ms, min(positiveTtl/2, 2s))` |
 
-Add `spring-boot-starter-data-redis` and Redis connection settings (`spring.data.redis.*`) when using cluster quarantine read and/or write. Write propagation runs **asynchronously** after local quarantine is applied; Redis failures do not roll back local quarantine.
+Add `spring-boot-starter-data-redis` and Redis connection settings (`spring.data.redis.*`) when using cluster quarantine read/write and/or cluster throttle. Quarantine write propagation runs **asynchronously** after local quarantine is applied; Redis failures do not roll back local quarantine. Cluster throttle uses a short-budget async Redis **INCR** + **EXPIRE** script; on timeout or error the check **allows** the request (fail-open) and local per-node throttling still applies afterward. The **filter thread** waits up to the configured throttle/quarantine timeout for the Redis future, so **Redis round-trip latency is part of the request-path budget** for that check (async handoff only; no unbounded blocking beyond the timeout).
 
 ### Enable Isolation Forest locally (demo)
 
@@ -158,7 +163,8 @@ management:
 - `quarantineCount`, `activeThrottleCount`
 - `lastScoreComponents` — snapshot from the **last** scored request: `statistical`, optional `isolationForest`, `composite`, `evaluatedAtMillis` (empty `{}` until traffic hits the filter)
 - When IF is enabled: `isolationForestModelLoaded`, `isolationForestBufferedSampleCount`, `isolationForestModelVersion`, retrain timestamps, `acceptedTrainingSampleCount`, `rejectedTrainingSampleCount`
-- When Micrometer is present: `scoreSummary`, `latencySummary`, `modelRetrainSuccessCount`, `modelRetrainFailureCount`
+- When Micrometer is present: `scoreSummary`, `latencySummary`, `modelRetrainSuccessCount`, `modelRetrainFailureCount`, `distributedMetrics`, `distributedThrottleMetrics`
+- Distributed: `distributedClusterThrottleEnabled`, `clusterThrottleStoreType`, `distributedThrottle` (degraded / last Redis error), throttle window and max-per-window echo fields
 
 **Prometheus** (`/actuator/prometheus`) includes meters prefixed with **`aisentinel.`** (e.g. `aisentinel_score_composite`, `aisentinel_latency_pipeline_seconds`, `aisentinel_action_allow_total`). Example:
 
@@ -185,7 +191,7 @@ Typical flow: start the demo with **`stage2`** profile, then `python scripts/tra
 
 | Stage | Focus | Status in this repo |
 |-------|--------|---------------------|
-| 5 | Distributed store, shared quarantine, cluster coordination | **In progress** — Redis read + optional write propagation; not Phase-5-complete (no Kafka/trainer/registry/throttle) |
+| 5 | Distributed store, shared quarantine, cluster coordination | **In progress** — Redis quarantine read/write + validation + **selective cluster throttle** (THROTTLE band); not Phase-5-complete (no Kafka/trainer/registry/training pipeline) |
 | 6 | Research, benchmarks, publications | Not started |
 
 Deferred items and Phase 5 boundaries are summarized in this README; longer design notes may exist only in a local **`docs/`** copy (not versioned here).
@@ -206,9 +212,35 @@ This milestone is **verification**, not new product features. Automated coverage
 
 **Guarantees reinforced by 5.3:** local quarantine remains authoritative; cluster view is additive; Redis is optional; read and write paths stay fail-open; publish path does not block on Redis I/O; bounded in-flight writes can drop excess work with observability.
 
-**Still not implemented:** distributed throttling, Kafka training pipeline, trainer service, model registry, automated multi-JVM validation, and other Phase 5 items called out above.
+**Still not implemented:** Kafka training pipeline, trainer service, model registry, automated multi-JVM throttle validation, and other Phase 5 items called out above.
 
 **Optional manual two-instance check:** start Redis (`docker compose up -d` using repo-root `docker-compose.yml` if you use it), run two JVMs (e.g. two terminals with `mvn -pl ai-sentinel-demo spring-boot:run` on different `server.port` values) with the same `spring.data.redis.*` and `ai.sentinel.distributed.*` settings, trigger `QUARANTINE` on instance A, then call an endpoint on instance B with the same identity and confirm cluster quarantine merges into enforcement when read path is enabled.
+
+### Phase 5.4 — Distributed throttling (high-risk / THROTTLE path)
+
+**What it does:** When policy maps a request to **THROTTLE**, `CompositeEnforcementHandler` first consults an optional **Redis fixed-window counter** per tenant + enforcement key (`identity|endpoint` or identity-only per `enforcement-scope`), then applies the existing **local** token bucket. That closes the “rotate across nodes to reset throttle” gap for suspicious traffic **without** turning Redis into a global limiter for all requests.
+
+**What it does not do:** It is **not** cluster rate limiting for ALLOW/MONITOR traffic, **not** applied on BLOCK/QUARANTINE paths, and **not** a precise distributed token-bucket—just a bounded **INCR** per window with TTL.
+
+**Burst / window boundary:** Redis **INCR** is atomic. Under concurrent load, at most **`cluster-throttle-max-requests-per-window`** evaluations can observe a counter value ≤ that cap (cluster **allow**); additional evaluations in the same window observe a higher count and are **cluster-rejected** (`tryAcquire` returns false) unless a fail-open path applies (timeout, Redis error, in-flight cap). Near a window rollover, a short period can admit up to **2× max** cluster-side (last slots of bucket *N* and first slots of bucket *N+1*)—local throttle still applies afterward.
+
+**Semantics:** Fail-open on Redis down/slow/errors, executor/semaphore saturation, or timeout (request continues; local throttle may still apply). The JVM holds a bounded number of in-flight throttle Redis tasks (`cluster-throttle-max-in-flight`); excess attempts fail-open with reason **`inflight_exhausted`**.
+
+**Metrics (Micrometer / Prometheus):**
+
+| Meter | Meaning |
+|-------|---------|
+| `aisentinel.distributed.throttle.evaluation` | Throttle path invoked cluster check |
+| `aisentinel.distributed.throttle.allow` | Counter ≤ cap (cluster allows) |
+| `aisentinel.distributed.throttle.reject` | Counter &gt; cap (cluster rejects) |
+| `aisentinel.distributed.throttle.redis.timeout` | Future timed out waiting for Redis |
+| `aisentinel.distributed.throttle.redis.failure` | Redis/command failure on completed wait |
+| `aisentinel.distributed.throttle.executor.rejected` | In-flight semaphore full or executor rejected async work |
+| `aisentinel.distributed.throttle.redis.eval` | Timer for eval wall time |
+
+Actuator **`distributedThrottle`** exposes `redisThrottleDegraded` and `lastRedisErrorSummary` with reason prefixes: `redis_timeout`, `redis_failure`, `inflight_exhausted`, `executor_rejected`.
+
+**Still deferred:** Kafka training export, trainer, model registry, automated multi-JVM throttle validation (starter unit tests cover burst, timeout, recovery, and in-flight saturation).
 
 ---
 
