@@ -31,4 +31,18 @@ class SentinelPropertiesValidationTest {
         p.getDistributed().setClusterThrottleMaxRequestsPerWindow(0);
         assertThat(validator.validate(p)).isNotEmpty();
     }
+
+    @Test
+    void rejectsTrainingPublishSampleRateAboveOne() {
+        SentinelProperties p = new SentinelProperties();
+        p.getDistributed().setTrainingPublishSampleRate(1.01);
+        assertThat(validator.validate(p)).isNotEmpty();
+    }
+
+    @Test
+    void rejectsTrainingPublishTimeoutAboveThirtySeconds() {
+        SentinelProperties p = new SentinelProperties();
+        p.getDistributed().setTrainingPublishTimeout(Duration.ofSeconds(31));
+        assertThat(validator.validate(p)).isNotEmpty();
+    }
 }
