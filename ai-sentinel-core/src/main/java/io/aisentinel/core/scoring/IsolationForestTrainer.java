@@ -7,13 +7,13 @@ import java.util.Random;
 /**
  * Builds an IsolationForestModel from a list of feature vectors using a fixed seed for determinism.
  */
-final class IsolationForestTrainer {
+public final class IsolationForestTrainer {
 
     private final int numTrees;
     private final int maxDepth;
     private final long randomSeed;
 
-    IsolationForestTrainer(int numTrees, int maxDepth, long randomSeed) {
+    public IsolationForestTrainer(int numTrees, int maxDepth, long randomSeed) {
         this.numTrees = Math.max(1, numTrees);
         this.maxDepth = Math.max(1, maxDepth);
         this.randomSeed = randomSeed;
@@ -22,7 +22,7 @@ final class IsolationForestTrainer {
     /**
      * Builds a model from the given samples. Returns null if samples are empty or dimension mismatch.
      */
-    IsolationForestModel train(List<double[]> samples) {
+    public IsolationForestModel train(List<double[]> samples) {
         if (samples == null || samples.isEmpty()) return null;
         int dim = samples.get(0).length;
         for (double[] row : samples) {

@@ -74,6 +74,13 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Counter trainingPublishFailureTimeout;
     private final Counter trainingPublishFailureSerialization;
 
+    private final Counter modelRegistryRefreshAttempt;
+    private final Counter modelRegistryRefreshSkippedSameVersion;
+    private final Counter modelRegistryRefreshSuccess;
+    private final Counter modelRegistryRefreshFailure;
+    private final Counter modelRegistryInstallSuccess;
+    private final Counter modelRegistryInstallFailure;
+
     public MicrometerSentinelMetrics(MeterRegistry registry) {
         this.scoreComposite = DistributionSummary.builder("aisentinel.score.composite")
             .description("Blended anomaly score after composite weighting")
@@ -204,6 +211,22 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
             .register(registry);
         this.trainingPublishFailureSerialization = Counter.builder("aisentinel.distributed.training.publish.failure.serialization")
             .description("JSON serialization failed before send")
+            .register(registry);
+
+        this.modelRegistryRefreshAttempt = Counter.builder("aisentinel.model.registry.refresh.attempt")
+            .description("Background poll for active model pointer")
+            .register(registry);
+        this.modelRegistryRefreshSkippedSameVersion = Counter.builder("aisentinel.model.registry.refresh.skipped_same_version")
+            .register(registry);
+        this.modelRegistryRefreshSuccess = Counter.builder("aisentinel.model.registry.refresh.success")
+            .register(registry);
+        this.modelRegistryRefreshFailure = Counter.builder("aisentinel.model.registry.refresh.failure")
+            .register(registry);
+        this.modelRegistryInstallSuccess = Counter.builder("aisentinel.model.registry.install.success")
+            .description("Artifact validated and swapped into IsolationForestScorer")
+            .register(registry);
+        this.modelRegistryInstallFailure = Counter.builder("aisentinel.model.registry.install.failure")
+            .description("Checksum/decode/dimension rejection")
             .register(registry);
     }
 
@@ -459,6 +482,36 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         trainingPublishFailureSerialization.increment();
     }
 
+    @Override
+    public void recordModelRegistryRefreshAttempt() {
+        modelRegistryRefreshAttempt.increment();
+    }
+
+    @Override
+    public void recordModelRegistryRefreshSkippedSameVersion() {
+        modelRegistryRefreshSkippedSameVersion.increment();
+    }
+
+    @Override
+    public void recordModelRegistryRefreshSuccess() {
+        modelRegistryRefreshSuccess.increment();
+    }
+
+    @Override
+    public void recordModelRegistryRefreshFailure() {
+        modelRegistryRefreshFailure.increment();
+    }
+
+    @Override
+    public void recordModelRegistryInstallSuccess() {
+        modelRegistryInstallSuccess.increment();
+    }
+
+    @Override
+    public void recordModelRegistryInstallFailure() {
+        modelRegistryInstallFailure.increment();
+    }
+
     public Map<String, Object> scoreSummaryForActuator() {
         Map<String, Object> m = new LinkedHashMap<>();
         putSummary(m, "composite", scoreComposite);
@@ -615,6 +668,17 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         m.put("publishSkippedGateCount", getTrainingPublishSkippedGateCount());
         m.put("publishExecutorRejectedCount", getTrainingPublishExecutorRejectedCount());
         putTimer(m, "publishTransport", trainingPublishTransport);
+        return m;
+    }
+
+    public Map<String, Object> modelRegistrySummaryForActuator() {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("refreshAttemptCount", (long) modelRegistryRefreshAttempt.count());
+        m.put("refreshSkippedSameVersionCount", (long) modelRegistryRefreshSkippedSameVersion.count());
+        m.put("refreshSuccessCount", (long) modelRegistryRefreshSuccess.count());
+        m.put("refreshFailureCount", (long) modelRegistryRefreshFailure.count());
+        m.put("installSuccessCount", (long) modelRegistryInstallSuccess.count());
+        m.put("installFailureCount", (long) modelRegistryInstallFailure.count());
         return m;
     }
 

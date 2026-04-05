@@ -60,6 +60,24 @@ public class SentinelProperties {
     /** Phase 5 — distributed coordination (disabled by default; see README). */
     @Valid
     private Distributed distributed = new Distributed();
+    /** Phase 5.6 — optional filesystem model registry refresh on serving nodes (off-request). */
+    @Valid
+    private ModelRegistry modelRegistry = new ModelRegistry();
+
+    @Data
+    public static class ModelRegistry {
+        /**
+         * When true and {@link #filesystemRoot} is set, a background poller may install newer IF artifacts
+         * from the registry (requires {@code ai.sentinel.isolation-forest.enabled=true}).
+         */
+        private boolean refreshEnabled = false;
+        /** Root directory written by the trainer ({@code {root}/{tenant}/active.json} layout). */
+        private String filesystemRoot = "";
+        /** How often to poll for a new active pointer. */
+        @DurationMin(seconds = 10)
+        @DurationMax(hours = 24)
+        private Duration pollInterval = Duration.ofMinutes(5);
+    }
 
     @Data
     public static class Telemetry {
@@ -90,6 +108,13 @@ public class SentinelProperties {
         private int maxDepth = 10;
         /** When a model is loaded, training buffer rejects samples with IF score above this (anti-poisoning). Default 0.7 */
         private double trainingRejectionScoreThreshold = 0.7;
+        /**
+         * When true (default), the starter may register local {@code IsolationForestRetrainScheduler} when isolation forest
+         * is enabled. When model-registry refresh is fully configured ({@code refresh-enabled} and non-empty
+         * {@code filesystem-root}), that scheduler is not registered regardless of this flag; set false to disable local
+         * retrain in other deployments.
+         */
+        private boolean localRetrainEnabled = true;
     }
 
     @Data

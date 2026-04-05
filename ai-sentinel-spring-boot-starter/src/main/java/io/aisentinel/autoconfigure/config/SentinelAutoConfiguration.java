@@ -158,6 +158,8 @@ public class SentinelAutoConfiguration {
                 h -> (double) h.getThrottleCount());
             registry.gauge("aisentinel.cache.quarantine.size", enforcementHandlerImpl,
                 h -> (double) h.getQuarantineCount());
+            registry.gauge("aisentinel.isolation_forest.model.source", isolationForestScorer,
+                s -> (double) s.getActiveModelSource().ordinal());
         };
     }
 
@@ -180,6 +182,7 @@ public class SentinelAutoConfiguration {
 
     @Bean
     @ConditionalOnProperty(name = "ai.sentinel.isolation-forest.enabled", havingValue = "true")
+    @Conditional(OnIsolationForestLocalRetrainCondition.class)
     @ConditionalOnBean(IsolationForestScorer.class)
     public IsolationForestRetrainScheduler isolationForestRetrainScheduler(IsolationForestScorer isolationForestScorer,
                                                                           SentinelProperties props) {

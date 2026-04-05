@@ -6,7 +6,7 @@ import java.util.List;
  * Immutable Isolation Forest model. Built by {@link IsolationForestTrainer}.
  * Score is in (0, 1]; higher = more anomalous. Caller clamps to [0, 1] if needed.
  */
-final class IsolationForestModel {
+public final class IsolationForestModel {
 
     private static final double EPS = 1e-10;
 
@@ -20,11 +20,24 @@ final class IsolationForestModel {
         this.dimension = dimension;
     }
 
+    /** Feature vector length this model expects (IF path uses five features). */
+    public int featureDimension() {
+        return dimension;
+    }
+
+    TreeNode[] treesForCodec() {
+        return trees;
+    }
+
+    int trainingSampleCount() {
+        return numSamples;
+    }
+
     /**
      * Anomaly score: 2^(-E[h(x)]/c(n)). In (0, 1]; 1 = high anomaly.
      * Returns value in (0, 1]; caller should clamp to [0, 1] and handle NaN.
      */
-    double score(double[] x) {
+    public double score(double[] x) {
         if (x == null || x.length != dimension || trees.length == 0) return 0.5;
         double sumPath = 0;
         for (TreeNode root : trees) {

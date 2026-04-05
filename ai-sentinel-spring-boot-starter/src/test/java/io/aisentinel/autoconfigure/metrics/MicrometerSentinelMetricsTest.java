@@ -49,5 +49,15 @@ class MicrometerSentinelMetricsTest {
         m.recordTrainingCandidatePublishSuccess();
         assertThat(registry.find("aisentinel.distributed.training.publish.attempt").counter().count()).isEqualTo(1.0);
         assertThat(registry.find("aisentinel.distributed.training.publish.success").counter().count()).isEqualTo(1.0);
+
+        m.recordModelRegistryRefreshAttempt();
+        m.recordModelRegistryRefreshSkippedSameVersion();
+        m.recordModelRegistryRefreshSuccess();
+        m.recordModelRegistryRefreshFailure();
+        m.recordModelRegistryInstallSuccess();
+        m.recordModelRegistryInstallFailure();
+        assertThat(registry.find("aisentinel.model.registry.refresh.attempt").counter().count()).isEqualTo(1.0);
+        assertThat(m.modelRegistrySummaryForActuator()).containsKeys(
+            "refreshAttemptCount", "refreshSuccessCount", "installFailureCount");
     }
 }
