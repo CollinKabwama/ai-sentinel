@@ -94,6 +94,9 @@ public class SentinelActuatorEndpoint {
             map.put("isolationForestLastRetrainFailureTimeMillis", isolationForestScorer.getLastRetrainFailureTimeMillis());
             map.put("acceptedTrainingSampleCount", isolationForestScorer.getAcceptedTrainingSampleCount());
             map.put("rejectedTrainingSampleCount", isolationForestScorer.getRejectedTrainingSampleCount());
+            map.put("modelRegistryArtifactVersion", isolationForestScorer.getRegistryArtifactVersion());
+            map.put("modelRegistryLastInstallTimeMillis", isolationForestScorer.getLastRegistryInstallTimeMillis());
+            map.put("modelRegistryInstallFailureCount", isolationForestScorer.getRegistryInstallFailureCount());
         } else {
             map.put("acceptedTrainingSampleCount", 0L);
             map.put("rejectedTrainingSampleCount", 0L);
@@ -107,6 +110,12 @@ public class SentinelActuatorEndpoint {
             map.put("distributedThrottleMetrics", micrometerSentinelMetrics.distributedThrottleSummaryForActuator());
             map.put("distributedTrainingPublishMetrics", micrometerSentinelMetrics.distributedTrainingPublishSummaryForActuator());
         }
+        if (micrometerSentinelMetrics != null) {
+            map.put("modelRegistryMetrics", micrometerSentinelMetrics.modelRegistrySummaryForActuator());
+        }
+        map.put("modelRegistryRefreshEnabled", props.getModelRegistry().isRefreshEnabled());
+        map.put("modelRegistryFilesystemRootConfigured",
+            props.getModelRegistry().getFilesystemRoot() != null && !props.getModelRegistry().getFilesystemRoot().isBlank());
         var d = props.getDistributed();
         map.put("distributedEnabled", d.isEnabled());
         map.put("distributedClusterQuarantineReadEnabled", d.isClusterQuarantineReadEnabled());

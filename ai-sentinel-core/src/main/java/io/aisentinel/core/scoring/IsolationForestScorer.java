@@ -2,6 +2,7 @@ package io.aisentinel.core.scoring;
 
 import io.aisentinel.core.metrics.SentinelMetrics;
 import io.aisentinel.core.model.RequestFeatures;
+import io.aisentinel.model.ModelArtifactMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,6 +15,13 @@ import java.util.concurrent.atomic.AtomicLong;
  * configurable fallback score so CompositeScorer effectively relies on StatisticalScorer.
  */
 public final class IsolationForestScorer implements AnomalyScorer {
+
+    /** Which path last activated the in-memory IF model (observability; registry and local retrain are mutually exclusive in production). */
+    public enum ActiveModelSource {
+        NONE,
+        LOCAL_RETRAIN,
+        REGISTRY
+    }
 
     private static final Logger log = LoggerFactory.getLogger(IsolationForestScorer.class);
 
@@ -29,6 +37,12 @@ public final class IsolationForestScorer implements AnomalyScorer {
     private final AtomicLong acceptedTrainingSampleCount = new AtomicLong(0);
     private final AtomicLong rejectedTrainingSampleCount = new AtomicLong(0);
     private final SentinelMetrics metrics;
+
+    /** Last successfully installed registry artifact id (empty if none or after a local retrain). */
+    private volatile String registryArtifactVersion = "";
+    private volatile long lastRegistryInstallTimeMillis;
+    private final AtomicLong registryInstallFailureCount = new AtomicLong(0);
+    private volatile ActiveModelSource activeModelSource = ActiveModelSource.NONE;
 
     public IsolationForestScorer(BoundedTrainingBuffer buffer, IsolationForestConfig config) {
         this(buffer, config, SentinelMetrics.NOOP);
@@ -102,6 +116,63 @@ public final class IsolationForestScorer implements AnomalyScorer {
     }
 
     /**
+     * Loads a registry-published artifact after checksum and dimension checks.
+     * On any failure the current {@link #model} is unchanged (fail-open for inference).
+     *
+     * @return true if a new model was activated
+     */
+    public boolean tryInstallFromRegistry(ModelArtifactMetadata meta, byte[] payload) {
+        if (meta == null || payload == null) {
+            return false;
+        }
+        if (payload.length > IsolationForestModelCodec.MAX_PAYLOAD_BYTES) {
+            registryInstallFailureCount.incrementAndGet();
+            metrics.recordModelRegistryInstallFailure();
+            return false;
+        }
+        if (!meta.isValidIsolationForestV1Pointer() || !meta.payloadMatches(payload)) {
+            registryInstallFailureCount.incrementAndGet();
+            metrics.recordModelRegistryInstallFailure();
+            return false;
+        }
+        try {
+            IsolationForestModel decoded = IsolationForestModelCodec.decode(payload);
+            if (decoded.featureDimension() != meta.featureDimension()) {
+                registryInstallFailureCount.incrementAndGet();
+                metrics.recordModelRegistryInstallFailure();
+                return false;
+            }
+            model = decoded;
+            modelVersion.incrementAndGet();
+            lastRetrainTimeMillis = meta.trainedAtEpochMillis();
+            registryArtifactVersion = meta.modelVersion();
+            activeModelSource = ActiveModelSource.REGISTRY;
+            lastRegistryInstallTimeMillis = System.currentTimeMillis();
+            metrics.recordModelRegistryInstallSuccess();
+            log.info("Installed IF model from registry version={} (artifact schema {})",
+                meta.modelVersion(), meta.artifactSchemaVersion());
+            return true;
+        } catch (Exception e) {
+            registryInstallFailureCount.incrementAndGet();
+            metrics.recordModelRegistryInstallFailure();
+            log.warn("Registry model decode/install failed (keeping prior model): {}", e.toString());
+            return false;
+        }
+    }
+
+    public String getRegistryArtifactVersion() {
+        return registryArtifactVersion;
+    }
+
+    public long getLastRegistryInstallTimeMillis() {
+        return lastRegistryInstallTimeMillis;
+    }
+
+    public long getRegistryInstallFailureCount() {
+        return registryInstallFailureCount.get();
+    }
+
+    /**
      * Trains a new model from the buffer and atomically swaps it in.
      * Safe to call from a background scheduler. Training failures do not affect the current model.
      */
@@ -116,6 +187,8 @@ public final class IsolationForestScorer implements AnomalyScorer {
                 model = newModel;
                 long v = modelVersion.incrementAndGet();
                 lastRetrainTimeMillis = System.currentTimeMillis();
+                registryArtifactVersion = "";
+                activeModelSource = ActiveModelSource.LOCAL_RETRAIN;
                 long durationMs = lastRetrainTimeMillis - startMs;
                 log.info("IF retrain v{} completed in {}ms using {} samples", v, durationMs, samples.size());
                 metrics.recordRetrainSuccessNanos(System.nanoTime() - t0);
@@ -151,6 +224,10 @@ public final class IsolationForestScorer implements AnomalyScorer {
 
     public long getRejectedTrainingSampleCount() {
         return rejectedTrainingSampleCount.get();
+    }
+
+    public ActiveModelSource getActiveModelSource() {
+        return activeModelSource;
     }
 
     /** ThreadLocalRandom for sampling without allocating per request. */

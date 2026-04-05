@@ -137,4 +137,22 @@ public interface SentinelMetrics {
 
     /** JSON serialization of the training record failed before send. */
     default void recordTrainingCandidatePublishFailureSerialization() {}
+
+    /** Background poll for registry active pointer started. */
+    default void recordModelRegistryRefreshAttempt() {}
+
+    /** Active registry version matches the loaded artifact; no fetch performed. */
+    default void recordModelRegistryRefreshSkippedSameVersion() {}
+
+    /** New artifact fetched and installed successfully on the scorer. */
+    default void recordModelRegistryRefreshSuccess() {}
+
+    /** Poll or post-fetch install path failed (last-known-good model retained). */
+    default void recordModelRegistryRefreshFailure() {}
+
+    /** {@link io.aisentinel.core.scoring.IsolationForestScorer#tryInstallFromRegistry} succeeded. */
+    default void recordModelRegistryInstallSuccess() {}
+
+    /** Registry artifact rejected (checksum, decode, or dimension mismatch). */
+    default void recordModelRegistryInstallFailure() {}
 }

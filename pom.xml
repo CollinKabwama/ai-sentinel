@@ -21,6 +21,7 @@
     <modules>
         <module>ai-sentinel-core</module>
         <module>ai-sentinel-spring-boot-starter</module>
+        <module>ai-sentinel-trainer</module>
         <module>ai-sentinel-demo</module>
     </modules>
 

@@ -26,4 +26,15 @@ public final class TrainingFingerprintHashes {
             throw new IllegalStateException("SHA-256 not available", e);
         }
     }
+
+    /** Lowercase hex SHA-256 of raw bytes (64 characters). */
+    public static String sha256HexBytes(byte[] data) {
+        byte[] in = data != null ? data : new byte[0];
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            return HexFormat.of().formatHex(md.digest(in));
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 not available", e);
+        }
+    }
 }

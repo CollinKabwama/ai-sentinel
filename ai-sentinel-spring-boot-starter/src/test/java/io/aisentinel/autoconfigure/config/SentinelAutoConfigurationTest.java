@@ -1,6 +1,9 @@
 package io.aisentinel.autoconfigure.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import io.aisentinel.autoconfigure.distributed.DistributedQuarantineAutoConfiguration;
+import io.aisentinel.autoconfigure.model.ModelRefreshScheduler;
+import io.aisentinel.autoconfigure.model.ModelRegistryAutoConfiguration;
 import io.aisentinel.autoconfigure.distributed.DistributedQuarantineStatusAutoConfiguration;
 import io.aisentinel.autoconfigure.distributed.DistributedThrottleStatusAutoConfiguration;
 import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineReader;
@@ -20,6 +23,7 @@ import io.aisentinel.distributed.training.NoopTrainingCandidatePublisher;
 import io.aisentinel.distributed.training.TrainingCandidatePublisher;
 import io.aisentinel.distributed.throttle.ClusterThrottleStore;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
@@ -28,6 +32,7 @@ import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.RedisScript;
 
+import java.nio.file.Path;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -191,6 +196,59 @@ class SentinelAutoConfigurationTest {
                 assertThat(ctx.getBean(TrainingCandidatePublisher.class)).isInstanceOf(AsyncTrainingCandidatePublisher.class);
                 assertThat(ctx).hasSingleBean(TrainingPublishStatus.class);
             });
+    }
+
+    @Test
+    void isolationForestLocalRetrainNotRegisteredWhenRegistryRefreshWired(@TempDir Path registryRoot) {
+        new WebApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(SentinelAutoConfiguration.class, ModelRegistryAutoConfiguration.class))
+            .withUserConfiguration(TestObjectMapper.class)
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.isolation-forest.enabled=true",
+                "ai.sentinel.model-registry.refresh-enabled=true",
+                "ai.sentinel.model-registry.filesystem-root=" + registryRoot.toAbsolutePath())
+            .run(ctx -> {
+                assertThat(ctx).hasNotFailed();
+                assertThat(ctx).doesNotHaveBean(IsolationForestRetrainScheduler.class);
+                assertThat(ctx).hasSingleBean(ModelRefreshScheduler.class);
+            });
+    }
+
+    @Test
+    void isolationForestLocalRetrainStillRegisteredWhenRefreshEnabledButRootUnset() {
+        new WebApplicationContextRunner()
+            .withConfiguration(AutoConfigurations.of(SentinelAutoConfiguration.class, ModelRegistryAutoConfiguration.class))
+            .withUserConfiguration(TestObjectMapper.class)
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.isolation-forest.enabled=true",
+                "ai.sentinel.model-registry.refresh-enabled=true",
+                "ai.sentinel.model-registry.filesystem-root=")
+            .run(ctx -> {
+                assertThat(ctx).hasNotFailed();
+                assertThat(ctx).hasSingleBean(IsolationForestRetrainScheduler.class);
+                assertThat(ctx).doesNotHaveBean(ModelRefreshScheduler.class);
+            });
+    }
+
+    @Test
+    void isolationForestLocalRetrainDisabledByProperty() {
+        contextRunner
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.isolation-forest.enabled=true",
+                "ai.sentinel.isolation-forest.local-retrain-enabled=false",
+                "ai.sentinel.model-registry.refresh-enabled=false")
+            .run(ctx -> assertThat(ctx).doesNotHaveBean(IsolationForestRetrainScheduler.class));
+    }
+
+    @Configuration
+    static class TestObjectMapper {
+        @Bean
+        ObjectMapper objectMapper() {
+            return new ObjectMapper();
+        }
     }
 
     @Test
