@@ -5,8 +5,10 @@ import io.aisentinel.autoconfigure.config.SentinelProperties;
 import io.aisentinel.core.metrics.SentinelMetrics;
 import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineReader;
 import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineWriter;
+import io.aisentinel.autoconfigure.distributed.throttle.RedisClusterThrottleStore;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineReader;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
+import io.aisentinel.distributed.throttle.ClusterThrottleStore;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -16,7 +18,8 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 /**
- * Registers Redis-backed {@link ClusterQuarantineReader} and {@link ClusterQuarantineWriter} when flags match.
+ * Registers Redis-backed {@link ClusterQuarantineReader}, {@link ClusterQuarantineWriter}, and
+ * {@link ClusterThrottleStore} when flags match.
  */
 @AutoConfiguration(
     before = SentinelAutoConfiguration.class,
@@ -47,5 +50,16 @@ public class DistributedQuarantineAutoConfiguration {
                                                                   DistributedQuarantineStatus distributedQuarantineStatus) {
         return new RedisClusterQuarantineWriter(stringRedisTemplate, sentinelProperties, sentinelMetrics,
             distributedQuarantineStatus);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(ClusterThrottleStore.class)
+    @Conditional(OnDistributedClusterThrottleEnabledCondition.class)
+    public ClusterThrottleStore redisClusterThrottleStore(StringRedisTemplate stringRedisTemplate,
+                                                          SentinelProperties sentinelProperties,
+                                                          SentinelMetrics sentinelMetrics,
+                                                          DistributedThrottleStatus distributedThrottleStatus) {
+        return new RedisClusterThrottleStore(stringRedisTemplate, sentinelProperties, sentinelMetrics,
+            distributedThrottleStatus);
     }
 }
