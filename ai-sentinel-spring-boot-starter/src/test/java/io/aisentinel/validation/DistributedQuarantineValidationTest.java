@@ -20,7 +20,10 @@ import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
 import io.aisentinel.distributed.quarantine.NoopClusterQuarantineWriter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.junit.jupiter.api.MethodOrderer;
+import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -61,6 +64,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * {@link ClusterAwareEnforcementHandler} and {@link SentinelFilter} (see enforcement test). Requires Docker for
  * Testcontainers; tests are skipped when Docker is unavailable.
  */
+@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 @Testcontainers(disabledWithoutDocker = true)
 @SpringBootTest(
     classes = DistributedValidationTestApplication.class,
@@ -137,6 +141,7 @@ class DistributedQuarantineValidationTest {
     private StartupGrace startupGrace;
 
     @Test
+    @Order(4)
     void nodeAQuarantineWritesRedis_nodeBReaderSeesClusterQuarantine_separateRedisClient_metricDeltas() throws Exception {
         MetricSnapshot before = MetricSnapshot.capture(micrometerSentinelMetrics, distributedQuarantineStatus);
 
@@ -177,6 +182,7 @@ class DistributedQuarantineValidationTest {
     }
 
     @Test
+    @Order(5)
     void nodeAWritesQuarantine_nodeBClusterAwareFilterBlocksHttp() throws Exception {
         MetricSnapshot before = MetricSnapshot.capture(micrometerSentinelMetrics, distributedQuarantineStatus);
 
@@ -196,11 +202,9 @@ class DistributedQuarantineValidationTest {
         assertThat(compositeEnforcementHandler.isQuarantined(identityHash, ENFORCEMENT_ENDPOINT)).isTrue();
 
         awaitKeyPresent(stringRedisTemplate, redisKey, 5_000);
-
-        MetricSnapshot mid = MetricSnapshot.capture(micrometerSentinelMetrics, distributedQuarantineStatus);
-        assertThat(mid.writeAttempts - before.writeAttempts).isGreaterThan(0);
-        assertThat(mid.writeSuccesses - before.writeSuccesses).isGreaterThan(0);
-        assertThat(mid.redisWriterDegraded).isFalse();
+        // Async Redis SET runs on a virtual thread; Micrometer success is recorded there. On slow CI, polling
+        // avoids racing the main thread snapshot before counters reflect the completed write.
+        awaitClusterWriteMetricsIncremented(before, 5_000);
 
         try (NodeBRedis nodeB = NodeBRedis.connect(REDIS)) {
             var readerStatusB = new DistributedQuarantineStatus();
@@ -236,7 +240,9 @@ class DistributedQuarantineValidationTest {
                     .andExpect(status().is(expectedStatus))
                     .andExpect(content().string("Quarantined"));
 
-                assertThat(localOnlyB.isQuarantined(identityHash, ENFORCEMENT_ENDPOINT)).isFalse();
+                // Cluster read sets action to QUARANTINE; SentinelPipeline then calls apply(QUARANTINE) on the
+                // delegate, which records local quarantine (mirrors Redis-backed state for this node).
+                assertThat(localOnlyB.isQuarantined(identityHash, ENFORCEMENT_ENDPOINT)).isTrue();
 
                 MetricSnapshot after = MetricSnapshot.capture(micrometerSentinelMetrics, distributedQuarantineStatus);
                 assertThat(after.lookups - before.lookups).isGreaterThan(0);
@@ -248,6 +254,7 @@ class DistributedQuarantineValidationTest {
     }
 
     @Test
+    @Order(2)
     void actuatorExposesDistributedFlagsAndMetricSummary() {
         assertThat(sentinelActuatorEndpoint).isNotNull();
         Map<String, Object> info = sentinelActuatorEndpoint.info();
@@ -276,6 +283,7 @@ class DistributedQuarantineValidationTest {
     }
 
     @Test
+    @Order(3)
     void cacheServesStalePositiveUntilRedisKeyDeletedThenExpiresAndFailsOpen() throws Exception {
         String tenant = sentinelProperties.getDistributed().getTenantId();
         String enforcementKey = "cache-stale|/z";
@@ -309,6 +317,7 @@ class DistributedQuarantineValidationTest {
     }
 
     @Test
+    @Order(1)
     void writerBeanIsRedisImplementationInSharedRedisContext() {
         assertThat(clusterQuarantineWriter).isInstanceOf(
             io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineWriter.class);
@@ -340,6 +349,22 @@ class DistributedQuarantineValidationTest {
             Thread.sleep(25);
         }
         throw new AssertionError("Redis key not found within timeout: " + redisKey);
+    }
+
+    private void awaitClusterWriteMetricsIncremented(MetricSnapshot before, long timeoutMs) throws InterruptedException {
+        long deadline = System.currentTimeMillis() + timeoutMs;
+        while (System.currentTimeMillis() < deadline) {
+            MetricSnapshot now = MetricSnapshot.capture(micrometerSentinelMetrics, distributedQuarantineStatus);
+            if (now.writeAttempts > before.writeAttempts && now.writeSuccesses > before.writeSuccesses) {
+                assertThat(now.redisWriterDegraded).isFalse();
+                return;
+            }
+            Thread.sleep(20);
+        }
+        MetricSnapshot stuck = MetricSnapshot.capture(micrometerSentinelMetrics, distributedQuarantineStatus);
+        throw new AssertionError("Cluster quarantine write metrics did not increment within timeout: attempts "
+            + before.writeAttempts + " -> " + stuck.writeAttempts + ", successes " + before.writeSuccesses + " -> "
+            + stuck.writeSuccesses);
     }
 
     private record MetricSnapshot(
