@@ -6,8 +6,13 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 /**
- * Applies an enforcement action to the request/response.
- * Returns true if the request should proceed (doFilter), false if response was already written.
+ * Applies {@link EnforcementAction} to the HTTP request/response (throttle, block, quarantine, etc.).
+ * <p>
+ * Runs on the request path. Local maps (throttle/quarantine) are the <strong>source of truth</strong> for
+ * {@link #apply}; optional cluster merges are additive in {@link io.aisentinel.distributed.enforcement.ClusterAwareEnforcementHandler}.
+ * Implementations must not block indefinitely on remote I/O.
+ *
+ * @return {@code true} if the filter chain should continue; {@code false} if the response was already committed
  */
 public interface EnforcementHandler {
 
@@ -15,7 +20,9 @@ public interface EnforcementHandler {
                   String identityHash, String endpoint);
 
     /**
-     * @param endpoint request path or normalized endpoint; used when enforcement scope is per-endpoint.
+     * Whether the identity (and endpoint) is under active quarantine for {@code isQuarantined} checks.
+     *
+     * @param endpoint request path or normalized endpoint; used when enforcement scope is per-endpoint
      */
     default boolean isQuarantined(String identityHash, String endpoint) {
         return false;

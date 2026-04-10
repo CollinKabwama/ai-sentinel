@@ -13,6 +13,10 @@ import org.springframework.stereotype.Service;
 import java.nio.file.Path;
 import java.util.List;
 
+/**
+ * Consumes JSON training candidates, maintains a bounded FIFO buffer, runs scheduled train cycles, publishes
+ * artifacts to the configured filesystem registry. Not on the API request path.
+ */
 @Service
 @Slf4j
 public class TrainerOrchestrator {

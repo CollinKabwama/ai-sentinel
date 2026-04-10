@@ -2,6 +2,9 @@ package io.aisentinel.core.telemetry;
 
 import java.util.Map;
 
+/**
+ * Immutable telemetry payload for {@link TelemetryEmitter}. Factory methods mask identity hashes in log output.
+ */
 public record TelemetryEvent(
     String type,
     long timestampMillis,
