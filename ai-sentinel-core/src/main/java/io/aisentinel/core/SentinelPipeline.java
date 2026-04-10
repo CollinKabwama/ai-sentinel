@@ -22,7 +22,11 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Orchestrates feature extraction, scoring, policy, and enforcement.
+ * Central orchestration of feature extraction, scoring, policy, enforcement, telemetry, metrics, and optional
+ * training export. Invoked from the servlet filter (Spring Boot starter) on each request.
+ * <p>
+ * Request-path invariants: scoring and policy run synchronously; training publish is async and fail-open; failures in
+ * scoring may fail-open per pipeline logic without blocking indefinitely.
  */
 @Slf4j
 public final class SentinelPipeline {

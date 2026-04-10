@@ -15,8 +15,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Off-request poll of {@link ModelRegistryReader}; installs newer artifacts via
- * {@link IsolationForestScorer#tryInstallFromRegistry} without blocking HTTP handling.
+ * Background poll of {@link ModelRegistryReader} to install newer Isolation Forest artifacts via
+ * {@link IsolationForestScorer#tryInstallFromRegistry}. Runs on a dedicated scheduler thread—<strong>never</strong> on
+ * the servlet thread. Failures keep the last-known-good model (fail-open for inference).
  */
 @Slf4j
 public final class ModelRefreshScheduler implements DisposableBean {

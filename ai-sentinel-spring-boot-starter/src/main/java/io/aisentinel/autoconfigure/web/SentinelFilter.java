@@ -19,6 +19,10 @@ import java.security.NoSuchAlgorithmException;
 import java.nio.charset.StandardCharsets;
 import java.util.HexFormat;
 
+/**
+ * Servlet filter that runs the {@link io.aisentinel.core.SentinelPipeline} once per request (after auth when ordered late).
+ * Respects {@link io.aisentinel.autoconfigure.config.SentinelProperties#getExcludePaths()} and mode OFF/MONITOR/ENFORCE.
+ */
 @Slf4j
 @Order(Ordered.LOWEST_PRECEDENCE - 100)
 @RequiredArgsConstructor

@@ -7,6 +7,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.concurrent.TimeUnit;
 
+/** Micrometer counters and timers for {@code aisentinel.trainer.*} meters. */
 @Component
 public class TrainerMetrics {
 

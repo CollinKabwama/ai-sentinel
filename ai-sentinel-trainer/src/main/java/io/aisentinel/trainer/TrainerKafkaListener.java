@@ -4,6 +4,10 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
+/**
+ * Kafka consumer for training-candidate JSON; delegates to {@link TrainerOrchestrator}. Registered only when
+ * {@code aisentinel.trainer.kafka.enabled=true}.
+ */
 @Component
 @ConditionalOnProperty(name = "aisentinel.trainer.kafka.enabled", havingValue = "true")
 public class TrainerKafkaListener {
