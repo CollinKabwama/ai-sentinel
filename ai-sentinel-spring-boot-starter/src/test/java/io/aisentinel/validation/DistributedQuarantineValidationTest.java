@@ -236,7 +236,9 @@ class DistributedQuarantineValidationTest {
                     .andExpect(status().is(expectedStatus))
                     .andExpect(content().string("Quarantined"));
 
-                assertThat(localOnlyB.isQuarantined(identityHash, ENFORCEMENT_ENDPOINT)).isFalse();
+                // Cluster read sets action to QUARANTINE; SentinelPipeline then calls apply(QUARANTINE) on the
+                // delegate, which records local quarantine (mirrors Redis-backed state for this node).
+                assertThat(localOnlyB.isQuarantined(identityHash, ENFORCEMENT_ENDPOINT)).isTrue();
 
                 MetricSnapshot after = MetricSnapshot.capture(micrometerSentinelMetrics, distributedQuarantineStatus);
                 assertThat(after.lookups - before.lookups).isGreaterThan(0);
