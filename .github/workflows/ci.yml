@@ -8,14 +8,18 @@ on:
     types: [opened, synchronize, reopened]
     branches: [main, dev]
   push:
-    branches: [main, dev]
+    branches: [main]
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   build:
+    name: Build & test (JDK 21)
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -31,12 +35,14 @@ jobs:
           cache: maven
 
       - name: Build and test (reactor)
-        run: mvn -B verify
+        run: mvn -B -ntp verify
 
-      - name: Upload Surefire reports (on failure)
+      - name: Upload test reports (on failure)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: surefire-reports
-          path: "**/target/surefire-reports/**"
+          name: test-reports
+          path: |
+            **/target/surefire-reports/**
+            **/target/failsafe-reports/**
           if-no-files-found: ignore
