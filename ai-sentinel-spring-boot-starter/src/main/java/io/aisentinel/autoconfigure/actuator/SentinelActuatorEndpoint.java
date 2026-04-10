@@ -26,6 +26,10 @@ import org.springframework.beans.factory.ObjectProvider;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
+/**
+ * Actuator endpoint {@code /actuator/sentinel}: read-only operational snapshot (config flags, IF state, distributed
+ * health, recent score components, Micrometer summaries when available).
+ */
 @Slf4j
 @Endpoint(id = "sentinel")
 public class SentinelActuatorEndpoint {

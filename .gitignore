@@ -1,6 +1,7 @@
 # Design / local notes (do not commit)
 design_info.txt
-docs/
+docs/*
+!docs/configuration.md
 
 # Build (target/ and **/target/ = all Maven build outputs in every module)
 target/

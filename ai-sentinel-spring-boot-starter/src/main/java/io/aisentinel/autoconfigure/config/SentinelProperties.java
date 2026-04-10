@@ -16,6 +16,10 @@ import org.springframework.validation.annotation.Validated;
 import java.time.Duration;
 import java.util.List;
 
+/**
+ * Binds {@code ai.sentinel.*} configuration (thresholds, isolation forest, distributed, model registry).
+ * Validated at startup where constraints apply.
+ */
 @Data
 @Validated
 @ConfigurationProperties(prefix = "ai.sentinel")

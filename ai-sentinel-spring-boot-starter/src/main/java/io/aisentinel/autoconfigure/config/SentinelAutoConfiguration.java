@@ -52,6 +52,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Conditional;
+
+/**
+ * Primary Spring Boot auto-configuration for AI-Sentinel: pipeline beans, filter, optional Isolation Forest and
+ * distributed features. Most beans use {@link ConditionalOnMissingBean} so applications can override extension points
+ * ({@link io.aisentinel.core.feature.FeatureExtractor}, {@link io.aisentinel.core.policy.PolicyEngine}, etc.).
+ * <p>
+ * Model registry refresh is registered separately in {@link io.aisentinel.autoconfigure.model.ModelRegistryAutoConfiguration}.
+ */
 @Slf4j
 @AutoConfiguration
 @ConditionalOnWebApplication

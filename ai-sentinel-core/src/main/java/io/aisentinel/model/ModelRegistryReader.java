@@ -3,8 +3,10 @@ package io.aisentinel.model;
 import java.util.Optional;
 
 /**
- * Read-only registry view for serving nodes: resolve which artifact is active and fetch bytes.
- * Implementations must be fail-safe for the caller (no exceptions on missing files).
+ * Read-only registry view for serving nodes: resolve which artifact is active and fetch payload bytes.
+ * <p>
+ * Used from <strong>background</strong> threads (model refresh schedulers), not from the servlet thread.
+ * Implementations must be fail-safe for the caller (return empty {@link Optional}, do not throw for missing files).
  */
 public interface ModelRegistryReader {
 
