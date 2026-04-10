@@ -25,6 +25,7 @@ Latency is optimized with bounded maps, careful locking, and lock-free IF infere
 ai-sentinel/
 ├── ai-sentinel-core/                 # Framework-agnostic engine
 ├── ai-sentinel-spring-boot-starter/  # Servlet filter, auto-config, actuator, Micrometer
+├── ai-sentinel-trainer/              # Optional app: Kafka consumer, IF training, filesystem registry publisher
 ├── ai-sentinel-demo/                 # Reference application
 └── scripts/                          # Optional Python traffic / training helpers
 ```
@@ -34,6 +35,22 @@ There is **no** `ai-sentinel-dashboard` module; visualize via Prometheus/Grafana
 ---
 
 ## 3. Request lifecycle
+
+**HTTP path (simplified):**
+
+```
+Client
+  ↓
+SentinelFilter
+  ↓
+Feature extraction → Scoring → Policy → Enforcement
+```
+
+**Optional training / registry path** (async and off-request for registry refresh; not on the servlet hot path for model fetch):
+
+```
+TrainingCandidatePublisher → Kafka (optional) → ai-sentinel-trainer → filesystem registry → ModelRefreshScheduler → IsolationForestScorer
+```
 
 ```mermaid
 flowchart LR
@@ -155,7 +172,27 @@ Trusted entries may be literal IPs or **CIDR** prefixes.
 
 ---
 
-## 10. Observability
+## 10. Distributed architecture
+
+Phase 5 adds **optional** coordination and training paths that do not change local scoring or policy math on the request hot path. Features are gated by `ai.sentinel.distributed.*`, `ai.sentinel.model-registry.*`, and trainer `aisentinel.trainer.*` properties.
+
+| Component | Role |
+|-----------|------|
+| **Cluster quarantine (read)** | `ClusterQuarantineReader` merges Redis into `isQuarantined` (OR with local), fail-open. |
+| **Cluster quarantine (write)** | After a real local `QUARANTINE`, async publish of `until` to Redis for peers. |
+| **Cluster throttle** | On **THROTTLE** only, optional **`ClusterThrottleStore`** (Redis fixed-window counter) before the local bucket; fail-open. |
+| **Training candidate publishing** | **`TrainingCandidatePublisher`** — async export after enforcement (log or Kafka). |
+| **Trainer** (`ai-sentinel-trainer`) | Optional Kafka consumer, bounded buffer, IF train, writes `{tenant}/active.json` + artifacts under a **filesystem** registry root. |
+| **Model registry** | **`ModelRegistryReader`** + **`FilesystemModelRegistry`** read pointers and payloads from that layout. |
+| **Model refresh** | **`ModelRefreshScheduler`** on serving nodes polls off-request and calls **`IsolationForestScorer.tryInstallFromRegistry`**. |
+
+**End-to-end flow (when enabled):** starter **nodes** → **publish** candidates (Phase 5.5) → **trainer** consumes and trains → **writes** registry artifacts → starter **nodes** **refresh** and install models (Phase 5.6). Redis and Kafka are optional; log transport and local-only operation remain valid.
+
+Local enforcement stays authoritative; Redis and transport failures are fail-open. Property names and validation scope: root [`README.md`](README.md).
+
+---
+
+## 11. Observability
 
 - **`DefaultTelemetryEmitter`** — JSON logs + Micrometer counters for events (verbosity and sampling configurable).
 - **`MicrometerSentinelMetrics`** — registers meters such as `aisentinel.score.composite`, `aisentinel.score.statistical`, `aisentinel.score.if`, `aisentinel.latency.pipeline`, `aisentinel.latency.scoring`, `aisentinel.latency.if`, per-action counters, retrain timers/counters, `aisentinel.failopen.count`, etc., with percentiles where applicable.
@@ -163,7 +200,7 @@ Trusted entries may be literal IPs or **CIDR** prefixes.
 
 ---
 
-## 11. Extension points (beans)
+## 12. Extension points (beans)
 
 | Override | Interface / type |
 |----------|------------------|
@@ -174,24 +211,31 @@ Trusted entries may be literal IPs or **CIDR** prefixes.
 | Telemetry | `TelemetryEmitter` |
 | Metrics | `SentinelMetrics` |
 | Training export | `TrainingCandidatePublisher` (default noop) |
+| Cluster throttle store | `ClusterThrottleStore` (default noop; Redis when wired) |
+| Model registry read | `ModelRegistryReader` (default **`FilesystemModelRegistry`** when Phase 5.6 auto-config applies) |
+
+**Wiring:** Spring Boot auto-configuration uses **`@ConditionalOnMissingBean`** on these types (see `SentinelAutoConfiguration`, `ModelRegistryAutoConfiguration`, and distributed packages). Provide your own bean of the same type to replace the default implementation.
 
 ---
 
-## 12. Dependencies (reality)
+## 13. Dependencies (reality)
 
 - **ai-sentinel-core:** SLF4J, Micrometer Core, Jakarta Servlet API (provided), Lombok (provided), JUnit/Mockito/AssertJ (test).
-- **ai-sentinel-spring-boot-starter:** Spring Boot Web, Actuator, Security (optional integration), Micrometer; depends on **ai-sentinel-core**.
+- **ai-sentinel-spring-boot-starter:** Spring Boot Web, Actuator, Security (optional integration), Micrometer; depends on **ai-sentinel-core** only (not on the trainer).
+- **ai-sentinel-trainer:** **ai-sentinel-core**, Spring Boot starter (`spring-boot-starter`), JSON (`spring-boot-starter-json`), Kafka (`spring-kafka`), Actuator, optional Micrometer Prometheus at runtime; Lombok (provided); test stack JUnit 5 / AssertJ / `spring-boot-starter-test`. Standalone deployable; **not** a transitive dependency of applications that only use the starter library.
 
 ---
 
-## 13. Testing strategy
+## 14. Testing strategy
 
-- **Unit tests** — scorers, policy boundaries, resolver logic, enforcement maps, IF buffer and retrain behavior.
-- **Spring slice tests** — auto-configuration, actuator JSON shape, filter/proxy integration.
+- **Unit tests** — `ai-sentinel-core`: scorers, policy boundaries, resolver logic, enforcement maps, IF buffer and retrain behavior, codec/metadata.
+- **Spring slice tests** — `ai-sentinel-spring-boot-starter`: auto-configuration, actuator JSON shape, filter/proxy integration, model registry beans (`io.aisentinel.autoconfigure.model.*`).
+- **Distributed / Redis** — `io.aisentinel.validation.*` and related tests: Testcontainers Redis (`@Testcontainers(disabledWithoutDocker = true)`). **Docker** (or a Docker-compatible CI agent) is required to run those tests; they are skipped when Docker is unavailable.
+- **Trainer** — `ai-sentinel-trainer` unit tests (orchestrator, buffer, message parser).
 - **Demo** — `DemoIntegrationTest` smoke test with embedded server.
 
 ---
 
-## 14. Historical / roadmap note
+## 15. Design evolution
 
-Earlier planning documents referred to Smile-based Isolation Forest, strict per-stage timeouts, and a dashboard module. **Those are not the current implementation.** For Phase 5 distributed behavior and Redis integration, see the root [`README.md`](README.md). Optional extended notes may exist only under a local **`docs/`** tree (gitignored). **Stage 5** adds optional **cluster quarantine read** (Redis-backed `isQuarantined` OR-merge, fail-open) and optional **cluster quarantine write** (after a real local `QUARANTINE` in `ENFORCE` mode, publish `untilEpochMillis` to Redis with a matching key layout and TTL; async and fail-open so local enforcement stays authoritative). **Phase 5.4** adds optional **cluster throttle**: on the **THROTTLE** action only, a Redis fixed-window counter per enforcement key runs **before** the local throttle bucket (fail-open if Redis fails). A per-JVM **in-flight semaphore** caps concurrent throttle Redis evals; saturation is fail-open with a dedicated executor-rejected metric, separate from Redis timeout/failure counters. **Phase 5.5** adds optional **training candidate publishing** after enforcement: bounded async export (logging or optional Kafka), **schema v2** events with **`eventId`** and **SHA-256 fingerprints** (no raw endpoint or enforcement-key strings in JSON), feature snapshots copied on the request thread, stratified sampling option, clamped Kafka send timeout on workers, fail-open, no request-path blocking. Scoring, policy, and local enforcement semantics remain unchanged. **Phase 5.6** adds the **`ai-sentinel-trainer`** module (optional Kafka consumer, bounded buffer, IF train, **filesystem** registry writer) and starter-side **`FilesystemModelRegistry` + `ModelRefreshScheduler`** so nodes **poll** for new `active.json` and **atomically install** decoded models via **`IsolationForestScorer.tryInstallFromRegistry`** (fail-open, last-known-good, no request-path fetch). **Phase 5.3** (verification) adds integration-style tests under `ai-sentinel-spring-boot-starter` (`io.aisentinel.validation.*` and related quarantine tests), including a **single-JVM** MockMvc + `SentinelFilter` check that cluster quarantine drives HTTP blocking; see the root README **Phase 5.3 — Distributed validation** for scope (no automated two-JVM suite yet). **Not** in scope yet: Redis/S3 model registry backends, central online inference, Phase 6 ML optimization / research benchmarking.
+The codebase grew from a **single-node** library (**Phases 0–4**: core engine, Spring integration, Isolation Forest, hardening) to **optional distributed** behavior in **Phase 5**: Redis-backed cluster quarantine and throttle, training candidate export, the **`ai-sentinel-trainer`** service, and filesystem model registry with node-side refresh (**Phase 5.6**). Older planning assumed external ML stacks and a dashboard module; the **current** tree uses an in-core Isolation Forest and Micrometer instead. **Phase 5.3** adds automated validation (single-JVM Testcontainers today). **Phase 6** may add tuning, alternative models, and operational tooling (see README roadmap). **Not** in the current codebase: central online inference; Redis/S3-backed artifact registries as first-class products.
