@@ -1,6 +1,12 @@
 package io.aisentinel.autoconfigure.config;
 
 import io.aisentinel.core.SentinelPipeline;
+import io.aisentinel.core.identity.spi.IdentityContextResolver;
+import io.aisentinel.core.identity.spi.IdentityResponseHook;
+import io.aisentinel.core.identity.spi.NoopIdentityContextResolver;
+import io.aisentinel.core.identity.spi.NoopIdentityResponseHook;
+import io.aisentinel.core.identity.spi.NoopTrustEvaluator;
+import io.aisentinel.core.identity.spi.TrustEvaluator;
 import io.aisentinel.autoconfigure.distributed.DistributedQuarantineStatus;
 import io.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import io.aisentinel.core.enforcement.EnforcementHandler;
@@ -427,11 +433,26 @@ public class SentinelAutoConfiguration {
                                              StartupGrace sentinelStartupGrace,
                                              SentinelMetrics sentinelMetrics,
                                              TrainingCandidatePublisher trainingCandidatePublisher,
-                                             SentinelProperties props) {
+                                             SentinelProperties props,
+                                             ObjectProvider<IdentityContextResolver> identityContextResolverProvider,
+                                             ObjectProvider<TrustEvaluator> trustEvaluatorProvider,
+                                             ObjectProvider<IdentityResponseHook> identityResponseHookProvider) {
         log.info("Sentinel pipeline configured (mode={})", props.getMode());
         String nodeId = props.getDistributed().getTrainingPublisherNodeId();
         if (nodeId == null) {
             nodeId = "";
+        }
+        IdentityContextResolver identityContextResolver = identityContextResolverProvider.getIfAvailable();
+        if (identityContextResolver == null) {
+            identityContextResolver = NoopIdentityContextResolver.INSTANCE;
+        }
+        TrustEvaluator trustEvaluator = trustEvaluatorProvider.getIfAvailable();
+        if (trustEvaluator == null) {
+            trustEvaluator = NoopTrustEvaluator.INSTANCE;
+        }
+        IdentityResponseHook identityResponseHook = identityResponseHookProvider.getIfAvailable();
+        if (identityResponseHook == null) {
+            identityResponseHook = NoopIdentityResponseHook.INSTANCE;
         }
         return new SentinelPipeline(
             featureExtractor,
@@ -446,7 +467,10 @@ public class SentinelAutoConfiguration {
             props.getEnforcementScope(),
             props.getDistributed().getTenantId(),
             nodeId,
-            props.getMode().name()
+            props.getMode().name(),
+            identityContextResolver,
+            trustEvaluator,
+            identityResponseHook
         );
     }
 

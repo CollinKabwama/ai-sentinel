@@ -1,3 +1,4 @@
+io.aisentinel.autoconfigure.identity.IdentityAutoConfiguration
 io.aisentinel.autoconfigure.distributed.DistributedQuarantineStatusAutoConfiguration
 io.aisentinel.autoconfigure.distributed.DistributedThrottleStatusAutoConfiguration
 io.aisentinel.autoconfigure.distributed.DistributedQuarantineAutoConfiguration
