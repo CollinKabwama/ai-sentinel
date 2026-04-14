@@ -26,6 +26,7 @@ class SentinelPropertiesTest {
             assertThat(props.getBaselineTtl()).isEqualTo(Duration.ofMinutes(5));
             assertThat(props.getIsolationForest().isEnabled()).isFalse();
             assertThat(props.getDistributed().isClusterQuarantineWriteEnabled()).isFalse();
+            assertThat(props.getIdentity().isEnabled()).isFalse();
         });
     }
 
