@@ -1,6 +1,8 @@
 package io.aisentinel.autoconfigure.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.aisentinel.autoconfigure.identity.IdentityAutoConfiguration;
+import io.aisentinel.autoconfigure.identity.ServletIdentityContextResolver;
 import io.aisentinel.autoconfigure.distributed.DistributedQuarantineAutoConfiguration;
 import io.aisentinel.autoconfigure.model.ModelRefreshScheduler;
 import io.aisentinel.autoconfigure.model.ModelRegistryAutoConfiguration;
@@ -10,6 +12,10 @@ import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantine
 import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineWriter;
 import io.aisentinel.autoconfigure.distributed.throttle.RedisClusterThrottleStore;
 import io.aisentinel.autoconfigure.web.SentinelFilter;
+import io.aisentinel.core.identity.spi.IdentityContextResolver;
+import io.aisentinel.core.identity.spi.NoopIdentityContextResolver;
+import io.aisentinel.core.identity.spi.NoopTrustEvaluator;
+import io.aisentinel.core.identity.spi.TrustEvaluator;
 import io.aisentinel.core.model.RequestFeatures;
 import io.aisentinel.core.policy.EnforcementAction;
 import io.aisentinel.core.policy.PolicyEngine;
@@ -43,7 +49,7 @@ import static org.mockito.Mockito.when;
 class SentinelAutoConfigurationTest {
 
     private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
-        .withConfiguration(AutoConfigurations.of(SentinelAutoConfiguration.class));
+        .withConfiguration(AutoConfigurations.of(IdentityAutoConfiguration.class, SentinelAutoConfiguration.class));
 
     private static RequestFeatures dummyFeatures() {
         return RequestFeatures.builder()
@@ -67,6 +73,25 @@ class SentinelAutoConfigurationTest {
             .run(context -> {
                 assertThat(context).hasSingleBean(io.aisentinel.core.SentinelPipeline.class);
                 assertThat(context).hasSingleBean(SentinelFilter.class);
+            });
+    }
+
+    @Test
+    void identityFoundationUsesNoopResolverByDefault() {
+        contextRunner
+            .withPropertyValues("ai.sentinel.enabled=true")
+            .run(context -> {
+                assertThat(context.getBean(IdentityContextResolver.class)).isSameAs(NoopIdentityContextResolver.INSTANCE);
+            });
+    }
+
+    @Test
+    void identityFoundationRegistersServletResolverWhenEnabled() {
+        contextRunner
+            .withPropertyValues("ai.sentinel.enabled=true", "ai.sentinel.identity.enabled=true")
+            .run(context -> {
+                assertThat(context.getBean(IdentityContextResolver.class)).isInstanceOf(ServletIdentityContextResolver.class);
+                assertThat(context.getBean(TrustEvaluator.class)).isSameAs(NoopTrustEvaluator.INSTANCE);
             });
     }
 
