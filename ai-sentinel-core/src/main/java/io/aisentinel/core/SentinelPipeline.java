@@ -4,6 +4,15 @@ import io.aisentinel.core.enforcement.EnforcementHandler;
 import io.aisentinel.core.enforcement.EnforcementKeys;
 import io.aisentinel.core.enforcement.EnforcementScope;
 import io.aisentinel.core.feature.FeatureExtractor;
+import io.aisentinel.core.identity.IdentityContextKeys;
+import io.aisentinel.core.identity.model.IdentityContext;
+import io.aisentinel.core.identity.model.TrustScore;
+import io.aisentinel.core.identity.spi.IdentityContextResolver;
+import io.aisentinel.core.identity.spi.IdentityResponseHook;
+import io.aisentinel.core.identity.spi.NoopIdentityContextResolver;
+import io.aisentinel.core.identity.spi.NoopIdentityResponseHook;
+import io.aisentinel.core.identity.spi.NoopTrustEvaluator;
+import io.aisentinel.core.identity.spi.TrustEvaluator;
 import io.aisentinel.core.model.RequestContext;
 import io.aisentinel.core.model.RequestFeatures;
 import io.aisentinel.core.policy.EnforcementAction;
@@ -44,12 +53,16 @@ public final class SentinelPipeline {
     private final String trainingTenantId;
     private final String trainingNodeId;
     private final String sentinelModeName;
+    private final IdentityContextResolver identityContextResolver;
+    private final TrustEvaluator trustEvaluator;
+    private final IdentityResponseHook identityResponseHook;
 
     public SentinelPipeline(FeatureExtractor featureExtractor, AnomalyScorer scorer, PolicyEngine policyEngine,
                             EnforcementHandler enforcementHandler, TelemetryEmitter telemetry, StartupGrace startupGrace,
                             SentinelMetrics metrics) {
         this(featureExtractor, scorer, null, policyEngine, enforcementHandler, telemetry, startupGrace, metrics,
-            NoopTrainingCandidatePublisher.INSTANCE, EnforcementScope.IDENTITY_ENDPOINT, "default", "", "ENFORCE");
+            NoopTrainingCandidatePublisher.INSTANCE, EnforcementScope.IDENTITY_ENDPOINT, "default", "", "ENFORCE",
+            NoopIdentityContextResolver.INSTANCE, NoopTrustEvaluator.INSTANCE, NoopIdentityResponseHook.INSTANCE);
     }
 
     public SentinelPipeline(FeatureExtractor featureExtractor,
@@ -64,7 +77,10 @@ public final class SentinelPipeline {
                             EnforcementScope enforcementScope,
                             String trainingTenantId,
                             String trainingNodeId,
-                            String sentinelModeName) {
+                            String sentinelModeName,
+                            IdentityContextResolver identityContextResolver,
+                            TrustEvaluator trustEvaluator,
+                            IdentityResponseHook identityResponseHook) {
         this.featureExtractor = featureExtractor;
         this.scorer = scorer;
         this.compositeScorerOrNull = compositeScorerOrNull;
@@ -80,6 +96,9 @@ public final class SentinelPipeline {
         this.trainingTenantId = trainingTenantId != null && !trainingTenantId.isBlank() ? trainingTenantId : "default";
         this.trainingNodeId = trainingNodeId != null ? trainingNodeId : "";
         this.sentinelModeName = sentinelModeName != null ? sentinelModeName : "ENFORCE";
+        this.identityContextResolver = identityContextResolver != null ? identityContextResolver : NoopIdentityContextResolver.INSTANCE;
+        this.trustEvaluator = trustEvaluator != null ? trustEvaluator : NoopTrustEvaluator.INSTANCE;
+        this.identityResponseHook = identityResponseHook != null ? identityResponseHook : NoopIdentityResponseHook.INSTANCE;
     }
 
     /**
@@ -87,15 +106,40 @@ public final class SentinelPipeline {
      */
     public boolean process(HttpServletRequest request, HttpServletResponse response, String identityHash) {
         long pipelineStart = System.nanoTime();
+        RequestContext ctx = new RequestContext();
+        RequestFeatures features = null;
+        boolean hookEligible = false;
+        boolean returnValue = true;
         try {
-            RequestContext ctx = new RequestContext();
-            RequestFeatures features;
+            try {
+                identityContextResolver.resolve(request, identityHash, ctx);
+            } catch (Exception e) {
+                log.debug("Identity resolution failed for {}: {}", request.getRequestURI(), e.getMessage());
+                metrics.recordFailOpen();
+            }
+
             try {
                 features = featureExtractor.extract(request, identityHash, ctx);
             } catch (Exception e) {
                 log.debug("Feature extraction failed for {}: {}", request.getRequestURI(), e.getMessage());
                 metrics.recordFailOpen();
-                return true;
+                returnValue = true;
+                return returnValue;
+            }
+
+            hookEligible = true;
+
+            IdentityContext identityCtx = ctx.get(IdentityContextKeys.IDENTITY_CONTEXT, IdentityContext.class);
+            if (identityCtx != null) {
+                try {
+                    TrustScore trust = trustEvaluator.evaluate(identityCtx, request, features, ctx);
+                    if (trust != null) {
+                        ctx.put(IdentityContextKeys.IDENTITY_CONTEXT, identityCtx.withTrust(trust));
+                    }
+                } catch (Exception e) {
+                    log.debug("Trust evaluation failed for {}: {}", features.endpoint(), e.getMessage());
+                    metrics.recordFailOpen();
+                }
             }
 
             double rawScore;
@@ -107,7 +151,8 @@ public final class SentinelPipeline {
                 log.debug("Scoring failed for {}: {}", features.endpoint(), e.getMessage());
                 metrics.recordScoringError();
                 metrics.recordFailOpen();
-                return true;
+                returnValue = true;
+                return returnValue;
             } finally {
                 metrics.recordScoringLatencyNanos(System.nanoTime() - scoreStart);
             }
@@ -136,9 +181,17 @@ public final class SentinelPipeline {
 
             offerTrainingCandidate(features, identityHash, action, score, proceed, startupGraceActive);
 
-            return proceed;
+            returnValue = proceed;
+            return returnValue;
         } finally {
             metrics.recordPipelineLatencyNanos(System.nanoTime() - pipelineStart);
+            if (hookEligible) {
+                try {
+                    identityResponseHook.afterPipeline(request, response, identityHash, features, ctx, returnValue);
+                } catch (Exception e) {
+                    log.debug("Identity response hook failed: {}", e.getMessage());
+                }
+            }
         }
     }
 

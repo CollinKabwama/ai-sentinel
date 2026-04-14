@@ -67,6 +67,18 @@ public class SentinelProperties {
     /** Phase 5.6 — optional filesystem model registry refresh on serving nodes (off-request). */
     @Valid
     private ModelRegistry modelRegistry = new ModelRegistry();
+    /** Identity arm foundation (Phase 0): disabled by default; no change to API security behavior when off. */
+    @Valid
+    private Identity identity = new Identity();
+
+    @Data
+    public static class Identity {
+        /**
+         * When false (default), identity SPI beans use no-op implementations and {@link io.aisentinel.core.model.RequestContext}
+         * is not populated with {@link io.aisentinel.core.identity.model.IdentityContext}.
+         */
+        private boolean enabled = false;
+    }
 
     @Data
     public static class ModelRegistry {
