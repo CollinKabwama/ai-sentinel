@@ -16,7 +16,11 @@ import io.aisentinel.core.identity.spi.TrustEvaluator;
 import io.aisentinel.core.model.RequestContext;
 import io.aisentinel.core.model.RequestFeatures;
 import io.aisentinel.core.policy.EnforcementAction;
+import io.aisentinel.core.policy.NoopTrustPolicyAdjuster;
 import io.aisentinel.core.policy.PolicyEngine;
+import io.aisentinel.core.policy.TrustPolicyAdjuster;
+import io.aisentinel.core.policy.TrustPolicyAdjustment;
+import io.aisentinel.core.policy.TrustPolicyContextKeys;
 import io.aisentinel.core.metrics.SentinelMetrics;
 import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.scoring.AnomalyScorer;
@@ -55,6 +59,7 @@ public final class SentinelPipeline {
     private final String sentinelModeName;
     private final IdentityContextResolver identityContextResolver;
     private final TrustEvaluator trustEvaluator;
+    private final TrustPolicyAdjuster trustPolicyAdjuster;
     private final IdentityResponseHook identityResponseHook;
 
     public SentinelPipeline(FeatureExtractor featureExtractor, AnomalyScorer scorer, PolicyEngine policyEngine,
@@ -62,7 +67,8 @@ public final class SentinelPipeline {
                             SentinelMetrics metrics) {
         this(featureExtractor, scorer, null, policyEngine, enforcementHandler, telemetry, startupGrace, metrics,
             NoopTrainingCandidatePublisher.INSTANCE, EnforcementScope.IDENTITY_ENDPOINT, "default", "", "ENFORCE",
-            NoopIdentityContextResolver.INSTANCE, NoopTrustEvaluator.INSTANCE, NoopIdentityResponseHook.INSTANCE);
+            NoopIdentityContextResolver.INSTANCE, NoopTrustEvaluator.INSTANCE, NoopTrustPolicyAdjuster.INSTANCE,
+            NoopIdentityResponseHook.INSTANCE);
     }
 
     public SentinelPipeline(FeatureExtractor featureExtractor,
@@ -80,6 +86,7 @@ public final class SentinelPipeline {
                             String sentinelModeName,
                             IdentityContextResolver identityContextResolver,
                             TrustEvaluator trustEvaluator,
+                            TrustPolicyAdjuster trustPolicyAdjuster,
                             IdentityResponseHook identityResponseHook) {
         this.featureExtractor = featureExtractor;
         this.scorer = scorer;
@@ -98,6 +105,7 @@ public final class SentinelPipeline {
         this.sentinelModeName = sentinelModeName != null ? sentinelModeName : "ENFORCE";
         this.identityContextResolver = identityContextResolver != null ? identityContextResolver : NoopIdentityContextResolver.INSTANCE;
         this.trustEvaluator = trustEvaluator != null ? trustEvaluator : NoopTrustEvaluator.INSTANCE;
+        this.trustPolicyAdjuster = trustPolicyAdjuster != null ? trustPolicyAdjuster : NoopTrustPolicyAdjuster.INSTANCE;
         this.identityResponseHook = identityResponseHook != null ? identityResponseHook : NoopIdentityResponseHook.INSTANCE;
     }
 
@@ -164,6 +172,17 @@ public final class SentinelPipeline {
             double score = clampScore(rawScore);
 
             EnforcementAction action = policyEngine.evaluate(score, features, features.endpoint());
+            try {
+                TrustPolicyAdjustment tp = trustPolicyAdjuster.adjust(action, score, features, features.endpoint(),
+                    request, ctx);
+                action = tp.action();
+                if (tp.trustPolicyDetail() != null && !tp.trustPolicyDetail().isBlank()) {
+                    ctx.put(TrustPolicyContextKeys.TRUST_POLICY_DETAIL, tp.trustPolicyDetail());
+                }
+            } catch (Exception e) {
+                log.debug("Trust policy adjustment failed for {}: {}", features.endpoint(), e.getMessage());
+                metrics.recordFailOpen();
+            }
 
             telemetry.emit(TelemetryEvent.threatScored(identityHash, features.endpoint(), score));
             if (score > 0.5) {
