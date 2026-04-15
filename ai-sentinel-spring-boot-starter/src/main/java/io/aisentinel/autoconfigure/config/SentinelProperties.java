@@ -78,6 +78,33 @@ public class SentinelProperties {
          * is not populated with {@link io.aisentinel.core.identity.model.IdentityContext}.
          */
         private boolean enabled = false;
+        /** Phase 2 — local behavioral trust baselines and evaluation (only when {@link #enabled} is true). */
+        @Valid
+        private Trust trust = new Trust();
+    }
+
+    @Data
+    public static class Trust {
+        /**
+         * When false, {@link io.aisentinel.core.identity.spi.NoopTrustEvaluator} is used even if identity is enabled.
+         */
+        private boolean trustEvaluationEnabled = true;
+        @DurationMin(seconds = 30)
+        @DurationMax(hours = 24)
+        private Duration baselineTtl = Duration.ofMinutes(15);
+        @Min(1_000)
+        @Max(2_000_000)
+        private int baselineMaxKeys = 50_000;
+        /** {@link io.aisentinel.core.model.RequestFeatures#requestsPerWindow()} above this adds a burst signal. */
+        private double burstRequestsThreshold = 25.0;
+        /** Upper bound on trust when history is sparse ({@code [0,1]}). */
+        @DecimalMin("0.1")
+        @DecimalMax("1.0")
+        private double sparseHistoryTrustCap = 0.82;
+        /** Cap on sum of signal penalties before mapping to trust ({@code [0,1]}). */
+        @DecimalMin("0.1")
+        @DecimalMax("1.0")
+        private double maxTotalPenalty = 0.75;
     }
 
     @Data

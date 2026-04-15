@@ -16,6 +16,7 @@ import io.aisentinel.core.identity.spi.IdentityContextResolver;
 import io.aisentinel.core.identity.spi.NoopIdentityContextResolver;
 import io.aisentinel.core.identity.spi.NoopTrustEvaluator;
 import io.aisentinel.core.identity.spi.TrustEvaluator;
+import io.aisentinel.core.identity.trust.BehavioralIdentityTrustEvaluator;
 import io.aisentinel.core.model.RequestFeatures;
 import io.aisentinel.core.policy.EnforcementAction;
 import io.aisentinel.core.policy.PolicyEngine;
@@ -89,6 +90,19 @@ class SentinelAutoConfigurationTest {
     void identityFoundationRegistersServletResolverWhenEnabled() {
         contextRunner
             .withPropertyValues("ai.sentinel.enabled=true", "ai.sentinel.identity.enabled=true")
+            .run(context -> {
+                assertThat(context.getBean(IdentityContextResolver.class)).isInstanceOf(ServletIdentityContextResolver.class);
+                assertThat(context.getBean(TrustEvaluator.class)).isInstanceOf(BehavioralIdentityTrustEvaluator.class);
+            });
+    }
+
+    @Test
+    void identityFoundationUsesNoopTrustEvaluatorWhenTrustEvaluationDisabled() {
+        contextRunner
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.identity.enabled=true",
+                "ai.sentinel.identity.trust.trust-evaluation-enabled=false")
             .run(context -> {
                 assertThat(context.getBean(IdentityContextResolver.class)).isInstanceOf(ServletIdentityContextResolver.class);
                 assertThat(context.getBean(TrustEvaluator.class)).isSameAs(NoopTrustEvaluator.INSTANCE);

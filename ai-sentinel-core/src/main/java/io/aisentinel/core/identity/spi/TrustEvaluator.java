@@ -1,21 +1,21 @@
 package io.aisentinel.core.identity.spi;
 
 import io.aisentinel.core.identity.model.IdentityContext;
-import io.aisentinel.core.identity.model.TrustScore;
+import io.aisentinel.core.identity.model.TrustEvaluation;
 import io.aisentinel.core.model.RequestContext;
 import io.aisentinel.core.model.RequestFeatures;
 import jakarta.servlet.http.HttpServletRequest;
 
 /**
- * Hook for future continuous trust / session trust scoring. Must not alter API anomaly scores in Phase 0.
+ * Behavioral / session trust evaluation for the Identity arm. Must not alter API anomaly scores or policy.
  * <p>
- * The default starter wiring uses {@link NoopTrustEvaluator}, which returns {@code null} so the
- * {@link IdentityContext} trust set during resolution is left unchanged. Supply a custom bean when Phase 1+ needs
- * trust updates without touching the anomaly {@link io.aisentinel.core.scoring.AnomalyScorer}.
+ * {@link NoopTrustEvaluator} returns {@code null} so {@link IdentityContext} trust/risk from resolution are unchanged.
+ * Phase 2 implementations return a {@link TrustEvaluation} with {@link io.aisentinel.core.identity.model.TrustScore}
+ * and {@link io.aisentinel.core.identity.model.IdentityRiskSignals}.
  *
- * @return updated trust, or {@code null} to leave the current {@link IdentityContext} trust unchanged
+ * @return {@code null} to skip updating trust and risk signals on the context
  */
 public interface TrustEvaluator {
 
-    TrustScore evaluate(IdentityContext identity, HttpServletRequest request, RequestFeatures features, RequestContext ctx);
+    TrustEvaluation evaluate(IdentityContext identity, HttpServletRequest request, RequestFeatures features, RequestContext ctx);
 }

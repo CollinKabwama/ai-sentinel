@@ -6,7 +6,7 @@ import io.aisentinel.core.enforcement.EnforcementScope;
 import io.aisentinel.core.feature.FeatureExtractor;
 import io.aisentinel.core.identity.IdentityContextKeys;
 import io.aisentinel.core.identity.model.IdentityContext;
-import io.aisentinel.core.identity.model.TrustScore;
+import io.aisentinel.core.identity.model.TrustEvaluation;
 import io.aisentinel.core.identity.spi.IdentityContextResolver;
 import io.aisentinel.core.identity.spi.IdentityResponseHook;
 import io.aisentinel.core.identity.spi.NoopIdentityContextResolver;
@@ -132,9 +132,10 @@ public final class SentinelPipeline {
             IdentityContext identityCtx = ctx.get(IdentityContextKeys.IDENTITY_CONTEXT, IdentityContext.class);
             if (identityCtx != null) {
                 try {
-                    TrustScore trust = trustEvaluator.evaluate(identityCtx, request, features, ctx);
-                    if (trust != null) {
-                        ctx.put(IdentityContextKeys.IDENTITY_CONTEXT, identityCtx.withTrust(trust));
+                    TrustEvaluation te = trustEvaluator.evaluate(identityCtx, request, features, ctx);
+                    if (te != null) {
+                        ctx.put(IdentityContextKeys.IDENTITY_CONTEXT,
+                            identityCtx.withTrustAndRisk(te.trustScore(), te.riskSignals()));
                     }
                 } catch (Exception e) {
                     log.debug("Trust evaluation failed for {}: {}", features.endpoint(), e.getMessage());

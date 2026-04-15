@@ -24,4 +24,8 @@ public record IdentityContext(
     public IdentityContext withTrust(TrustScore newTrust) {
         return new IdentityContext(authentication, session, newTrust, riskSignals);
     }
+
+    public IdentityContext withTrustAndRisk(TrustScore newTrust, IdentityRiskSignals newRisk) {
+        return new IdentityContext(authentication, session, newTrust, newRisk);
+    }
 }
