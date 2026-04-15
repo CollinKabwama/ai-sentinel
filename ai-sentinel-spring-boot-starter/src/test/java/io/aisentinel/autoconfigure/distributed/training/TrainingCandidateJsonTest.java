@@ -17,7 +17,7 @@ class TrainingCandidateJsonTest {
         String epHash = TrainingFingerprintHashes.sha256HexUtf8(rawEndpoint);
         String ekHash = TrainingFingerprintHashes.sha256HexUtf8("ek");
         var record = new TrainingCandidateRecord(
-            2,
+            TrainingCandidateRecord.CURRENT_SCHEMA_VERSION,
             "550e8400-e29b-41d4-a716-446655440000",
             "tenant",
             "node",
@@ -30,6 +30,8 @@ class TrainingCandidateJsonTest {
             0.1,
             0.2,
             0.55,
+            0.9,
+            0.6,
             "MONITOR",
             "ENFORCE",
             true,
@@ -47,5 +49,7 @@ class TrainingCandidateJsonTest {
         assertThat(json).doesNotContain("\"enforcementKey\":");
         assertThat(m).doesNotContainKey("endpoint");
         assertThat(m).doesNotContainKey("enforcementKey");
+        assertThat(m).containsEntry("trustScore", 0.9);
+        assertThat(m).containsEntry("fusedPolicyScore", 0.6);
     }
 }

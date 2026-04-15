@@ -27,6 +27,8 @@ class TrainingCandidateRecordTest {
             0.1,
             0.2,
             0.3,
+            null,
+            null,
             "ALLOW",
             "ENFORCE",
             true,
@@ -45,7 +47,7 @@ class TrainingCandidateRecordTest {
     @Test
     void invalidHashBecomesZeroHex() {
         var r = new TrainingCandidateRecord(
-            2,
+            TrainingCandidateRecord.SCHEMA_VERSION_2,
             "e",
             "t",
             "n",
@@ -58,6 +60,8 @@ class TrainingCandidateRecordTest {
             null,
             null,
             0.5,
+            null,
+            null,
             "MONITOR",
             "ENFORCE",
             true,

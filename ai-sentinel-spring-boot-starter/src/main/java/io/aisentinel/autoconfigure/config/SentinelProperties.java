@@ -81,6 +81,22 @@ public class SentinelProperties {
         /** Phase 2 — local behavioral trust baselines and evaluation (only when {@link #enabled} is true). */
         @Valid
         private Trust trust = new Trust();
+        /** Phase 4 — fuse anomaly + trust before policy (default off; no effect without {@link #enabled}). */
+        @Valid
+        private Fusion fusion = new Fusion();
+    }
+
+    @Data
+    public static class Fusion {
+        /**
+         * When true, policy sees a fused risk derived from anomaly and trust when {@link Identity#enabled} is true and
+         * an {@link io.aisentinel.core.identity.model.IdentityContext} is present.
+         */
+        private boolean enabled = false;
+        /** Trust influence on fusion ({@code [0,1]}); higher = stronger amplification from low trust. */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double strength = 0.35;
     }
 
     @Data

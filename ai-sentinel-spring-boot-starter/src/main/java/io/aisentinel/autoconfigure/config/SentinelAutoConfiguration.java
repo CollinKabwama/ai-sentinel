@@ -1,6 +1,9 @@
 package io.aisentinel.autoconfigure.config;
 
 import io.aisentinel.core.SentinelPipeline;
+import io.aisentinel.core.fusion.DeterministicRequestRiskFusion;
+import io.aisentinel.core.fusion.NoopRequestRiskFusion;
+import io.aisentinel.core.fusion.RequestRiskFusion;
 import io.aisentinel.core.identity.spi.IdentityContextResolver;
 import io.aisentinel.core.identity.spi.IdentityResponseHook;
 import io.aisentinel.core.identity.spi.NoopIdentityContextResolver;
@@ -425,6 +428,21 @@ public class SentinelAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    public RequestRiskFusion requestRiskFusion(SentinelProperties props) {
+        var fusion = props.getIdentity().getFusion();
+        if (fusion.isEnabled() && !props.getIdentity().isEnabled()) {
+            log.warn(
+                "ai.sentinel.identity.fusion.enabled=true but ai.sentinel.identity.enabled=false; "
+                    + "fusion has no effect until identity is enabled (no IdentityContext on requests).");
+        }
+        if (!fusion.isEnabled()) {
+            return NoopRequestRiskFusion.INSTANCE;
+        }
+        return new DeterministicRequestRiskFusion(fusion.getStrength());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
     public SentinelPipeline sentinelPipeline(FeatureExtractor featureExtractor,
                                              CompositeScorer compositeScorer,
                                              PolicyEngine policyEngine,
@@ -436,7 +454,8 @@ public class SentinelAutoConfiguration {
                                              SentinelProperties props,
                                              ObjectProvider<IdentityContextResolver> identityContextResolverProvider,
                                              ObjectProvider<TrustEvaluator> trustEvaluatorProvider,
-                                             ObjectProvider<IdentityResponseHook> identityResponseHookProvider) {
+                                             ObjectProvider<IdentityResponseHook> identityResponseHookProvider,
+                                             RequestRiskFusion requestRiskFusion) {
         log.info("Sentinel pipeline configured (mode={})", props.getMode());
         String nodeId = props.getDistributed().getTrainingPublisherNodeId();
         if (nodeId == null) {
@@ -470,7 +489,8 @@ public class SentinelAutoConfiguration {
             props.getMode().name(),
             identityContextResolver,
             trustEvaluator,
-            identityResponseHook
+            identityResponseHook,
+            requestRiskFusion
         );
     }
 
