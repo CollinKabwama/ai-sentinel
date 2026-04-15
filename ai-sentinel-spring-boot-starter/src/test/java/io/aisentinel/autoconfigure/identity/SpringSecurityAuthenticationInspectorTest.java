@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.util.List;
@@ -35,6 +36,14 @@ class SpringSecurityAuthenticationInspectorTest {
             new UsernamePasswordAuthenticationToken("alice", "cred", List.of()));
         HttpServletRequest request = mock(HttpServletRequest.class);
         assertThat(inspector.inspect(request, "hash"))
-            .isEqualTo(AuthenticationContext.ofPrincipal("alice"));
+            .isEqualTo(AuthenticationContext.ofAuthenticated("alice", "UsernamePasswordAuthenticationToken", List.of()));
+    }
+
+    @Test
+    void returnsRoleNamesWhenAuthoritiesPresent() {
+        SecurityContextHolder.getContext().setAuthentication(
+            new UsernamePasswordAuthenticationToken("bob", "c", List.of(new SimpleGrantedAuthority("ROLE_APP"))));
+        HttpServletRequest request = mock(HttpServletRequest.class);
+        assertThat(inspector.inspect(request, "hash").roleNames()).containsExactly("ROLE_APP");
     }
 }

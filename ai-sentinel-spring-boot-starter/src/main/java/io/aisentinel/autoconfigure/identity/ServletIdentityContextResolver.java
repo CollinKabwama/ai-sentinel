@@ -11,7 +11,8 @@ import io.aisentinel.core.model.RequestContext;
 import jakarta.servlet.http.HttpServletRequest;
 
 /**
- * Assembles {@link IdentityContext} from servlet and optional Spring Security state.
+ * Assembles a normalized {@link IdentityContext} from {@link AuthenticationInspector} and {@link SessionInspector}
+ * (no policy or scoring side effects). Fails only if a delegate throws; the pipeline treats that as fail-open.
  */
 public final class ServletIdentityContextResolver implements IdentityContextResolver {
 
