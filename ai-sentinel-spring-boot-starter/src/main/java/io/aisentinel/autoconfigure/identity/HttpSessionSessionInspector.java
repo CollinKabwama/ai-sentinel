@@ -21,7 +21,7 @@ public final class HttpSessionSessionInspector implements SessionInspector {
             if (id == null || id.isEmpty()) {
                 return SessionContext.none();
             }
-            return SessionContext.ofHashedId(IdentityHashing.sha256Hex(id));
+            return SessionContext.ofHashedId(IdentityHashing.sha256Hex(id), session.isNew());
         } catch (Exception e) {
             return SessionContext.none();
         }
