@@ -11,6 +11,7 @@ import io.aisentinel.core.policy.PolicyEngine;
 import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.scoring.CompositeScorer;
 import io.aisentinel.core.identity.spi.NoopIdentityContextResolver;
+import io.aisentinel.core.fusion.NoopRequestRiskFusion;
 import io.aisentinel.core.identity.spi.NoopIdentityResponseHook;
 import io.aisentinel.core.identity.spi.NoopTrustEvaluator;
 import io.aisentinel.core.telemetry.TelemetryEmitter;
@@ -71,7 +72,8 @@ class SentinelPipelineTrainingPublishTest {
             "ENFORCE",
             NoopIdentityContextResolver.INSTANCE,
             NoopTrustEvaluator.INSTANCE,
-            NoopIdentityResponseHook.INSTANCE
+            NoopIdentityResponseHook.INSTANCE,
+            NoopRequestRiskFusion.INSTANCE
         );
 
         HttpServletRequest request = mock(HttpServletRequest.class);

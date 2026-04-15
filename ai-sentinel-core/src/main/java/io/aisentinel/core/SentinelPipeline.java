@@ -1,7 +1,6 @@
 package io.aisentinel.core;
 
 import io.aisentinel.core.enforcement.EnforcementHandler;
-import io.aisentinel.core.enforcement.EnforcementKeys;
 import io.aisentinel.core.enforcement.EnforcementScope;
 import io.aisentinel.core.feature.FeatureExtractor;
 import io.aisentinel.core.identity.IdentityContextKeys;
@@ -21,6 +20,10 @@ import io.aisentinel.core.metrics.SentinelMetrics;
 import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.scoring.AnomalyScorer;
 import io.aisentinel.core.scoring.CompositeScorer;
+import io.aisentinel.core.fusion.FusedRisk;
+import io.aisentinel.core.fusion.FusionContextKeys;
+import io.aisentinel.core.fusion.NoopRequestRiskFusion;
+import io.aisentinel.core.fusion.RequestRiskFusion;
 import io.aisentinel.core.telemetry.TelemetryEmitter;
 import io.aisentinel.core.telemetry.TelemetryEvent;
 import io.aisentinel.distributed.training.NoopTrainingCandidatePublisher;
@@ -56,13 +59,15 @@ public final class SentinelPipeline {
     private final IdentityContextResolver identityContextResolver;
     private final TrustEvaluator trustEvaluator;
     private final IdentityResponseHook identityResponseHook;
+    private final RequestRiskFusion riskFusion;
 
     public SentinelPipeline(FeatureExtractor featureExtractor, AnomalyScorer scorer, PolicyEngine policyEngine,
                             EnforcementHandler enforcementHandler, TelemetryEmitter telemetry, StartupGrace startupGrace,
                             SentinelMetrics metrics) {
         this(featureExtractor, scorer, null, policyEngine, enforcementHandler, telemetry, startupGrace, metrics,
             NoopTrainingCandidatePublisher.INSTANCE, EnforcementScope.IDENTITY_ENDPOINT, "default", "", "ENFORCE",
-            NoopIdentityContextResolver.INSTANCE, NoopTrustEvaluator.INSTANCE, NoopIdentityResponseHook.INSTANCE);
+            NoopIdentityContextResolver.INSTANCE, NoopTrustEvaluator.INSTANCE, NoopIdentityResponseHook.INSTANCE,
+            NoopRequestRiskFusion.INSTANCE);
     }
 
     public SentinelPipeline(FeatureExtractor featureExtractor,
@@ -80,7 +85,8 @@ public final class SentinelPipeline {
                             String sentinelModeName,
                             IdentityContextResolver identityContextResolver,
                             TrustEvaluator trustEvaluator,
-                            IdentityResponseHook identityResponseHook) {
+                            IdentityResponseHook identityResponseHook,
+                            RequestRiskFusion riskFusion) {
         this.featureExtractor = featureExtractor;
         this.scorer = scorer;
         this.compositeScorerOrNull = compositeScorerOrNull;
@@ -99,6 +105,7 @@ public final class SentinelPipeline {
         this.identityContextResolver = identityContextResolver != null ? identityContextResolver : NoopIdentityContextResolver.INSTANCE;
         this.trustEvaluator = trustEvaluator != null ? trustEvaluator : NoopTrustEvaluator.INSTANCE;
         this.identityResponseHook = identityResponseHook != null ? identityResponseHook : NoopIdentityResponseHook.INSTANCE;
+        this.riskFusion = riskFusion != null ? riskFusion : NoopRequestRiskFusion.INSTANCE;
     }
 
     /**
@@ -163,9 +170,27 @@ public final class SentinelPipeline {
             }
             double score = clampScore(rawScore);
 
-            EnforcementAction action = policyEngine.evaluate(score, features, features.endpoint());
+            double policyScore = score;
+            if (riskFusion.enabled()) {
+                IdentityContext identityForFusion = ctx.get(IdentityContextKeys.IDENTITY_CONTEXT, IdentityContext.class);
+                if (identityForFusion != null) {
+                    try {
+                        double trust = identityForFusion.trust().value();
+                        if (!Double.isNaN(trust)) {
+                            FusedRisk fused = riskFusion.fuse(score, trust);
+                            policyScore = fused.fusedScore();
+                            ctx.put(FusionContextKeys.FUSED_RISK, fused);
+                        }
+                    } catch (Exception e) {
+                        log.debug("Risk fusion failed for {}: {}", features.endpoint(), e.getMessage());
+                        metrics.recordFailOpen();
+                    }
+                }
+            }
 
-            telemetry.emit(TelemetryEvent.threatScored(identityHash, features.endpoint(), score));
+            EnforcementAction action = policyEngine.evaluate(policyScore, features, features.endpoint());
+
+            telemetry.emit(TelemetryEvent.threatScored(identityHash, features.endpoint(), policyScore));
             if (score > 0.5) {
                 telemetry.emit(TelemetryEvent.anomalyDetected(identityHash, features.endpoint(), score));
             }
@@ -180,7 +205,7 @@ public final class SentinelPipeline {
             metrics.recordPolicyAction(action);
             boolean proceed = enforcementHandler.apply(action, request, response, identityHash, features.endpoint());
 
-            offerTrainingCandidate(features, identityHash, action, score, proceed, startupGraceActive);
+            offerTrainingCandidate(features, identityHash, action, score, proceed, startupGraceActive, ctx);
 
             returnValue = proceed;
             return returnValue;
@@ -197,7 +222,10 @@ public final class SentinelPipeline {
     }
 
     private void offerTrainingCandidate(RequestFeatures features, String identityHash, EnforcementAction action,
-                                        double compositeScore, boolean requestProceeded, boolean startupGraceActive) {
+                                        double rawAnomalyScoreClamped,
+                                        boolean requestProceeded,
+                                        boolean startupGraceActive,
+                                        RequestContext ctx) {
         try {
             Double statisticalScore = null;
             Double isolationForestScore = null;
@@ -209,11 +237,13 @@ public final class SentinelPipeline {
                     isolationForestScore = snap.isolationForest();
                 }
             }
-            String enforcementKey = EnforcementKeys.enforcementKey(enforcementScope, identityHash, features.endpoint());
+            FusedRisk fusedRisk = ctx.get(FusionContextKeys.FUSED_RISK, FusedRisk.class);
+            Double trustForTraining = fusedRisk != null ? fusedRisk.trustScore() : null;
+            Double fusedForTraining = fusedRisk != null ? fusedRisk.fusedScore() : null;
             trainingCandidatePublisher.publish(new TrainingCandidatePublishRequest(
                 features,
                 action,
-                compositeScore,
+                rawAnomalyScoreClamped,
                 statisticalScore,
                 isolationForestScore,
                 enforcementScope,
@@ -221,7 +251,9 @@ public final class SentinelPipeline {
                 trainingNodeId,
                 sentinelModeName,
                 requestProceeded,
-                startupGraceActive
+                startupGraceActive,
+                trustForTraining,
+                fusedForTraining
             ));
         } catch (Exception e) {
             log.debug("Training candidate publisher failed: {}", e.toString());
@@ -229,7 +261,11 @@ public final class SentinelPipeline {
         }
     }
 
-    /** Prevents NaN or out-of-range scores from causing policy bypass; treat NaN as high risk. */
+    /**
+     * Prevents NaN or out-of-range scores from causing policy bypass; treat NaN as high risk.
+     * Fusion runs only after this clamp, so {@link io.aisentinel.core.fusion.DeterministicRequestRiskFusion}'s internal
+     * {@code clamp01} treating NaN as 0 is not used for raw scorer output on the request path.
+     */
     private static double clampScore(double score) {
         if (Double.isNaN(score) || score < 0) return 1.0;
         return Math.min(1.0, score);
