@@ -227,7 +227,9 @@ class AsyncTrainingCandidatePublisherTest {
             "n1",
             "ENFORCE",
             true,
-            false
+            false,
+            null,
+            null
         );
     }
 

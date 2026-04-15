@@ -120,6 +120,8 @@ public final class AsyncTrainingCandidatePublisher implements TrainingCandidateP
             request.statisticalScore(),
             request.isolationForestScore(),
             request.compositeScore(),
+            request.trustScore(),
+            request.fusedPolicyScore(),
             request.policyAction().name(),
             request.sentinelMode(),
             request.requestProceeded(),

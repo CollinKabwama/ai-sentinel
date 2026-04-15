@@ -22,7 +22,8 @@ public final class TrainingCandidateMessageParser {
     public TrainingCandidateRecord parse(String json) throws IOException {
         JsonNode n = mapper.readTree(json);
         int schema = n.path("schemaVersion").asInt(-1);
-        if (schema != TrainingCandidateRecord.CURRENT_SCHEMA_VERSION) {
+        if (schema != TrainingCandidateRecord.CURRENT_SCHEMA_VERSION
+            && schema != TrainingCandidateRecord.SCHEMA_VERSION_2) {
             throw new IOException("unsupported schemaVersion: " + schema);
         }
         String eventId = text(n, "eventId");
@@ -44,6 +45,12 @@ public final class TrainingCandidateMessageParser {
         String sentinelMode = text(n, "sentinelMode");
         boolean requestProceeded = n.path("requestProceeded").asBoolean(true);
         boolean startupGrace = n.path("startupGraceActive").asBoolean(false);
+        Double trustScore = schema >= TrainingCandidateRecord.CURRENT_SCHEMA_VERSION
+            ? readNullableDouble(n, "trustScore")
+            : null;
+        Double fusedPolicyScore = schema >= TrainingCandidateRecord.CURRENT_SCHEMA_VERSION
+            ? readNullableDouble(n, "fusedPolicyScore")
+            : null;
         return new TrainingCandidateRecord(
             schema,
             eventId,
@@ -58,6 +65,8 @@ public final class TrainingCandidateMessageParser {
             statScore,
             ifScore,
             composite,
+            trustScore,
+            fusedPolicyScore,
             policyAction,
             sentinelMode,
             requestProceeded,
