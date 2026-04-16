@@ -1,7 +1,7 @@
 package io.aisentinel.core.identity;
 
 /**
- * Keys for {@link io.aisentinel.core.identity.model.IdentityRiskSignals#components()} in Phase 2 behavioral trust.
+ * Keys for {@link io.aisentinel.core.identity.model.IdentityRiskSignals#components()} in behavioral trust evaluation.
  * Values are bounded severity weights in {@code [0, 1]} contributing to trust penalties.
  */
 public final class IdentityRiskSignalKeys {

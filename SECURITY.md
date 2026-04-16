@@ -22,7 +22,7 @@ Maintainers will acknowledge receipt when possible and coordinate a fix and disc
 ## Security-related design choices
 
 - **Fail-open** — Many optional paths (e.g. distributed Redis, async training publish) are designed so failures degrade to permissive behavior where documented, to avoid accidental total outage. This trades strict lockdown for availability; operators must tune flags and monitor metrics.
-- **No raw PII in training/export** — Training candidate records use hashed fingerprints and numeric features, not raw URLs or bodies. See Phase 5.5 documentation in the root [`README.md`](README.md).
+- **No raw PII in training/export** — Training candidate records use hashed fingerprints and numeric features, not raw URLs or bodies. See training export properties in [`docs/configuration.md`](docs/configuration.md) and the root [`README.md`](README.md).
 - **Identity as hash** — Features and enforcement keys use hashed identifiers; configure hashing and trust boundaries in your application.
 - **Bounded processing** — Buffers, semaphores, and timeouts limit work on hot and async paths; they are not a substitute for network-level rate limiting or auth.
 
@@ -32,7 +32,7 @@ Maintainers will acknowledge receipt when possible and coordinate a fix and disc
 
 - **Not a full WAF or IAM product** — AI-Sentinel complements auth and infrastructure controls; it does not replace them.
 - **Distributed features depend on Redis/Kafka** — Misconfiguration, credential leaks, or broker compromise are outside this library’s scope; follow standard practices for secrets and network policy.
-- **Filesystem model registry** — Phase 5.6 uses a shared filesystem layout; OS permissions and shared mounts are your responsibility.
+- **Filesystem model registry** — Uses a shared filesystem layout; OS permissions and shared mounts are your responsibility.
 - **Trainer dedup is JVM-local** — Duplicate `eventId` handling does not survive process restarts or multiple trainer instances without external coordination.
 
 No security boundary is perfect; review changes in your own threat model before production use.

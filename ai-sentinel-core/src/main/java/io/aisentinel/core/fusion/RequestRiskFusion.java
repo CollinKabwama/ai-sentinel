@@ -1,7 +1,7 @@
 package io.aisentinel.core.fusion;
 
 /**
- * Phase 4 — combines clamped anomaly score with trust into a single policy input.
+ * Combines clamped anomaly score with identity trust into a single policy input (risk fusion).
  */
 public interface RequestRiskFusion {
 

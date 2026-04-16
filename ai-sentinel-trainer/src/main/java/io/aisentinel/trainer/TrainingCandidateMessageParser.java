@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Parses Phase 5.5 JSON training candidates; rejects unknown schema or malformed feature arrays.
+ * Parses JSON training candidate messages from the starter export format; rejects unknown schema or malformed feature arrays.
  */
 public final class TrainingCandidateMessageParser {
 

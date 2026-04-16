@@ -3,7 +3,7 @@ package io.aisentinel.core.identity.model;
 import java.util.Map;
 
 /**
- * Placeholder for future identity-side risk factors (fed into the shared threat engine in later phases).
+ * Named numeric components contributing to identity-side risk (used with behavioral trust evaluation).
  */
 public record IdentityRiskSignals(Map<String, Double> components) {
     public IdentityRiskSignals {

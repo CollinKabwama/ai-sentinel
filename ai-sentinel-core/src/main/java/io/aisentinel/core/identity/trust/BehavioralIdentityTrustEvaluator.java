@@ -14,16 +14,16 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Phase 2: lightweight behavioral trust from local baselines. Observational only; does not affect API policy.
+ * Lightweight behavioral trust from per-identity baselines. Observational only; does not alter API policy by itself.
  */
 public final class BehavioralIdentityTrustEvaluator implements TrustEvaluator {
 
-    private final IdentityBehavioralBaselineStore baselineStore;
+    private final BehavioralBaselineStore baselineStore;
     private final double burstRequestsThreshold;
     private final double sparseHistoryTrustCap;
     private final double maxTotalPenalty;
 
-    public BehavioralIdentityTrustEvaluator(IdentityBehavioralBaselineStore baselineStore,
+    public BehavioralIdentityTrustEvaluator(BehavioralBaselineStore baselineStore,
                                            double burstRequestsThreshold,
                                            double sparseHistoryTrustCap,
                                            double maxTotalPenalty) {
@@ -39,7 +39,7 @@ public final class BehavioralIdentityTrustEvaluator implements TrustEvaluator {
         String key = baselineKey(identity, features.identityHash());
         long now = features.timestampMillis() > 0 ? features.timestampMillis() : System.currentTimeMillis();
 
-        IdentityBehavioralBaselineStore.BaselineEntry before = baselineStore.updateAndGetPrevious(
+        BehavioralBaselineEntry before = baselineStore.updateAndGetPrevious(
             key,
             features.endpoint(),
             features.headerFingerprintHash(),
@@ -77,7 +77,7 @@ public final class BehavioralIdentityTrustEvaluator implements TrustEvaluator {
         double rawPenalty = signals.values().stream().mapToDouble(Double::doubleValue).sum();
         double penalty = Math.min(maxTotalPenalty, rawPenalty);
 
-        // Floor keeps trust observational: never imply total distrust or lockout semantics; allows recovery in later phases.
+        // Floor keeps trust observational: never imply total distrust or lockout semantics; allows recovery on subsequent requests.
         double trust = Math.max(0.12, 1.0 - penalty);
         if (sparse) {
             trust = Math.min(trust, sparseHistoryTrustCap);

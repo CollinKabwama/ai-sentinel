@@ -146,7 +146,7 @@ mvn -pl ai-sentinel-demo spring-boot:run -Dspring-boot.run.profiles=stage2
 | Area | Extension | Notes |
 |------|-----------|--------|
 | **Scoring** | `FeatureExtractor`, `AnomalyScorer` / `CompositeScorer`, `IsolationForestScorer` | Hot path must stay bounded and non-blocking for scoring. |
-| **Distributed** | `ClusterQuarantineReader` / `Writer`, `ClusterThrottleStore`, `TrainingCandidatePublisher` | Optional; fail-open; see [`ARCHITECTURE.md`](ARCHITECTURE.md) §10. |
+| **Distributed** | `ClusterQuarantineReader` / `Writer`, `ClusterThrottleStore`, `TrainingCandidatePublisher` | Optional; fail-open; see distributed architecture in [`ARCHITECTURE.md`](ARCHITECTURE.md). |
 | **Trainer** | Separate module; consumes Kafka when `aisentinel.trainer.kafka.enabled=true` | Publishes to filesystem layout consumed by `ModelRegistryReader` on nodes. |
 | **Registry on nodes** | `ModelRegistryReader` (default: `FilesystemModelRegistry` when auto-config applies) | Refresh is off-request; no registry I/O on the servlet thread. |
 

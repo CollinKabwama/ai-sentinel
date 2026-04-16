@@ -13,7 +13,7 @@
 
     <artifactId>ai-sentinel-spring-boot-starter</artifactId>
     <name>ai-sentinel-spring-boot-starter</name>
-    <description>Spring Boot starter for ai-sentinel</description>
+    <description>Spring Boot starter for AI-Sentinel: auto-configuration for identity-aware security, behavioral trust, optional risk fusion, and enforcement integration.</description>
 
     <dependencies>
         <dependency>
@@ -53,7 +53,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
-        <!-- Optional: KafkaTemplate for Phase 5.5 training candidate export when enabled. -->
+        <!-- Optional: KafkaTemplate for async training candidate export when enabled. -->
         <dependency>
             <groupId>org.springframework.kafka</groupId>
             <artifactId>spring-kafka</artifactId>
