@@ -174,7 +174,7 @@ Trusted entries may be literal IPs or **CIDR** prefixes.
 
 ## 10. Distributed architecture
 
-Phase 5 adds **optional** coordination and training paths that do not change local scoring or policy math on the request hot path. Features are gated by `ai.sentinel.distributed.*`, `ai.sentinel.model-registry.*`, and trainer `aisentinel.trainer.*` properties.
+**Optional** coordination and training paths do not change local scoring or policy math on the request hot path. Features are gated by `ai.sentinel.distributed.*`, `ai.sentinel.model-registry.*`, and trainer `aisentinel.trainer.*` properties.
 
 | Component | Role |
 |-----------|------|
@@ -186,7 +186,7 @@ Phase 5 adds **optional** coordination and training paths that do not change loc
 | **Model registry** | **`ModelRegistryReader`** + **`FilesystemModelRegistry`** read pointers and payloads from that layout. |
 | **Model refresh** | **`ModelRefreshScheduler`** on serving nodes polls off-request and calls **`IsolationForestScorer.tryInstallFromRegistry`**. |
 
-**End-to-end flow (when enabled):** starter **nodes** → **publish** candidates (Phase 5.5) → **trainer** consumes and trains → **writes** registry artifacts → starter **nodes** **refresh** and install models (Phase 5.6). Redis and Kafka are optional; log transport and local-only operation remain valid.
+**End-to-end flow (when enabled):** starter **nodes** asynchronously **publish** training candidates → **trainer** consumes and trains → **writes** registry artifacts → starter **nodes** **refresh** and install Isolation Forest models from the filesystem registry. Redis and Kafka are optional; log-based transport and local-only operation remain valid.
 
 Local enforcement stays authoritative; Redis and transport failures are fail-open. Property names and validation scope: root [`README.md`](README.md).
 
@@ -212,7 +212,7 @@ Local enforcement stays authoritative; Redis and transport failures are fail-ope
 | Metrics | `SentinelMetrics` |
 | Training export | `TrainingCandidatePublisher` (default noop) |
 | Cluster throttle store | `ClusterThrottleStore` (default noop; Redis when wired) |
-| Model registry read | `ModelRegistryReader` (default **`FilesystemModelRegistry`** when Phase 5.6 auto-config applies) |
+| Model registry read | `ModelRegistryReader` (default **`FilesystemModelRegistry`** when model-registry refresh auto-configuration is active) |
 
 **Wiring:** Spring Boot auto-configuration uses **`@ConditionalOnMissingBean`** on these types (see `SentinelAutoConfiguration`, `ModelRegistryAutoConfiguration`, and distributed packages). Provide your own bean of the same type to replace the default implementation.
 
@@ -238,4 +238,6 @@ Local enforcement stays authoritative; Redis and transport failures are fail-ope
 
 ## 15. Design evolution
 
-The codebase grew from a **single-node** library (**Phases 0–4**: core engine, Spring integration, Isolation Forest, hardening) to **optional distributed** behavior in **Phase 5**: Redis-backed cluster quarantine and throttle, training candidate export, the **`ai-sentinel-trainer`** service, and filesystem model registry with node-side refresh (**Phase 5.6**). Older planning assumed external ML stacks and a dashboard module; the **current** tree uses an in-core Isolation Forest and Micrometer instead. **Phase 5.3** adds automated validation (single-JVM Testcontainers today). **Phase 6** may add tuning, alternative models, and operational tooling (see README roadmap). **Not** in the current codebase: central online inference; Redis/S3-backed artifact registries as first-class products.
+The system began as an **in-process** library (core engine, Spring Boot integration, Isolation Forest scoring, and operational hardening) and now includes **optional distributed** behavior: Redis-backed cluster quarantine and throttle, asynchronous training candidate export, the standalone **`ai-sentinel-trainer`** service, and filesystem model registry refresh on serving nodes. Earlier sketches assumed external ML stacks and a dashboard module; the **shipping** design uses an in-core Isolation Forest and Micrometer. Automated tests exercise distributed Redis paths where Docker is available; many suites use a **single JVM** per run.
+
+**Not** in the current codebase as first-class products: central hosted inference; managed S3 or Redis artifact registries.

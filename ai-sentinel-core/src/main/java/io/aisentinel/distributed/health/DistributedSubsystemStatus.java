@@ -1,7 +1,7 @@
 package io.aisentinel.distributed.health;
 
 /**
- * Coarse health for actuator / metrics (Phase 5 observability).
+ * Coarse health for actuator and metrics for optional distributed subsystems.
  */
 public enum DistributedSubsystemStatus {
     /** Not configured or disabled. */
