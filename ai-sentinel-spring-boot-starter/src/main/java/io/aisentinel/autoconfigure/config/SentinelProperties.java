@@ -61,13 +61,13 @@ public class SentinelProperties {
 
     private IsolationForest isolationForest = new IsolationForest();
     private Telemetry telemetry = new Telemetry();
-    /** Phase 5 — distributed coordination (disabled by default; see README). */
+    /** Optional distributed coordination (cluster quarantine, throttle, training export; disabled by default). */
     @Valid
     private Distributed distributed = new Distributed();
-    /** Phase 5.6 — optional filesystem model registry refresh on serving nodes (off-request). */
+    /** Optional filesystem model registry refresh on serving nodes (off-request). */
     @Valid
     private ModelRegistry modelRegistry = new ModelRegistry();
-    /** Identity arm foundation (Phase 0): disabled by default; no change to API security behavior when off. */
+    /** Identity resolution and trust hooks: disabled by default; no change to API security behavior when off. */
     @Valid
     private Identity identity = new Identity();
 
@@ -78,10 +78,10 @@ public class SentinelProperties {
          * is not populated with {@link io.aisentinel.core.identity.model.IdentityContext}.
          */
         private boolean enabled = false;
-        /** Phase 2 — local behavioral trust baselines and evaluation (only when {@link #enabled} is true). */
+        /** Behavioral trust baselines and evaluation (only when {@link #enabled} is true). */
         @Valid
         private Trust trust = new Trust();
-        /** Phase 4 — fuse anomaly + trust before policy (default off; no effect without {@link #enabled}). */
+        /** Risk fusion: combine anomaly score with trust before policy (default off; no effect without {@link #enabled}). */
         @Valid
         private Fusion fusion = new Fusion();
     }
@@ -121,6 +121,32 @@ public class SentinelProperties {
         @DecimalMin("0.1")
         @DecimalMax("1.0")
         private double maxTotalPenalty = 0.75;
+        /**
+         * Optional Redis-backed behavioral baselines for horizontal continuity across instances.
+         * Default off; requires a {@link org.springframework.data.redis.core.StringRedisTemplate} bean when enabled.
+         */
+        @Valid
+        private TrustDistributed distributed = new TrustDistributed();
+    }
+
+    @Data
+    public static class TrustDistributed {
+        /**
+         * When true and {@code StringRedisTemplate} is available, baseline updates are mirrored to Redis with TTL;
+         * Redis errors fail open to the same in-memory store used when this flag is false.
+         */
+        private boolean enabled = false;
+        /** ASCII prefix for Redis keys (logical key is hashed for a fixed-width suffix). */
+        @Size(max = 96)
+        private String keyPrefix = "aisentinel:trust:bl:";
+        /**
+         * Max wait per behavioral-baseline Redis round-trip (single Lua EVAL). On timeout, in-memory fallback is used.
+         * Does not cancel in-flight client I/O; align {@code spring.data.redis.timeout} with this budget.
+         * <p>Spring property: {@code ai.sentinel.identity.trust.distributed.command-timeout}
+         */
+        @DurationMin(millis = 1)
+        @DurationMax(seconds = 60)
+        private Duration commandTimeout = Duration.ofMillis(50);
     }
 
     @Data
@@ -179,7 +205,7 @@ public class SentinelProperties {
     @Data
     @Validated
     public static class Distributed {
-        /** Master switch for Phase 5 integration beans (Redis/Kafka wiring comes in later steps). */
+        /** Master switch for distributed integration beans (Redis-backed features and optional Kafka). */
         private boolean enabled = false;
         /** Logical tenant segment in shared Redis keys (see README distributed properties). */
         @Size(max = 128)
