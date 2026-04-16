@@ -14,6 +14,7 @@ import io.aisentinel.core.identity.spi.NoopIdentityContextResolver;
 import io.aisentinel.core.fusion.NoopRequestRiskFusion;
 import io.aisentinel.core.identity.spi.NoopIdentityResponseHook;
 import io.aisentinel.core.identity.spi.NoopTrustEvaluator;
+import io.aisentinel.core.policy.NoopTrustPolicyAdjuster;
 import io.aisentinel.core.telemetry.TelemetryEmitter;
 import io.aisentinel.distributed.training.TrainingCandidatePublishRequest;
 import io.aisentinel.distributed.training.TrainingCandidatePublisher;
@@ -72,6 +73,7 @@ class SentinelPipelineTrainingPublishTest {
             "ENFORCE",
             NoopIdentityContextResolver.INSTANCE,
             NoopTrustEvaluator.INSTANCE,
+            NoopTrustPolicyAdjuster.INSTANCE,
             NoopIdentityResponseHook.INSTANCE,
             NoopRequestRiskFusion.INSTANCE
         );

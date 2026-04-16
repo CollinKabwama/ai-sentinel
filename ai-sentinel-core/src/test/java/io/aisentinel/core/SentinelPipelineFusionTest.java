@@ -23,6 +23,7 @@ import io.aisentinel.core.model.RequestContext;
 import io.aisentinel.core.model.RequestFeatures;
 import io.aisentinel.core.metrics.SentinelMetrics;
 import io.aisentinel.core.policy.EnforcementAction;
+import io.aisentinel.core.policy.NoopTrustPolicyAdjuster;
 import io.aisentinel.core.policy.PolicyEngine;
 import io.aisentinel.core.policy.ThresholdPolicyEngine;
 import io.aisentinel.core.runtime.StartupGrace;
@@ -82,6 +83,7 @@ class SentinelPipelineFusionTest {
             "ENFORCE",
             resolver,
             NoopTrustEvaluator.INSTANCE,
+            NoopTrustPolicyAdjuster.INSTANCE,
             hook,
             fusion
         );
@@ -168,6 +170,7 @@ class SentinelPipelineFusionTest {
             "ENFORCE",
             resolver,
             NoopTrustEvaluator.INSTANCE,
+            NoopTrustPolicyAdjuster.INSTANCE,
             NoopIdentityResponseHook.INSTANCE,
             new DeterministicRequestRiskFusion(0.9));
         assertThat(fusedPipeline.process(mock(HttpServletRequest.class), mock(HttpServletResponse.class), "h")).isTrue();
@@ -228,6 +231,7 @@ class SentinelPipelineFusionTest {
             "ENFORCE",
             resolver,
             NoopTrustEvaluator.INSTANCE,
+            NoopTrustPolicyAdjuster.INSTANCE,
             NoopIdentityResponseHook.INSTANCE,
             throwing);
         assertThat(p.process(mock(HttpServletRequest.class), mock(HttpServletResponse.class), "h")).isTrue();

@@ -18,6 +18,9 @@ import io.aisentinel.core.identity.spi.NoopIdentityContextResolver;
 import io.aisentinel.core.identity.spi.NoopTrustEvaluator;
 import io.aisentinel.core.identity.spi.TrustEvaluator;
 import io.aisentinel.core.identity.trust.BehavioralBaselineStore;
+import io.aisentinel.core.policy.DefaultTrustPolicyAdjuster;
+import io.aisentinel.core.policy.NoopTrustPolicyAdjuster;
+import io.aisentinel.core.policy.TrustPolicyAdjuster;
 import io.aisentinel.core.identity.trust.BehavioralIdentityTrustEvaluator;
 import io.aisentinel.core.identity.trust.IdentityBehavioralBaselineStore;
 import io.aisentinel.core.model.RequestFeatures;
@@ -32,8 +35,13 @@ import io.aisentinel.autoconfigure.distributed.training.TrainingPublishStatus;
 import io.aisentinel.distributed.training.NoopTrainingCandidatePublisher;
 import io.aisentinel.distributed.training.TrainingCandidatePublisher;
 import io.aisentinel.distributed.throttle.ClusterThrottleStore;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.slf4j.LoggerFactory;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
@@ -169,6 +177,49 @@ class SentinelAutoConfigurationTest {
                 assertThat(context.getBean(IdentityContextResolver.class)).isInstanceOf(ServletIdentityContextResolver.class);
                 assertThat(context.getBean(TrustEvaluator.class)).isSameAs(NoopTrustEvaluator.INSTANCE);
             });
+    }
+
+    @Test
+    void trustAwarePolicyDisabledUsesNoopTrustPolicyAdjuster() {
+        contextRunner
+            .withPropertyValues("ai.sentinel.enabled=true")
+            .run(context -> assertThat(context.getBean(TrustPolicyAdjuster.class)).isSameAs(NoopTrustPolicyAdjuster.INSTANCE));
+    }
+
+    @Test
+    void trustAwarePolicyEnabledRegistersDefaultTrustPolicyAdjuster() {
+        contextRunner
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.identity.trust-aware-policy.enabled=true",
+                "ai.sentinel.identity.trust-aware-policy.protected-endpoint-patterns=/api/sensitive/**")
+            .run(context ->
+                assertThat(context.getBean(TrustPolicyAdjuster.class)).isInstanceOf(DefaultTrustPolicyAdjuster.class));
+    }
+
+    @Test
+    void trustAwarePolicyEnabledWithIdentityDisabledLogsConfigurationWarning() {
+        Logger logger = (Logger) LoggerFactory.getLogger(SentinelAutoConfiguration.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.setContext(logger.getLoggerContext());
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.WARN);
+        try {
+            contextRunner
+                .withPropertyValues(
+                    "ai.sentinel.enabled=true",
+                    "ai.sentinel.identity.enabled=false",
+                    "ai.sentinel.identity.trust-aware-policy.enabled=true",
+                    "ai.sentinel.identity.trust-aware-policy.protected-endpoint-patterns=/x/**")
+                .run(context ->
+                    assertThat(context.getBean(TrustPolicyAdjuster.class)).isInstanceOf(DefaultTrustPolicyAdjuster.class));
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(null);
+        }
+        assertThat(appender.list.stream().map(ILoggingEvent::getFormattedMessage))
+            .anyMatch(m -> m.contains("trust-aware policy has no effect"));
     }
 
     @Test

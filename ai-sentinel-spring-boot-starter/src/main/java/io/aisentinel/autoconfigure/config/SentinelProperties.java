@@ -84,6 +84,9 @@ public class SentinelProperties {
         /** Risk fusion: combine anomaly score with trust before policy (default off; no effect without {@link #enabled}). */
         @Valid
         private Fusion fusion = new Fusion();
+        /** Trust-aware escalation of {@link io.aisentinel.core.policy.EnforcementAction} after policy (default off). */
+        @Valid
+        private TrustAwarePolicy trustAwarePolicy = new TrustAwarePolicy();
     }
 
     @Data
@@ -97,6 +100,43 @@ public class SentinelProperties {
         @DecimalMin("0.0")
         @DecimalMax("1.0")
         private double strength = 0.35;
+    }
+
+    @Data
+    public static class TrustAwarePolicy {
+        /**
+         * When false (default), {@link io.aisentinel.core.policy.NoopTrustPolicyAdjuster} is used and anomaly policy
+         * alone drives enforcement.
+         */
+        private boolean enabled = false;
+        /** Path patterns: exact match, prefix plus {@code *}, or prefix ending with {@code /**} for subtree. Empty means no protected routes (no THROTTLE/BLOCK from trust on sensitive surfaces). */
+        private List<String> protectedEndpointPatterns = List.of();
+        /** Upper-case methods (e.g. POST); when empty, all methods match protected patterns. */
+        private List<String> httpMethods = List.of();
+        /** When true, trust bands apply only to authenticated, non-anonymous principals. */
+        private boolean authenticatedOnly = true;
+        /** Trust at or above this: no trust-based escalation. */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double trustNoEffectMinimum = 0.80;
+        /** Trust at or above this (and below no-effect): at least MONITOR. */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double trustMediumBandMinimum = 0.50;
+        /** Trust at or above this (and below medium): THROTTLE on protected routes else MONITOR. */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double trustLowBandMinimum = 0.25;
+        /**
+         * When true, critical trust (below low band) on a protected route may escalate to BLOCK when
+         * {@link #requireMinRiskForTrustDeny} is satisfied or disabled.
+         */
+        private boolean denyOnCriticalTrustEnabled = false;
+        /** When true with deny, BLOCK requires anomaly score at or above {@link #minRiskScoreForTrustDeny}. */
+        private boolean requireMinRiskForTrustDeny = true;
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double minRiskScoreForTrustDeny = 0.40;
     }
 
     @Data

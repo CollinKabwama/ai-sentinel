@@ -26,8 +26,12 @@ import io.aisentinel.distributed.throttle.ClusterThrottleStore;
 import io.aisentinel.distributed.throttle.NoopClusterThrottleStore;
 import io.aisentinel.core.feature.DefaultFeatureExtractor;
 import io.aisentinel.core.feature.FeatureExtractor;
+import io.aisentinel.core.policy.DefaultTrustPolicyAdjuster;
+import io.aisentinel.core.policy.NoopTrustPolicyAdjuster;
 import io.aisentinel.core.policy.PolicyEngine;
 import io.aisentinel.core.policy.ThresholdPolicyEngine;
+import io.aisentinel.core.policy.TrustPolicyAdjuster;
+import io.aisentinel.core.policy.TrustPolicyConfig;
 import io.aisentinel.core.scoring.BoundedTrainingBuffer;
 import io.aisentinel.core.scoring.CompositeScorer;
 import io.aisentinel.core.scoring.IsolationForestConfig;
@@ -61,6 +65,11 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Conditional;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 /**
  * Primary Spring Boot auto-configuration for AI-Sentinel: pipeline beans, filter, optional Isolation Forest and
@@ -427,6 +436,42 @@ public class SentinelAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(TrustPolicyAdjuster.class)
+    public TrustPolicyAdjuster trustPolicyAdjuster(SentinelProperties props) {
+        SentinelProperties.TrustAwarePolicy tap = props.getIdentity().getTrustAwarePolicy();
+        if (tap == null || !tap.isEnabled()) {
+            return NoopTrustPolicyAdjuster.INSTANCE;
+        }
+        if (!props.getIdentity().isEnabled()) {
+            log.warn(
+                "ai.sentinel.identity.trust-aware-policy.enabled=true but ai.sentinel.identity.enabled=false; "
+                    + "trust-aware policy has no effect until identity is enabled (no IdentityContext on requests).");
+        }
+        Set<String> methodUpper = Set.of();
+        if (tap.getHttpMethods() != null && !tap.getHttpMethods().isEmpty()) {
+            methodUpper = new HashSet<>();
+            for (String m : tap.getHttpMethods()) {
+                if (m != null && !m.isBlank()) {
+                    methodUpper.add(m.trim().toUpperCase(Locale.ROOT));
+                }
+            }
+        }
+        TrustPolicyConfig cfg = new TrustPolicyConfig(
+            true,
+            tap.isAuthenticatedOnly(),
+            tap.getProtectedEndpointPatterns() != null ? tap.getProtectedEndpointPatterns() : List.of(),
+            methodUpper,
+            tap.getTrustNoEffectMinimum(),
+            tap.getTrustMediumBandMinimum(),
+            tap.getTrustLowBandMinimum(),
+            tap.isDenyOnCriticalTrustEnabled(),
+            tap.isRequireMinRiskForTrustDeny(),
+            tap.getMinRiskScoreForTrustDeny()
+        );
+        return new DefaultTrustPolicyAdjuster(cfg);
+    }
+
+    @Bean
     @ConditionalOnMissingBean
     public RequestRiskFusion requestRiskFusion(SentinelProperties props) {
         var fusion = props.getIdentity().getFusion();
@@ -454,6 +499,7 @@ public class SentinelAutoConfiguration {
                                              SentinelProperties props,
                                              ObjectProvider<IdentityContextResolver> identityContextResolverProvider,
                                              ObjectProvider<TrustEvaluator> trustEvaluatorProvider,
+                                             ObjectProvider<TrustPolicyAdjuster> trustPolicyAdjusterProvider,
                                              ObjectProvider<IdentityResponseHook> identityResponseHookProvider,
                                              RequestRiskFusion requestRiskFusion) {
         log.info("Sentinel pipeline configured (mode={})", props.getMode());
@@ -468,6 +514,10 @@ public class SentinelAutoConfiguration {
         TrustEvaluator trustEvaluator = trustEvaluatorProvider.getIfAvailable();
         if (trustEvaluator == null) {
             trustEvaluator = NoopTrustEvaluator.INSTANCE;
+        }
+        TrustPolicyAdjuster trustPolicyAdjuster = trustPolicyAdjusterProvider.getIfAvailable();
+        if (trustPolicyAdjuster == null) {
+            trustPolicyAdjuster = NoopTrustPolicyAdjuster.INSTANCE;
         }
         IdentityResponseHook identityResponseHook = identityResponseHookProvider.getIfAvailable();
         if (identityResponseHook == null) {
@@ -489,6 +539,7 @@ public class SentinelAutoConfiguration {
             props.getMode().name(),
             identityContextResolver,
             trustEvaluator,
+            trustPolicyAdjuster,
             identityResponseHook,
             requestRiskFusion
         );
