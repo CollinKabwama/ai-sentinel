@@ -11,7 +11,6 @@ import static org.mockito.Mockito.when;
 
 /**
  * Unit tests for proxy-aware client IP resolution (A5).
- * Uses static resolveClientIp to avoid mocking final SentinelPipeline.
  */
 class SentinelFilterProxyTest {
 
@@ -22,7 +21,7 @@ class SentinelFilterProxyTest {
         when(request.getHeader("X-Forwarded-For")).thenReturn("192.168.1.100, 10.0.0.1");
         when(request.getHeader("X-Real-IP")).thenReturn("9.9.9.9");
 
-        String ip = SentinelFilter.resolveClientIp(request, List.of("127.0.0.1", "10.0.0.1"));
+        String ip = ClientIpResolver.resolveClientIp(request, List.of("127.0.0.1", "10.0.0.1"));
 
         assertThat(ip).isEqualTo("192.168.1.100");
     }
@@ -33,7 +32,7 @@ class SentinelFilterProxyTest {
         when(request.getRemoteAddr()).thenReturn("127.0.0.1");
         when(request.getHeader("X-Forwarded-For")).thenReturn("192.168.1.100");
 
-        String ip = SentinelFilter.resolveClientIp(request, List.of("10.0.0.1"));
+        String ip = ClientIpResolver.resolveClientIp(request, List.of("10.0.0.1"));
 
         assertThat(ip).isEqualTo("127.0.0.1");
     }
@@ -44,7 +43,7 @@ class SentinelFilterProxyTest {
         when(request.getRemoteAddr()).thenReturn("192.168.1.1");
         when(request.getHeader("X-Forwarded-For")).thenReturn("10.0.0.1");
 
-        String ip = SentinelFilter.resolveClientIp(request, List.of());
+        String ip = ClientIpResolver.resolveClientIp(request, List.of());
 
         assertThat(ip).isEqualTo("192.168.1.1");
     }
@@ -56,7 +55,7 @@ class SentinelFilterProxyTest {
         when(request.getHeader("X-Forwarded-For")).thenReturn(null);
         when(request.getHeader("Forwarded")).thenReturn("for=\"203.0.113.195\";proto=http");
 
-        String ip = SentinelFilter.resolveClientIp(request, List.of("127.0.0.1"));
+        String ip = ClientIpResolver.resolveClientIp(request, List.of("127.0.0.1"));
 
         assertThat(ip).isEqualTo("203.0.113.195");
     }
@@ -67,7 +66,7 @@ class SentinelFilterProxyTest {
         when(request.getRemoteAddr()).thenReturn("10.0.0.50");
         when(request.getHeader("X-Forwarded-For")).thenReturn("192.168.1.100, 10.0.0.1");
 
-        String ip = SentinelFilter.resolveClientIp(request, List.of("10.0.0.0/24"));
+        String ip = ClientIpResolver.resolveClientIp(request, List.of("10.0.0.0/24"));
 
         assertThat(ip).isEqualTo("192.168.1.100");
     }
@@ -78,7 +77,7 @@ class SentinelFilterProxyTest {
         when(request.getRemoteAddr()).thenReturn("198.51.100.2");
         when(request.getHeader("X-Forwarded-For")).thenReturn("1.2.3.4, 10.0.0.1");
 
-        String ip = SentinelFilter.resolveClientIp(request, List.of("127.0.0.1"));
+        String ip = ClientIpResolver.resolveClientIp(request, List.of("127.0.0.1"));
 
         assertThat(ip).isEqualTo("198.51.100.2");
     }
@@ -91,7 +90,7 @@ class SentinelFilterProxyTest {
         when(request.getHeader("Forwarded")).thenReturn(null);
         when(request.getHeader("X-Real-IP")).thenReturn("198.51.100.2");
 
-        String ip = SentinelFilter.resolveClientIp(request, List.of("127.0.0.1"));
+        String ip = ClientIpResolver.resolveClientIp(request, List.of("127.0.0.1"));
 
         assertThat(ip).isEqualTo("198.51.100.2");
     }
@@ -104,7 +103,7 @@ class SentinelFilterProxyTest {
         when(request.getHeader("Forwarded")).thenReturn(null);
         when(request.getHeader("X-Real-IP")).thenReturn("1.1.1.1");
 
-        String ip = SentinelFilter.resolveClientIp(request, List.of("127.0.0.1"));
+        String ip = ClientIpResolver.resolveClientIp(request, List.of("127.0.0.1"));
 
         assertThat(ip).isEqualTo("198.51.100.2");
     }
@@ -117,7 +116,7 @@ class SentinelFilterProxyTest {
         when(request.getHeader("Forwarded")).thenReturn(null);
         when(request.getHeader("X-Real-IP")).thenReturn("9.9.9.9");
 
-        String ip = SentinelFilter.resolveClientIp(request, List.of("127.0.0.1"));
+        String ip = ClientIpResolver.resolveClientIp(request, List.of("127.0.0.1"));
 
         assertThat(ip).isEqualTo("127.0.0.1");
     }
@@ -130,7 +129,7 @@ class SentinelFilterProxyTest {
         when(request.getHeader("Forwarded")).thenReturn(null);
         when(request.getHeader("X-Real-IP")).thenReturn(null);
 
-        String ip = SentinelFilter.resolveClientIp(request, List.of("10.0.0.0/24"));
+        String ip = ClientIpResolver.resolveClientIp(request, List.of("10.0.0.0/24"));
 
         assertThat(ip).isEqualTo("10.0.0.50");
     }

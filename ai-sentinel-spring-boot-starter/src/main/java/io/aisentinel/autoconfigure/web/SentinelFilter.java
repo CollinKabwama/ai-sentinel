@@ -101,14 +101,6 @@ public class SentinelFilter extends OncePerRequestFilter {
         return hash(identity);
     }
 
-    /**
-     * @deprecated use {@link ClientIpResolver#resolveClientIp(HttpServletRequest, java.util.List)}
-     */
-    @Deprecated
-    static String resolveClientIp(HttpServletRequest request, java.util.List<String> trustedProxyEntries) {
-        return ClientIpResolver.resolveClientIp(request, trustedProxyEntries);
-    }
-
     private static String hash(String s) {
         try {
             byte[] digest = MessageDigest.getInstance("SHA-256").digest((s != null ? s : "").getBytes(StandardCharsets.UTF_8));
