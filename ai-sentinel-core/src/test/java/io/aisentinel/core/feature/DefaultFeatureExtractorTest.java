@@ -110,7 +110,7 @@ class DefaultFeatureExtractorTest {
             when(request.getRequestURI()).thenReturn("/api/hello");
             when(request.getRemoteAddr()).thenReturn("192.168.1.1");
             when(request.getParameterMap()).thenReturn(Collections.emptyMap());
-            when(request.getHeaderNames()).thenReturn(Collections.enumeration(List.of("If-Match")));
+            when(request.getHeaderNames()).thenAnswer(inv -> Collections.enumeration(List.of("If-Match")));
             when(request.getHeader("If-Match")).thenReturn("etag-value");
             when(request.getHeader("Content-Length")).thenReturn(null);
 
