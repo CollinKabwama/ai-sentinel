@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicIntegerArray;
@@ -181,7 +182,7 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
             String name = names.nextElement();
             if (name != null && !name.equalsIgnoreCase("Authorization")) {
                 String v = request.getHeader(name);
-                h.put(name.toLowerCase(), v != null ? Integer.toString(v.length()) : "0");
+                h.put(name.toLowerCase(Locale.ROOT), v != null ? Integer.toString(v.length()) : "0");
             }
         }
         return h.hashCode();
