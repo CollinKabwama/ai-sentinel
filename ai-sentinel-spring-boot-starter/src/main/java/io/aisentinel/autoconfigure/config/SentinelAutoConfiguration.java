@@ -65,6 +65,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Conditional;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 
 import java.util.HashSet;
 import java.util.List;
@@ -549,5 +550,17 @@ public class SentinelAutoConfiguration {
     @ConditionalOnMissingBean
     public SentinelFilter sentinelFilter(SentinelPipeline pipeline, SentinelProperties props, SentinelMetrics sentinelMetrics) {
         return new SentinelFilter(pipeline, props, sentinelMetrics);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean(name = "sentinelFilterRegistration")
+    public FilterRegistrationBean<SentinelFilter> sentinelFilterRegistration(SentinelFilter sentinelFilter,
+                                                                             SentinelProperties props) {
+        FilterRegistrationBean<SentinelFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(sentinelFilter);
+        registration.setOrder(props.getFilterOrder());
+        registration.setName("aiSentinelFilter");
+        registration.addUrlPatterns("/*");
+        return registration;
     }
 }

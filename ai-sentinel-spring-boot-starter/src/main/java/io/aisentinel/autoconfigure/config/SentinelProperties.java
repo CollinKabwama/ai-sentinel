@@ -11,6 +11,7 @@ import lombok.Data;
 import org.hibernate.validator.constraints.time.DurationMax;
 import org.hibernate.validator.constraints.time.DurationMin;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.core.Ordered;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.Duration;
@@ -43,6 +44,8 @@ public class SentinelProperties {
     private List<String> trustedProxies = List.of();
     /** After startup, enforcement is limited to MONITOR for this duration (0 disables). */
     private Duration startupGracePeriod = Duration.ZERO;
+    /** Servlet filter order for Sentinel; defaults near end of chain. */
+    private int filterOrder = Ordered.LOWEST_PRECEDENCE - 100;
     /** Whether throttle/quarantine keys are per identity only or identity+endpoint. */
     private EnforcementScope enforcementScope = EnforcementScope.IDENTITY_ENDPOINT;
     /** Min samples per key before using real score (cold-start); below this return warmup-score. Default 2. */

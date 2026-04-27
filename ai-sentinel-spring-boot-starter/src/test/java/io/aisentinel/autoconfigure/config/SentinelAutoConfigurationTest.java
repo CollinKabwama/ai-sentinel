@@ -47,8 +47,10 @@ import org.springframework.boot.test.system.CapturedOutput;
 import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.RedisScript;
@@ -92,6 +94,30 @@ class SentinelAutoConfigurationTest {
             .run(context -> {
                 assertThat(context).hasSingleBean(io.aisentinel.core.SentinelPipeline.class);
                 assertThat(context).hasSingleBean(SentinelFilter.class);
+            });
+    }
+
+    @Test
+    void sentinelFilterRegistrationUsesDefaultOrder() {
+        contextRunner
+            .withPropertyValues("ai.sentinel.enabled=true")
+            .run(context -> {
+                FilterRegistrationBean<?> registration = context.getBean("sentinelFilterRegistration",
+                    FilterRegistrationBean.class);
+                assertThat(registration.getOrder()).isEqualTo(Ordered.LOWEST_PRECEDENCE - 100);
+            });
+    }
+
+    @Test
+    void sentinelFilterRegistrationUsesConfiguredOrder() {
+        contextRunner
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.filter-order=1234")
+            .run(context -> {
+                FilterRegistrationBean<?> registration = context.getBean("sentinelFilterRegistration",
+                    FilterRegistrationBean.class);
+                assertThat(registration.getOrder()).isEqualTo(1234);
             });
     }
 
