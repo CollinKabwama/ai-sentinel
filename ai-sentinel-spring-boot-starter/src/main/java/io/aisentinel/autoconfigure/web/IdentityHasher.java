@@ -8,6 +8,8 @@ import java.util.HexFormat;
 /** Thread-local SHA-256 for identity strings; avoids allocating a new {@link MessageDigest} per request. */
 final class IdentityHasher {
 
+    private static final HexFormat HEX = HexFormat.of();
+
     private static final ThreadLocal<MessageDigest> SHA256 = ThreadLocal.withInitial(() -> {
         try {
             return MessageDigest.getInstance("SHA-256");
@@ -23,6 +25,6 @@ final class IdentityHasher {
         byte[] input = (s != null ? s : "").getBytes(StandardCharsets.UTF_8);
         MessageDigest md = SHA256.get();
         md.reset();
-        return HexFormat.of().formatHex(md.digest(input));
+        return HEX.formatHex(md.digest(input));
     }
 }

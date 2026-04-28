@@ -14,6 +14,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 class IdentityHasherTest {
 
     @Test
+    void sha256Hex_nullInputTreatedAsEmptyString() {
+        assertThat(IdentityHasher.sha256Hex(null)).isEqualTo(IdentityHasher.sha256Hex(""));
+    }
+
+    @Test
     void sha256Hex_matchesKnownVectorForEmptyString() {
         assertThat(IdentityHasher.sha256Hex(""))
             .isEqualTo("e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855");

@@ -1,5 +1,7 @@
 package io.aisentinel.autoconfigure.web;
 
+import lombok.extern.slf4j.Slf4j;
+
 import java.lang.reflect.Method;
 
 /**
@@ -7,6 +9,7 @@ import java.lang.reflect.Method;
  * compile-time dependency on {@code spring-security-core}. Reflection targets are resolved once; the per-request path
  * only invokes cached {@link Method} handles.
  */
+@Slf4j
 final class SpringSecurityPrincipalBridge {
 
     private static final Bridge BRIDGE = Bridge.load();
@@ -51,9 +54,9 @@ final class SpringSecurityPrincipalBridge {
                 Method getPrincipal = authentication.getMethod("getPrincipal");
                 Method getName = authentication.getMethod("getName");
                 return new Bridge(getContext, getAuthentication, isAuthenticated, getPrincipal, getName, true);
-            } catch (ClassNotFoundException | NoSuchMethodException e) {
-                return noop();
-            } catch (LinkageError e) {
+            } catch (ReflectiveOperationException | LinkageError | SecurityException e) {
+                // ReflectiveOperationException: ClassNotFoundException, NoSuchMethodException, etc.
+                // LinkageError: includes NoClassDefFoundError and ExceptionInInitializerError from broken Security static init
                 return noop();
             }
         }
@@ -82,6 +85,7 @@ final class SpringSecurityPrincipalBridge {
                 Object name = getName.invoke(auth);
                 return name != null ? name.toString() : null;
             } catch (ReflectiveOperationException e) {
+                log.debug("SpringSecurityPrincipalBridge: failed to resolve principal, falling back to IP identity", e);
                 return null;
             }
         }
