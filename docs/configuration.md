@@ -12,7 +12,7 @@ Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer
 | `ai.sentinel.mode` | `ENFORCE` | `OFF`, `MONITOR`, `ENFORCE` |
 | `ai.sentinel.exclude-paths` | actuator, health, static, favicon | Comma-separated Ant-style patterns |
 | `ai.sentinel.trusted-proxies` | _(empty)_ | IPs or CIDRs; when remote matches, client IP from forwarded headers (see trusted proxy handling in [`ARCHITECTURE.md`](../ARCHITECTURE.md)) |
-| `ai.sentinel.filter-order` | `LOWEST_PRECEDENCE - 100` | Servlet filter order for Sentinel; adjust when you need Sentinel before/after other app filters or Spring Security chain behavior |
+| `ai.sentinel.filter-order` | `2147483547` (same as `Ordered.LOWEST_PRECEDENCE - 100`, i.e. `Integer.MAX_VALUE - 100`) | Servlet filter order for Sentinel; adjust when you need Sentinel before/after other app filters or Spring Security chain behavior |
 | `ai.sentinel.threshold-moderate` … `threshold-critical` | `0.2` … `0.8` | Strictly increasing, in `[0,1]` |
 | `ai.sentinel.warmup-min-samples` / `warmup-score` | `2` / `0.4` | Cold-start statistical behavior |
 | `ai.sentinel.startup-grace-period` | `0` | Duration (e.g. `5m`) enforcing monitor-only after startup |

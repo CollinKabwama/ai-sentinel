@@ -13,6 +13,7 @@ import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantine
 import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineWriter;
 import io.aisentinel.autoconfigure.distributed.throttle.RedisClusterThrottleStore;
 import io.aisentinel.autoconfigure.web.SentinelFilter;
+import io.aisentinel.core.SentinelPipeline;
 import io.aisentinel.core.identity.spi.IdentityContextResolver;
 import io.aisentinel.core.identity.spi.NoopIdentityContextResolver;
 import io.aisentinel.core.identity.spi.NoopTrustEvaluator;
@@ -23,6 +24,7 @@ import io.aisentinel.core.policy.NoopTrustPolicyAdjuster;
 import io.aisentinel.core.policy.TrustPolicyAdjuster;
 import io.aisentinel.core.identity.trust.BehavioralIdentityTrustEvaluator;
 import io.aisentinel.core.identity.trust.IdentityBehavioralBaselineStore;
+import io.aisentinel.core.metrics.SentinelMetrics;
 import io.aisentinel.core.model.RequestFeatures;
 import io.aisentinel.core.policy.EnforcementAction;
 import io.aisentinel.core.policy.PolicyEngine;
@@ -93,7 +95,10 @@ class SentinelAutoConfigurationTest {
             .withPropertyValues("ai.sentinel.enabled=true")
             .run(context -> {
                 assertThat(context).hasSingleBean(io.aisentinel.core.SentinelPipeline.class);
-                assertThat(context).hasSingleBean(SentinelFilter.class);
+                assertThat(context).doesNotHaveBean(SentinelFilter.class);
+                FilterRegistrationBean<?> registration = context.getBean("sentinelFilterRegistration",
+                    FilterRegistrationBean.class);
+                assertThat(registration.getFilter()).isInstanceOf(SentinelFilter.class);
             });
     }
 
@@ -119,6 +124,34 @@ class SentinelAutoConfigurationTest {
                     FilterRegistrationBean.class);
                 assertThat(registration.getOrder()).isEqualTo(1234);
             });
+    }
+
+    @Test
+    void customSentinelFilterRegistrationBeanSuppressesDefault() {
+        contextRunner
+            .withUserConfiguration(CustomSentinelFilterRegistrationConfig.class)
+            .withPropertyValues("ai.sentinel.enabled=true")
+            .run(context -> {
+                FilterRegistrationBean<?> registration = context.getBean("sentinelFilterRegistration",
+                    FilterRegistrationBean.class);
+                assertThat(registration.getOrder()).isEqualTo(42);
+                assertThat(registration.getFilter()).isInstanceOf(SentinelFilter.class);
+            });
+    }
+
+    @Configuration
+    static class CustomSentinelFilterRegistrationConfig {
+        @Bean(name = "sentinelFilterRegistration")
+        FilterRegistrationBean<SentinelFilter> sentinelFilterRegistration(SentinelPipeline pipeline,
+                                                                          SentinelProperties props,
+                                                                          SentinelMetrics sentinelMetrics) {
+            FilterRegistrationBean<SentinelFilter> reg = new FilterRegistrationBean<>();
+            reg.setFilter(new SentinelFilter(pipeline, props, sentinelMetrics));
+            reg.setOrder(42);
+            reg.setName("customSentinelFilter");
+            reg.addUrlPatterns("/*");
+            return reg;
+        }
     }
 
     @Test

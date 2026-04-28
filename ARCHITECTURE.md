@@ -168,7 +168,7 @@ Trusted entries may be literal IPs or **CIDR** prefixes.
 - **`SentinelAutoConfiguration`** registers the pipeline, filter, baseline store, scorers, policy engine (from properties), enforcement beans, telemetry, optional IF scheduler, and **`MicrometerSentinelMetrics`** when a **`MeterRegistry`** exists.
 - **`SentinelProperties`** binds `ai.sentinel.*` (relaxed names, e.g. `isolation-forest.enabled`).
 - **`SentinelEndpointAutoConfiguration`** exposes **`@Endpoint(id = "sentinel")`** → **`/actuator/sentinel`**.
-- Sentinel filter registration uses `ai.sentinel.filter-order` (default `Ordered.LOWEST_PRECEDENCE - 100`), which is intended to run **after** authentication filters where **`SecurityContextHolder`** is populated in common setups.
+- Sentinel filter registration uses `ai.sentinel.filter-order` (default `2147483547`, i.e. `Ordered.LOWEST_PRECEDENCE - 100` / `Integer.MAX_VALUE - 100`), which is intended to run **after** authentication filters where **`SecurityContextHolder`** is populated in common setups.
 - Absolute ordering guarantees across every custom Spring/Security filter topology are not assumed; operators should set `ai.sentinel.filter-order` explicitly when their chain requires different placement.
 
 ---
