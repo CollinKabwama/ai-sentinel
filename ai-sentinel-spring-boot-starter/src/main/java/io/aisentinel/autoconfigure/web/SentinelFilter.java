@@ -12,10 +12,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.nio.charset.StandardCharsets;
-import java.util.HexFormat;
 
 /**
  * Servlet filter that runs the {@link io.aisentinel.core.SentinelPipeline} once per request (after auth when ordered late).
@@ -82,29 +78,11 @@ public class SentinelFilter extends OncePerRequestFilter {
 
     private String resolveIdentityHash(HttpServletRequest request) {
         String identity = ClientIpResolver.resolveClientIp(request, props.getTrustedProxies());
-        try {
-            Object ctx = Class.forName("org.springframework.security.core.context.SecurityContextHolder")
-                .getMethod("getContext").invoke(null);
-            if (ctx != null) {
-                Object auth = ctx.getClass().getMethod("getAuthentication").invoke(ctx);
-                if (auth != null && Boolean.TRUE.equals(auth.getClass().getMethod("isAuthenticated").invoke(auth))) {
-                    Object principal = auth.getClass().getMethod("getPrincipal").invoke(auth);
-                    if (principal != null && !"anonymousUser".equals(principal.toString())) {
-                        identity = auth.getClass().getMethod("getName").invoke(auth).toString();
-                    }
-                }
-            }
-        } catch (Exception ignored) { }
-        return hash(identity);
-    }
-
-    private static String hash(String s) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest((s != null ? s : "").getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(digest);
-        } catch (NoSuchAlgorithmException e) {
-            return String.valueOf((s != null ? s : "").hashCode());
+        String principalName = SpringSecurityPrincipalBridge.resolveAuthenticatedPrincipalName();
+        if (principalName != null) {
+            identity = principalName;
         }
+        return IdentityHasher.sha256Hex(identity);
     }
 
     private static String maskHash(String h) {
