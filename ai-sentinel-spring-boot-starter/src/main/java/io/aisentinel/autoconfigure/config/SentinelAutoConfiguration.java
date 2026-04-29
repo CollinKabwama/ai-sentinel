@@ -65,6 +65,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Conditional;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 
 import java.util.HashSet;
 import java.util.List;
@@ -72,7 +73,7 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Primary Spring Boot auto-configuration for AI-Sentinel: pipeline beans, filter, optional Isolation Forest and
+ * Primary Spring Boot auto-configuration for AI-Sentinel: pipeline beans, servlet filter registration, optional Isolation Forest and
  * distributed features. Most beans use {@link ConditionalOnMissingBean} so applications can override extension points
  * ({@link io.aisentinel.core.feature.FeatureExtractor}, {@link io.aisentinel.core.policy.PolicyEngine}, etc.).
  * <p>
@@ -546,8 +547,15 @@ public class SentinelAutoConfiguration {
     }
 
     @Bean
-    @ConditionalOnMissingBean
-    public SentinelFilter sentinelFilter(SentinelPipeline pipeline, SentinelProperties props, SentinelMetrics sentinelMetrics) {
-        return new SentinelFilter(pipeline, props, sentinelMetrics);
+    @ConditionalOnMissingBean(name = "sentinelFilterRegistration")
+    public FilterRegistrationBean<SentinelFilter> sentinelFilterRegistration(SentinelPipeline pipeline,
+                                                                             SentinelProperties props,
+                                                                             SentinelMetrics sentinelMetrics) {
+        FilterRegistrationBean<SentinelFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new SentinelFilter(pipeline, props, sentinelMetrics));
+        registration.setOrder(props.getFilterOrder());
+        registration.setName("aiSentinelFilter");
+        registration.addUrlPatterns("/*");
+        return registration;
     }
 }
