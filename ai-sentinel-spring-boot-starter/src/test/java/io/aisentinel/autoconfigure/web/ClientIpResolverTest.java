@@ -3,6 +3,7 @@ package io.aisentinel.autoconfigure.web;
 import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -114,5 +115,44 @@ class ClientIpResolverTest {
         HttpServletRequest request = mock(HttpServletRequest.class);
         when(request.getHeader("X-Forwarded-For")).thenReturn(",");
         assertThat(ClientIpResolver.hasForwardedChainHint(request)).isTrue();
+    }
+
+    @Test
+    void isTrustedProxy_invalidIpv4PrefixLength_returnsFalse() {
+        assertThat(ClientIpResolver.isTrustedProxy("10.0.0.1", List.of("10.0.0.0/33"))).isFalse();
+    }
+
+    @Test
+    void isTrustedProxy_nonNumericPrefix_returnsFalse() {
+        assertThat(ClientIpResolver.isTrustedProxy("10.0.0.1", List.of("10.0.0.0/xx"))).isFalse();
+    }
+
+    @Test
+    void isTrustedProxy_ipv4ClientAgainstIpv6Cidr_returnsFalse() {
+        assertThat(ClientIpResolver.isTrustedProxy("10.0.0.1", List.of("2001:db8::/32"))).isFalse();
+    }
+
+    @Test
+    void isTrustedProxy_skipsNullAndBlankPatterns() {
+        List<String> patterns = new ArrayList<>();
+        patterns.add(null);
+        patterns.add("  ");
+        patterns.add("10.0.0.0/24");
+        assertThat(ClientIpResolver.isTrustedProxy("10.0.0.50", patterns)).isTrue();
+    }
+
+    @Test
+    void isTrustedProxy_malformedCidrSkippedWhenLaterPatternMatches() {
+        assertThat(ClientIpResolver.isTrustedProxy("10.0.0.50", List.of("10.0.0.0/xx", "10.0.0.0/24"))).isTrue();
+    }
+
+    @Test
+    void isTrustedProxy_slashOnlyPattern_returnsFalse() {
+        assertThat(ClientIpResolver.isTrustedProxy("127.0.0.1", List.of("/"))).isFalse();
+    }
+
+    @Test
+    void isTrustedProxy_emptyClientIp_returnsFalse() {
+        assertThat(ClientIpResolver.isTrustedProxy("", List.of("127.0.0.1"))).isFalse();
     }
 }

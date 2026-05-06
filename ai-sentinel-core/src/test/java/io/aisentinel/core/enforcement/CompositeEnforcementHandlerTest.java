@@ -2,6 +2,7 @@ package io.aisentinel.core.enforcement;
 
 import io.aisentinel.core.policy.EnforcementAction;
 import io.aisentinel.core.telemetry.TelemetryEmitter;
+import io.aisentinel.core.telemetry.TelemetryEvent;
 import io.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
 import io.aisentinel.distributed.quarantine.NoopClusterQuarantineWriter;
 import io.aisentinel.distributed.throttle.ClusterThrottleStore;
@@ -10,11 +11,14 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -135,5 +139,60 @@ class CompositeEnforcementHandlerTest {
             EnforcementScope.IDENTITY_ENDPOINT, NoopClusterQuarantineWriter.INSTANCE, store, "t");
         assertThat(handler.tryAcquireThrottlePermit("x", "/a")).isTrue();
         assertThat(handler.tryAcquireThrottlePermit("x", "/a")).isFalse();
+    }
+
+    @Test
+    void blockUsesConfiguredBlockStatusCode() throws Exception {
+        handler = new CompositeEnforcementHandler(503, 60_000L, 5.0, telemetry, 100, 60_000L);
+        when(response.getWriter()).thenReturn(new PrintWriter(java.io.OutputStream.nullOutputStream()));
+        boolean allowed = handler.apply(EnforcementAction.BLOCK, request, response, "hashhash12", "/api");
+        assertThat(allowed).isFalse();
+        verify(response).setStatus(503);
+        verify(telemetry).emit(argThat(e -> policyActionWithDetail(e, "BLOCK", "503")));
+    }
+
+    @Test
+    void throttleResponseUses429EvenWhenBlockStatusCodeDiffers() throws Exception {
+        handler = new CompositeEnforcementHandler(403, 60_000L, 1.0, telemetry, 100, 60_000L);
+        when(response.getWriter()).thenReturn(new PrintWriter(java.io.OutputStream.nullOutputStream()));
+        assertThat(handler.apply(EnforcementAction.THROTTLE, request, response, "idididid12", "/api")).isTrue();
+        assertThat(handler.apply(EnforcementAction.THROTTLE, request, response, "idididid12", "/api")).isFalse();
+        verify(response).setStatus(429);
+        verify(response, never()).setStatus(403);
+    }
+
+    @Test
+    void throttleEmitsTelemetryWhenResponseWriterFails() throws Exception {
+        handler = new CompositeEnforcementHandler(429, 60_000L, 1.0, telemetry, 100, 60_000L);
+        when(response.getWriter()).thenThrow(new IOException("response committed"));
+        assertThat(handler.apply(EnforcementAction.THROTTLE, request, response, "idididid12", "/api")).isTrue();
+        assertThat(handler.apply(EnforcementAction.THROTTLE, request, response, "idididid12", "/api")).isFalse();
+        verify(telemetry).emit(argThat(e -> policyActionWithDetail(e, "THROTTLE_APPLIED", "429")));
+    }
+
+    @Test
+    void blockEmitsTelemetryWhenResponseWriterFails() throws Exception {
+        handler = new CompositeEnforcementHandler(429, 60_000L, 5.0, telemetry, 100, 60_000L);
+        when(response.getWriter()).thenThrow(new IOException("broken pipe"));
+        boolean allowed = handler.apply(EnforcementAction.BLOCK, request, response, "hashhash12", "/api");
+        assertThat(allowed).isFalse();
+        verify(telemetry).emit(argThat(e -> policyActionWithDetail(e, "BLOCK", "429")));
+    }
+
+    @Test
+    void quarantineEmitsTelemetryWhenResponseWriterFails() throws Exception {
+        handler = new CompositeEnforcementHandler(429, 60_000L, 5.0, telemetry, 100, 60_000L);
+        when(response.getWriter()).thenThrow(new IOException("broken pipe"));
+        boolean allowed = handler.apply(EnforcementAction.QUARANTINE, request, response, "hashhash12", "/api");
+        assertThat(allowed).isFalse();
+        verify(telemetry).emit(argThat(e -> "QuarantineStarted".equals(e.type())
+            && Long.valueOf(60_000L).equals(e.payload().get("durationMs"))));
+    }
+
+    private static boolean policyActionWithDetail(TelemetryEvent e, String action, String detail) {
+        if (!"PolicyActionApplied".equals(e.type())) {
+            return false;
+        }
+        return action.equals(e.payload().get("action")) && detail.equals(e.payload().get("detail"));
     }
 }
