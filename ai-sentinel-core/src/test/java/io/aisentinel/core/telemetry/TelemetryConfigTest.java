@@ -15,12 +15,10 @@ class TelemetryConfigTest {
     }
 
     @Test
-    void logVerbosityEnumValues() {
-        assertThat(TelemetryConfig.LogVerbosity.values())
-            .containsExactly(
-                TelemetryConfig.LogVerbosity.FULL,
-                TelemetryConfig.LogVerbosity.ANOMALY_ONLY,
-                TelemetryConfig.LogVerbosity.SAMPLED,
-                TelemetryConfig.LogVerbosity.NONE);
+    void recordHoldsConfiguredValues() {
+        TelemetryConfig c = new TelemetryConfig(TelemetryConfig.LogVerbosity.SAMPLED, 0.72, 25);
+        assertThat(c.logVerbosity()).isEqualTo(TelemetryConfig.LogVerbosity.SAMPLED);
+        assertThat(c.logScoreThreshold()).isEqualTo(0.72);
+        assertThat(c.logSampleRate()).isEqualTo(25);
     }
 }
