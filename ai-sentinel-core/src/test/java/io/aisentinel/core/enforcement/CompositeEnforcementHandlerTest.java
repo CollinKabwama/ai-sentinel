@@ -189,10 +189,87 @@ class CompositeEnforcementHandlerTest {
             && Long.valueOf(60_000L).equals(e.payload().get("durationMs"))));
     }
 
+    @Test
+    void applyAllowReturnsTrueWithoutPolicyTelemetry() {
+        handler = new CompositeEnforcementHandler(429, 60_000L, 5.0, telemetry, 100, 60_000L);
+        assertThat(handler.apply(EnforcementAction.ALLOW, request, response, "hashhash12", "/api")).isTrue();
+        verifyNoInteractions(telemetry);
+    }
+
+    @Test
+    void applyMonitorEmitsAndReturnsTrue() {
+        handler = new CompositeEnforcementHandler(429, 60_000L, 5.0, telemetry, 100, 60_000L);
+        assertThat(handler.apply(EnforcementAction.MONITOR, request, response, "hashhash12", "/api")).isTrue();
+        verify(telemetry).emit(argThat(e -> policyActionWithDetail(e, "MONITOR", null)));
+    }
+
+    @Test
+    void block403WritesForbiddenBody() throws Exception {
+        handler = new CompositeEnforcementHandler(403, 60_000L, 5.0, telemetry, 100, 60_000L);
+        java.io.StringWriter sw = new java.io.StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(sw));
+        handler.apply(EnforcementAction.BLOCK, request, response, "hashhash12", "/api");
+        assertThat(sw.toString()).isEqualTo("Forbidden");
+    }
+
+    @Test
+    void blockNon403WritesTooManyRequestsBody() throws Exception {
+        handler = new CompositeEnforcementHandler(503, 60_000L, 5.0, telemetry, 100, 60_000L);
+        java.io.StringWriter sw = new java.io.StringWriter();
+        when(response.getWriter()).thenReturn(new PrintWriter(sw));
+        handler.apply(EnforcementAction.BLOCK, request, response, "hashhash12", "/api");
+        assertThat(sw.toString()).isEqualTo("Too Many Requests");
+    }
+
+    @Test
+    void getThrottleCountTracksDistinctKeys() {
+        handler = new CompositeEnforcementHandler(429, 60_000L, 1.0, telemetry, 100, 60_000L);
+        handler.tryAcquireThrottlePermit("aaaaaaaa12", "/a");
+        handler.tryAcquireThrottlePermit("bbbbbbbb12", "/a");
+        assertThat(handler.getThrottleCount()).isEqualTo(2);
+    }
+
+    @Test
+    void quarantineWithEmptyEndpointUsesIdentityPipeKey() throws Exception {
+        ClusterQuarantineWriter writer = mock(ClusterQuarantineWriter.class);
+        handler = new CompositeEnforcementHandler(429, 60_000L, 5.0, telemetry, 100, 60_000L,
+            EnforcementScope.IDENTITY_ENDPOINT, writer, "tenant-z");
+        when(response.getWriter()).thenReturn(new PrintWriter(java.io.OutputStream.nullOutputStream()));
+        handler.apply(EnforcementAction.QUARANTINE, request, response, "qqqqqqqq12", "");
+        verify(writer).publishQuarantine(eq("tenant-z"), eq("qqqqqqqq12|"), anyLong());
+        assertThat(handler.isQuarantined("qqqqqqqq12", "")).isTrue();
+    }
+
+    @Test
+    void clusterThrottleGlobalScopeUsesIdentityOnlyKey() {
+        ClusterThrottleStore store = mock(ClusterThrottleStore.class);
+        when(store.tryAcquire(eq("tid"), eq("global-id"))).thenReturn(true);
+        handler = new CompositeEnforcementHandler(429, 60_000L, 1.0, telemetry, 100, 60_000L,
+            EnforcementScope.IDENTITY_GLOBAL, NoopClusterQuarantineWriter.INSTANCE, store, "tid");
+        assertThat(handler.tryAcquireThrottlePermit("global-id", "/any")).isTrue();
+        verify(store).tryAcquire(eq("tid"), eq("global-id"));
+    }
+
+    @Test
+    void throttleAppliedWhenClusterAllowsButLocalBucketExhausted() throws Exception {
+        ClusterThrottleStore store = mock(ClusterThrottleStore.class);
+        when(store.tryAcquire(anyString(), anyString())).thenReturn(true);
+        handler = new CompositeEnforcementHandler(429, 60_000L, 1.0, telemetry, 100, 60_000L,
+            EnforcementScope.IDENTITY_ENDPOINT, NoopClusterQuarantineWriter.INSTANCE, store, "tid");
+        when(response.getWriter()).thenReturn(new PrintWriter(java.io.OutputStream.nullOutputStream()));
+        assertThat(handler.apply(EnforcementAction.THROTTLE, request, response, "zzzzzzzz12", "/api")).isTrue();
+        assertThat(handler.apply(EnforcementAction.THROTTLE, request, response, "zzzzzzzz12", "/api")).isFalse();
+        verify(telemetry).emit(argThat(e -> policyActionWithDetail(e, "THROTTLE_APPLIED", "429")));
+    }
+
     private static boolean policyActionWithDetail(TelemetryEvent e, String action, String detail) {
         if (!"PolicyActionApplied".equals(e.type())) {
             return false;
         }
-        return action.equals(e.payload().get("action")) && detail.equals(e.payload().get("detail"));
+        if (!action.equals(e.payload().get("action"))) {
+            return false;
+        }
+        Object d = e.payload().get("detail");
+        return detail == null ? d == null : detail.equals(d);
     }
 }
