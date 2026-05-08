@@ -19,12 +19,15 @@ import io.aisentinel.core.policy.EnforcementAction;
 import io.aisentinel.core.policy.PolicyEngine;
 import io.aisentinel.core.policy.TrustPolicyAdjuster;
 import io.aisentinel.core.policy.TrustPolicyAdjustment;
+import io.aisentinel.core.policy.TrustPolicyContextKeys;
 import io.aisentinel.core.runtime.StartupGrace;
 import io.aisentinel.core.scoring.AnomalyScorer;
 import io.aisentinel.core.telemetry.TelemetryEmitter;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
+
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -40,12 +43,14 @@ class SentinelPipelineTrustPolicyTest {
     @Test
     void trustPolicyDetailStoredOnContextWhenAdjusterEscalates() throws Exception {
         FeatureExtractor extractor = mock(FeatureExtractor.class);
+        AtomicReference<RequestContext> ctxRef = new AtomicReference<>();
         RequestFeatures features = RequestFeatures.builder()
             .identityHash("h").endpoint("/api").timestampMillis(0)
             .requestsPerWindow(1).endpointEntropy(0).tokenAgeSeconds(60)
             .parameterCount(0).payloadSizeBytes(0).headerFingerprintHash(0).ipBucket(0).build();
         when(extractor.extract(any(), eq("h"), any(RequestContext.class))).thenAnswer(inv -> {
             RequestContext ctx = inv.getArgument(2);
+            ctxRef.set(ctx);
             IdentityContext ic = new IdentityContext(
                 AuthenticationContext.ofPrincipal("u"),
                 SessionContext.none(),
@@ -95,17 +100,21 @@ class SentinelPipelineTrustPolicyTest {
         HttpServletResponse response = mock(HttpServletResponse.class);
         assertThat(pipeline.process(request, response, "h")).isTrue();
         verify(handler).apply(eq(EnforcementAction.MONITOR), eq(request), eq(response), eq("h"), eq("/api"));
+        assertThat(ctxRef.get().get(TrustPolicyContextKeys.TRUST_POLICY_DETAIL, String.class))
+            .isEqualTo("trust-policy:test-escalation");
     }
 
     @Test
     void startupGraceOverridesTrustEscalationToMonitor() throws Exception {
         FeatureExtractor extractor = mock(FeatureExtractor.class);
+        AtomicReference<RequestContext> ctxRef = new AtomicReference<>();
         RequestFeatures features = RequestFeatures.builder()
             .identityHash("h").endpoint("/api").timestampMillis(0)
             .requestsPerWindow(1).endpointEntropy(0).tokenAgeSeconds(60)
             .parameterCount(0).payloadSizeBytes(0).headerFingerprintHash(0).ipBucket(0).build();
         when(extractor.extract(any(), eq("h"), any(RequestContext.class))).thenAnswer(inv -> {
             RequestContext ctx = inv.getArgument(2);
+            ctxRef.set(ctx);
             IdentityContext ic = new IdentityContext(
                 AuthenticationContext.ofPrincipal("u"),
                 SessionContext.none(),
@@ -157,5 +166,7 @@ class SentinelPipelineTrustPolicyTest {
         HttpServletResponse response = mock(HttpServletResponse.class);
         assertThat(pipeline.process(request, response, "h")).isTrue();
         verify(handler).apply(eq(EnforcementAction.MONITOR), eq(request), eq(response), eq("h"), eq("/api"));
+        assertThat(ctxRef.get().get(TrustPolicyContextKeys.TRUST_POLICY_DETAIL, String.class))
+            .isEqualTo("trust-policy:escalate");
     }
 }

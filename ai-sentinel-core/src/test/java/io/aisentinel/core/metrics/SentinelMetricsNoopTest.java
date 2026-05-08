@@ -6,9 +6,11 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Method;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatCode;
 
 /**
- * Direct coverage for {@link SentinelMetrics#NOOP}: every default hook must be safe to call from hot paths.
+ * Ensures {@link SentinelMetrics#NOOP} remains safe to call for every hook on the interface
+ * (regression guard for new default methods).
  */
 class SentinelMetricsNoopTest {
 
@@ -18,31 +20,38 @@ class SentinelMetricsNoopTest {
     }
 
     @Test
-    void invokingAllDefaultMethodsOnNoopDoesNotThrow() throws Exception {
-        SentinelMetrics m = SentinelMetrics.NOOP;
-        for (Method method : SentinelMetrics.class.getDeclaredMethods()) {
-            if (!method.isDefault()) {
-                continue;
-            }
-            Object[] args = argsFor(method.getParameterTypes());
-            method.invoke(m, args);
-        }
+    void noopImplementsInterface() {
+        assertThat(SentinelMetrics.NOOP).isInstanceOf(SentinelMetrics.class);
     }
 
-    private static Object[] argsFor(Class<?>[] paramTypes) {
-        Object[] args = new Object[paramTypes.length];
-        for (int i = 0; i < paramTypes.length; i++) {
-            Class<?> t = paramTypes[i];
-            if (t == double.class) {
-                args[i] = 0.42;
-            } else if (t == long.class) {
-                args[i] = 99L;
-            } else if (t == EnforcementAction.class) {
-                args[i] = EnforcementAction.ALLOW;
-            } else {
-                throw new IllegalStateException("Unexpected parameter type for SentinelMetrics default: " + t);
+    @Test
+    void allDefaultMetricHooksCallableOnNoop() {
+        SentinelMetrics metrics = SentinelMetrics.NOOP;
+        assertThatCode(() -> {
+            for (Method method : SentinelMetrics.class.getDeclaredMethods()) {
+                if (!method.isDefault()) {
+                    continue;
+                }
+                Object[] args = new Object[method.getParameterCount()];
+                Class<?>[] types = method.getParameterTypes();
+                for (int i = 0; i < types.length; i++) {
+                    args[i] = sampleArg(types[i]);
+                }
+                method.invoke(metrics, args);
             }
+        }).doesNotThrowAnyException();
+    }
+
+    private static Object sampleArg(Class<?> type) {
+        if (type == double.class) {
+            return 0.42;
         }
-        return args;
+        if (type == long.class) {
+            return 99L;
+        }
+        if (type == EnforcementAction.class) {
+            return EnforcementAction.ALLOW;
+        }
+        throw new IllegalArgumentException("Update SentinelMetricsNoopTest for new parameter type: " + type);
     }
 }
