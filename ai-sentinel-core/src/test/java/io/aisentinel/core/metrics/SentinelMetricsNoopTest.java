@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 class SentinelMetricsNoopTest {
 
     @Test
-    void noopIsSingleton() {
+    void noopSingletonIsStable() {
         assertThat(SentinelMetrics.NOOP).isSameAs(SentinelMetrics.NOOP);
     }
 
@@ -44,13 +44,13 @@ class SentinelMetricsNoopTest {
 
     private static Object sampleArg(Class<?> type) {
         if (type == double.class) {
-            return 0.0;
+            return 0.42;
         }
         if (type == long.class) {
-            return 0L;
+            return 99L;
         }
         if (type == EnforcementAction.class) {
-            return EnforcementAction.MONITOR;
+            return EnforcementAction.ALLOW;
         }
         throw new IllegalArgumentException("Update SentinelMetricsNoopTest for new parameter type: " + type);
     }
