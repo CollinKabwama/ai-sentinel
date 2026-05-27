@@ -18,7 +18,7 @@ import org.springframework.context.annotation.Conditional;
 import java.nio.file.Path;
 
 /**
- * Optional filesystem model registry for Phase 5.6. Disabled unless refresh and root path are configured.
+ * Optional filesystem model registry refresh. Disabled unless refresh and root path are configured.
  */
 @AutoConfiguration(after = SentinelAutoConfiguration.class)
 @ConditionalOnProperty(name = "ai.sentinel.enabled", havingValue = "true", matchIfMissing = true)

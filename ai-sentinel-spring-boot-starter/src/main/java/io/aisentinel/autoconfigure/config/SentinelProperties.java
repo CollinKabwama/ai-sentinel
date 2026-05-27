@@ -11,6 +11,7 @@ import lombok.Data;
 import org.hibernate.validator.constraints.time.DurationMax;
 import org.hibernate.validator.constraints.time.DurationMin;
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.core.Ordered;
 import org.springframework.validation.annotation.Validated;
 
 import java.time.Duration;
@@ -43,6 +44,8 @@ public class SentinelProperties {
     private List<String> trustedProxies = List.of();
     /** After startup, enforcement is limited to MONITOR for this duration (0 disables). */
     private Duration startupGracePeriod = Duration.ZERO;
+    /** Servlet filter order for Sentinel; defaults near end of chain. */
+    private int filterOrder = Ordered.LOWEST_PRECEDENCE - 100;
     /** Whether throttle/quarantine keys are per identity only or identity+endpoint. */
     private EnforcementScope enforcementScope = EnforcementScope.IDENTITY_ENDPOINT;
     /** Min samples per key before using real score (cold-start); below this return warmup-score. Default 2. */
@@ -61,13 +64,13 @@ public class SentinelProperties {
 
     private IsolationForest isolationForest = new IsolationForest();
     private Telemetry telemetry = new Telemetry();
-    /** Phase 5 — distributed coordination (disabled by default; see README). */
+    /** Optional distributed coordination (cluster quarantine, throttle, training export; disabled by default). */
     @Valid
     private Distributed distributed = new Distributed();
-    /** Phase 5.6 — optional filesystem model registry refresh on serving nodes (off-request). */
+    /** Optional filesystem model registry refresh on serving nodes (off-request). */
     @Valid
     private ModelRegistry modelRegistry = new ModelRegistry();
-    /** Identity arm foundation (Phase 0): disabled by default; no change to API security behavior when off. */
+    /** Identity resolution and trust hooks: disabled by default; no change to API security behavior when off. */
     @Valid
     private Identity identity = new Identity();
 
@@ -78,9 +81,65 @@ public class SentinelProperties {
          * is not populated with {@link io.aisentinel.core.identity.model.IdentityContext}.
          */
         private boolean enabled = false;
-        /** Phase 2 — local behavioral trust baselines and evaluation (only when {@link #enabled} is true). */
+        /** Behavioral trust baselines and evaluation (only when {@link #enabled} is true). */
         @Valid
         private Trust trust = new Trust();
+        /** Risk fusion: combine anomaly score with trust before policy (default off; no effect without {@link #enabled}). */
+        @Valid
+        private Fusion fusion = new Fusion();
+        /** Trust-aware escalation of {@link io.aisentinel.core.policy.EnforcementAction} after policy (default off). */
+        @Valid
+        private TrustAwarePolicy trustAwarePolicy = new TrustAwarePolicy();
+    }
+
+    @Data
+    public static class Fusion {
+        /**
+         * When true, policy sees a fused risk derived from anomaly and trust when {@link Identity#enabled} is true and
+         * an {@link io.aisentinel.core.identity.model.IdentityContext} is present.
+         */
+        private boolean enabled = false;
+        /** Trust influence on fusion ({@code [0,1]}); higher = stronger amplification from low trust. */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double strength = 0.35;
+    }
+
+    @Data
+    public static class TrustAwarePolicy {
+        /**
+         * When false (default), {@link io.aisentinel.core.policy.NoopTrustPolicyAdjuster} is used and anomaly policy
+         * alone drives enforcement.
+         */
+        private boolean enabled = false;
+        /** Path patterns: exact match, prefix plus {@code *}, or prefix ending with {@code /**} for subtree. Empty means no protected routes (no THROTTLE/BLOCK from trust on sensitive surfaces). */
+        private List<String> protectedEndpointPatterns = List.of();
+        /** Upper-case methods (e.g. POST); when empty, all methods match protected patterns. */
+        private List<String> httpMethods = List.of();
+        /** When true, trust bands apply only to authenticated, non-anonymous principals. */
+        private boolean authenticatedOnly = true;
+        /** Trust at or above this: no trust-based escalation. */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double trustNoEffectMinimum = 0.80;
+        /** Trust at or above this (and below no-effect): at least MONITOR. */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double trustMediumBandMinimum = 0.50;
+        /** Trust at or above this (and below medium): THROTTLE on protected routes else MONITOR. */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double trustLowBandMinimum = 0.25;
+        /**
+         * When true, critical trust (below low band) on a protected route may escalate to BLOCK when
+         * {@link #requireMinRiskForTrustDeny} is satisfied or disabled.
+         */
+        private boolean denyOnCriticalTrustEnabled = false;
+        /** When true with deny, BLOCK requires anomaly score at or above {@link #minRiskScoreForTrustDeny}. */
+        private boolean requireMinRiskForTrustDeny = true;
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double minRiskScoreForTrustDeny = 0.40;
     }
 
     @Data
@@ -105,6 +164,32 @@ public class SentinelProperties {
         @DecimalMin("0.1")
         @DecimalMax("1.0")
         private double maxTotalPenalty = 0.75;
+        /**
+         * Optional Redis-backed behavioral baselines for horizontal continuity across instances.
+         * Default off; requires a {@link org.springframework.data.redis.core.StringRedisTemplate} bean when enabled.
+         */
+        @Valid
+        private TrustDistributed distributed = new TrustDistributed();
+    }
+
+    @Data
+    public static class TrustDistributed {
+        /**
+         * When true and {@code StringRedisTemplate} is available, baseline updates are mirrored to Redis with TTL;
+         * Redis errors fail open to the same in-memory store used when this flag is false.
+         */
+        private boolean enabled = false;
+        /** ASCII prefix for Redis keys (logical key is hashed for a fixed-width suffix). */
+        @Size(max = 96)
+        private String keyPrefix = "aisentinel:trust:bl:";
+        /**
+         * Max wait per behavioral-baseline Redis round-trip (single Lua EVAL). On timeout, in-memory fallback is used.
+         * Does not cancel in-flight client I/O; align {@code spring.data.redis.timeout} with this budget.
+         * <p>Spring property: {@code ai.sentinel.identity.trust.distributed.command-timeout}
+         */
+        @DurationMin(millis = 1)
+        @DurationMax(seconds = 60)
+        private Duration commandTimeout = Duration.ofMillis(50);
     }
 
     @Data
@@ -163,7 +248,7 @@ public class SentinelProperties {
     @Data
     @Validated
     public static class Distributed {
-        /** Master switch for Phase 5 integration beans (Redis/Kafka wiring comes in later steps). */
+        /** Master switch for distributed integration beans (Redis-backed features and optional Kafka). */
         private boolean enabled = false;
         /** Logical tenant segment in shared Redis keys (see README distributed properties). */
         @Size(max = 128)

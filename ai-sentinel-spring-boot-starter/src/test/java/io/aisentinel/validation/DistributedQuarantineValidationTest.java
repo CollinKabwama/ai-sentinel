@@ -58,7 +58,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Phase 5.3 — validation in a <strong>single JVM</strong>: Node A uses the Spring-wired
+ * Distributed quarantine validation in a <strong>single JVM</strong>: Node A uses the Spring-wired
  * {@link CompositeEnforcementHandler} (writer → primary {@link StringRedisTemplate}). Node B is modeled as a
  * <strong>second Lettuce client</strong> to the same Redis plus a separately constructed
  * {@link ClusterAwareEnforcementHandler} and {@link SentinelFilter} (see enforcement test). Requires Docker for
@@ -87,7 +87,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class DistributedQuarantineValidationTest {
 
     private static final String ENFORCEMENT_CLIENT_IP = "203.0.113.50";
-    private static final String ENFORCEMENT_ENDPOINT = "/api/phase53-ping";
+    private static final String ENFORCEMENT_ENDPOINT = "/api/distributed-validation/ping";
 
     @Container
     @SuppressWarnings("resource")
@@ -123,7 +123,7 @@ class DistributedQuarantineValidationTest {
     private SentinelActuatorEndpoint sentinelActuatorEndpoint;
 
     @Autowired
-    private Phase53PingController phase53PingController;
+    private DistributedEnforcementPingController distributedEnforcementPingController;
 
     @Autowired
     private FeatureExtractor featureExtractor;
@@ -233,7 +233,7 @@ class DistributedQuarantineValidationTest {
                 startupGrace,
                 micrometerSentinelMetrics);
             SentinelFilter filterB = new SentinelFilter(pipelineB, sentinelProperties, micrometerSentinelMetrics);
-            MockMvc mockMvcB = MockMvcBuilders.standaloneSetup(phase53PingController).addFilters(filterB).build();
+            MockMvc mockMvcB = MockMvcBuilders.standaloneSetup(distributedEnforcementPingController).addFilters(filterB).build();
             try {
                 int expectedStatus = sentinelProperties.getBlockStatusCode();
                 mockMvcB.perform(get(ENFORCEMENT_ENDPOINT).with(remoteAddr(ENFORCEMENT_CLIENT_IP)))

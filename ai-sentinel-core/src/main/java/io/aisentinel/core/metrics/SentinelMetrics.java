@@ -155,4 +155,13 @@ public interface SentinelMetrics {
 
     /** Registry artifact rejected (checksum, decode, or dimension mismatch). */
     default void recordModelRegistryInstallFailure() {}
+
+    /** Redis read/write for behavioral trust baseline succeeded. */
+    default void recordTrustBaselineRedisSuccess() {}
+
+    /** Redis read/write for behavioral trust baseline failed (connection, timeout, etc.). */
+    default void recordTrustBaselineRedisFailure() {}
+
+    /** Behavioral baseline update used in-memory path after Redis failure (fail-open). */
+    default void recordTrustBaselineRedisFallback() {}
 }

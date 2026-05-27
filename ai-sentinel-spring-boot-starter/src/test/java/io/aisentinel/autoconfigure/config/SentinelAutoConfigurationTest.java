@@ -3,6 +3,7 @@ package io.aisentinel.autoconfigure.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.aisentinel.autoconfigure.identity.IdentityAutoConfiguration;
 import io.aisentinel.autoconfigure.identity.ServletIdentityContextResolver;
+import io.aisentinel.autoconfigure.identity.trust.RedisFailOpenBehavioralBaselineStore;
 import io.aisentinel.autoconfigure.distributed.DistributedQuarantineAutoConfiguration;
 import io.aisentinel.autoconfigure.model.ModelRefreshScheduler;
 import io.aisentinel.autoconfigure.model.ModelRegistryAutoConfiguration;
@@ -12,11 +13,18 @@ import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantine
 import io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineWriter;
 import io.aisentinel.autoconfigure.distributed.throttle.RedisClusterThrottleStore;
 import io.aisentinel.autoconfigure.web.SentinelFilter;
+import io.aisentinel.core.SentinelPipeline;
 import io.aisentinel.core.identity.spi.IdentityContextResolver;
 import io.aisentinel.core.identity.spi.NoopIdentityContextResolver;
 import io.aisentinel.core.identity.spi.NoopTrustEvaluator;
 import io.aisentinel.core.identity.spi.TrustEvaluator;
+import io.aisentinel.core.identity.trust.BehavioralBaselineStore;
+import io.aisentinel.core.policy.DefaultTrustPolicyAdjuster;
+import io.aisentinel.core.policy.NoopTrustPolicyAdjuster;
+import io.aisentinel.core.policy.TrustPolicyAdjuster;
 import io.aisentinel.core.identity.trust.BehavioralIdentityTrustEvaluator;
+import io.aisentinel.core.identity.trust.IdentityBehavioralBaselineStore;
+import io.aisentinel.core.metrics.SentinelMetrics;
 import io.aisentinel.core.model.RequestFeatures;
 import io.aisentinel.core.policy.EnforcementAction;
 import io.aisentinel.core.policy.PolicyEngine;
@@ -29,24 +37,38 @@ import io.aisentinel.autoconfigure.distributed.training.TrainingPublishStatus;
 import io.aisentinel.distributed.training.NoopTrainingCandidatePublisher;
 import io.aisentinel.distributed.training.TrainingCandidatePublisher;
 import io.aisentinel.distributed.throttle.ClusterThrottleStore;
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import ch.qos.logback.core.read.ListAppender;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.slf4j.LoggerFactory;
 import org.junit.jupiter.api.io.TempDir;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.boot.autoconfigure.AutoConfigurations;
 import org.springframework.boot.test.context.runner.WebApplicationContextRunner;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.data.redis.core.script.RedisScript;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+@ExtendWith(OutputCaptureExtension.class)
 class SentinelAutoConfigurationTest {
 
     private final WebApplicationContextRunner contextRunner = new WebApplicationContextRunner()
@@ -73,8 +95,63 @@ class SentinelAutoConfigurationTest {
             .withPropertyValues("ai.sentinel.enabled=true")
             .run(context -> {
                 assertThat(context).hasSingleBean(io.aisentinel.core.SentinelPipeline.class);
-                assertThat(context).hasSingleBean(SentinelFilter.class);
+                assertThat(context).doesNotHaveBean(SentinelFilter.class);
+                FilterRegistrationBean<?> registration = context.getBean("sentinelFilterRegistration",
+                    FilterRegistrationBean.class);
+                assertThat(registration.getFilter()).isInstanceOf(SentinelFilter.class);
             });
+    }
+
+    @Test
+    void sentinelFilterRegistrationUsesDefaultOrder() {
+        contextRunner
+            .withPropertyValues("ai.sentinel.enabled=true")
+            .run(context -> {
+                FilterRegistrationBean<?> registration = context.getBean("sentinelFilterRegistration",
+                    FilterRegistrationBean.class);
+                assertThat(registration.getOrder()).isEqualTo(Ordered.LOWEST_PRECEDENCE - 100);
+            });
+    }
+
+    @Test
+    void sentinelFilterRegistrationUsesConfiguredOrder() {
+        contextRunner
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.filter-order=1234")
+            .run(context -> {
+                FilterRegistrationBean<?> registration = context.getBean("sentinelFilterRegistration",
+                    FilterRegistrationBean.class);
+                assertThat(registration.getOrder()).isEqualTo(1234);
+            });
+    }
+
+    @Test
+    void customSentinelFilterRegistrationBeanSuppressesDefault() {
+        contextRunner
+            .withUserConfiguration(CustomSentinelFilterRegistrationConfig.class)
+            .withPropertyValues("ai.sentinel.enabled=true")
+            .run(context -> {
+                FilterRegistrationBean<?> registration = context.getBean("sentinelFilterRegistration",
+                    FilterRegistrationBean.class);
+                assertThat(registration.getOrder()).isEqualTo(42);
+                assertThat(registration.getFilter()).isInstanceOf(SentinelFilter.class);
+            });
+    }
+
+    @Configuration
+    static class CustomSentinelFilterRegistrationConfig {
+        @Bean(name = "sentinelFilterRegistration")
+        FilterRegistrationBean<SentinelFilter> sentinelFilterRegistration(SentinelPipeline pipeline,
+                                                                          SentinelProperties props,
+                                                                          SentinelMetrics sentinelMetrics) {
+            FilterRegistrationBean<SentinelFilter> reg = new FilterRegistrationBean<>();
+            reg.setFilter(new SentinelFilter(pipeline, props, sentinelMetrics));
+            reg.setOrder(42);
+            reg.setName("customSentinelFilter");
+            reg.addUrlPatterns("/*");
+            return reg;
+        }
     }
 
     @Test
@@ -97,6 +174,58 @@ class SentinelAutoConfigurationTest {
     }
 
     @Test
+    void behavioralBaselineStoreIsInMemoryWhenDistributedTrustDisabled() {
+        contextRunner
+            .withPropertyValues("ai.sentinel.enabled=true", "ai.sentinel.identity.enabled=true")
+            .run(context -> {
+                assertThat(context.getBean(BehavioralBaselineStore.class)).isInstanceOf(IdentityBehavioralBaselineStore.class);
+            });
+    }
+
+    @Test
+    void behavioralBaselineStoreIsRedisWhenDistributedTrustEnabledAndRedisTemplatePresent() {
+        contextRunner
+            .withUserConfiguration(TrustDistributedRedisTemplateConfig.class)
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.identity.enabled=true",
+                "ai.sentinel.identity.trust.distributed.enabled=true")
+            .run(context ->
+                assertThat(context.getBean(BehavioralBaselineStore.class)).isInstanceOf(RedisFailOpenBehavioralBaselineStore.class));
+    }
+
+    @Test
+    void behavioralBaselineStoreIsInMemoryWhenDistributedEnabledWithoutRedisTemplateWarns(CapturedOutput output) {
+        contextRunner
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.identity.enabled=true",
+                "ai.sentinel.identity.trust.distributed.enabled=true")
+            .run(context -> {
+                assertThat(context.getBean(BehavioralBaselineStore.class)).isInstanceOf(IdentityBehavioralBaselineStore.class);
+                assertThat(output.getAll()).contains("StringRedisTemplate");
+            });
+    }
+
+    @Configuration
+    static class TrustDistributedRedisTemplateConfig {
+        @Bean
+        StringRedisTemplate testStringRedisTemplate() {
+            return new StringRedisTemplate() {
+                @Override
+                public void afterPropertiesSet() {
+                }
+
+                @Override
+                @SuppressWarnings("unchecked")
+                public <T> T execute(RedisScript<T> script, List<String> keys, Object... args) {
+                    return (T) "";
+                }
+            };
+        }
+    }
+
+    @Test
     void identityFoundationUsesNoopTrustEvaluatorWhenTrustEvaluationDisabled() {
         contextRunner
             .withPropertyValues(
@@ -107,6 +236,49 @@ class SentinelAutoConfigurationTest {
                 assertThat(context.getBean(IdentityContextResolver.class)).isInstanceOf(ServletIdentityContextResolver.class);
                 assertThat(context.getBean(TrustEvaluator.class)).isSameAs(NoopTrustEvaluator.INSTANCE);
             });
+    }
+
+    @Test
+    void trustAwarePolicyDisabledUsesNoopTrustPolicyAdjuster() {
+        contextRunner
+            .withPropertyValues("ai.sentinel.enabled=true")
+            .run(context -> assertThat(context.getBean(TrustPolicyAdjuster.class)).isSameAs(NoopTrustPolicyAdjuster.INSTANCE));
+    }
+
+    @Test
+    void trustAwarePolicyEnabledRegistersDefaultTrustPolicyAdjuster() {
+        contextRunner
+            .withPropertyValues(
+                "ai.sentinel.enabled=true",
+                "ai.sentinel.identity.trust-aware-policy.enabled=true",
+                "ai.sentinel.identity.trust-aware-policy.protected-endpoint-patterns=/api/sensitive/**")
+            .run(context ->
+                assertThat(context.getBean(TrustPolicyAdjuster.class)).isInstanceOf(DefaultTrustPolicyAdjuster.class));
+    }
+
+    @Test
+    void trustAwarePolicyEnabledWithIdentityDisabledLogsConfigurationWarning() {
+        Logger logger = (Logger) LoggerFactory.getLogger(SentinelAutoConfiguration.class);
+        ListAppender<ILoggingEvent> appender = new ListAppender<>();
+        appender.setContext(logger.getLoggerContext());
+        appender.start();
+        logger.addAppender(appender);
+        logger.setLevel(Level.WARN);
+        try {
+            contextRunner
+                .withPropertyValues(
+                    "ai.sentinel.enabled=true",
+                    "ai.sentinel.identity.enabled=false",
+                    "ai.sentinel.identity.trust-aware-policy.enabled=true",
+                    "ai.sentinel.identity.trust-aware-policy.protected-endpoint-patterns=/x/**")
+                .run(context ->
+                    assertThat(context.getBean(TrustPolicyAdjuster.class)).isInstanceOf(DefaultTrustPolicyAdjuster.class));
+        } finally {
+            logger.detachAppender(appender);
+            logger.setLevel(null);
+        }
+        assertThat(appender.list.stream().map(ILoggingEvent::getFormattedMessage))
+            .anyMatch(m -> m.contains("trust-aware policy has no effect"));
     }
 
     @Test

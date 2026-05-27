@@ -4,4 +4,4 @@ Framework-agnostic engine: **`SentinelPipeline`** (feature extract → score →
 
 No Spring dependency in this module. Consumed by **`ai-sentinel-spring-boot-starter`** and **`ai-sentinel-trainer`**.
 
-**Next:** [Root README](../README.md) · [Architecture](../ARCHITECTURE.md) §3–7, §10 (distributed), §12 (extension points).
+**Next:** [Root README](../README.md) · [Architecture](../ARCHITECTURE.md) — request lifecycle, scoring, policy, enforcement, distributed architecture, and extension points.

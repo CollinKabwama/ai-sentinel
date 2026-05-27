@@ -10,7 +10,12 @@ import java.util.Objects;
 public final class TrainingCandidateRecord {
 
     /** Schema 2: endpoint/enforcement key as hashes; eventId for deduplication. */
-    public static final int CURRENT_SCHEMA_VERSION = 2;
+    public static final int SCHEMA_VERSION_2 = 2;
+    /**
+     * Schema 3: same as 2 plus optional {@link #trustScore()} / {@link #fusedPolicyScore()} when fusion separates
+     * signals from {@link #compositeScore()} (raw clamped anomaly for training).
+     */
+    public static final int CURRENT_SCHEMA_VERSION = 3;
 
     private static final int MAX_TENANT = 128;
     private static final int MAX_NODE = 128;
@@ -32,7 +37,10 @@ public final class TrainingCandidateRecord {
     private final double[] statisticalFeatures;
     private final Double statisticalScore;
     private final Double isolationForestScore;
+    /** Raw clamped anomaly (pre-fusion); not the fused policy input when fusion fields are set. */
     private final double compositeScore;
+    private final Double trustScore;
+    private final Double fusedPolicyScore;
     private final String policyAction;
     private final String sentinelMode;
     private final boolean requestProceeded;
@@ -52,6 +60,8 @@ public final class TrainingCandidateRecord {
         Double statisticalScore,
         Double isolationForestScore,
         double compositeScore,
+        Double trustScore,
+        Double fusedPolicyScore,
         String policyAction,
         String sentinelMode,
         boolean requestProceeded,
@@ -70,6 +80,8 @@ public final class TrainingCandidateRecord {
         this.statisticalScore = statisticalScore;
         this.isolationForestScore = isolationForestScore;
         this.compositeScore = clampUnit(compositeScore);
+        this.trustScore = trustScore;
+        this.fusedPolicyScore = fusedPolicyScore != null ? clampUnitNullable(fusedPolicyScore) : null;
         this.policyAction = truncate(policyAction, MAX_ACTION);
         this.sentinelMode = truncate(sentinelMode, MAX_MODE);
         this.requestProceeded = requestProceeded;
@@ -105,6 +117,13 @@ public final class TrainingCandidateRecord {
             return 0.0;
         }
         return Math.min(1.0, v);
+    }
+
+    private static Double clampUnitNullable(Double v) {
+        if (v == null) {
+            return null;
+        }
+        return clampUnit(v);
     }
 
     public int schemaVersion() {
@@ -159,6 +178,14 @@ public final class TrainingCandidateRecord {
         return compositeScore;
     }
 
+    public Double trustScore() {
+        return trustScore;
+    }
+
+    public Double fusedPolicyScore() {
+        return fusedPolicyScore;
+    }
+
     public String policyAction() {
         return policyAction;
     }
@@ -182,6 +209,8 @@ public final class TrainingCandidateRecord {
         return schemaVersion == that.schemaVersion
             && observedAtEpochMillis == that.observedAtEpochMillis
             && Double.compare(that.compositeScore, compositeScore) == 0
+            && Objects.equals(trustScore, that.trustScore)
+            && Objects.equals(fusedPolicyScore, that.fusedPolicyScore)
             && requestProceeded == that.requestProceeded
             && startupGraceActive == that.startupGraceActive
             && Objects.equals(eventId, that.eventId)
@@ -203,6 +232,6 @@ public final class TrainingCandidateRecord {
         return Objects.hash(schemaVersion, eventId, tenantId, nodeId, identityHash, endpointSha256Hex,
             enforcementKeySha256Hex, observedAtEpochMillis, Arrays.hashCode(isolationForestFeatures),
             Arrays.hashCode(statisticalFeatures), statisticalScore, isolationForestScore, compositeScore,
-            policyAction, sentinelMode, requestProceeded, startupGraceActive);
+            trustScore, fusedPolicyScore, policyAction, sentinelMode, requestProceeded, startupGraceActive);
     }
 }

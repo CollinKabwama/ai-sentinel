@@ -4,4 +4,4 @@ Spring Boot auto-configuration: **`SentinelFilter`**, **`SentinelAutoConfigurati
 
 Depends only on **`ai-sentinel-core`**.
 
-**Next:** [Root README](../README.md) · [Configuration](../docs/configuration.md) · [Architecture](../ARCHITECTURE.md) §9–10, §13–14.
+**Next:** [Root README](../README.md) · [Configuration](../docs/configuration.md) · [Architecture](../ARCHITECTURE.md) — Spring integration, distributed components, dependencies, and testing.

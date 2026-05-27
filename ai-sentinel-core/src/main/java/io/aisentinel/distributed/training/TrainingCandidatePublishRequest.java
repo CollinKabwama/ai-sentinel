@@ -7,6 +7,10 @@ import io.aisentinel.core.policy.EnforcementAction;
 /**
  * Inputs for training candidate export, captured on the request thread after policy and enforcement.
  * The publisher must copy feature arrays before handing off to another thread.
+ * <p>
+ * {@link #compositeScore()} is the <strong>raw clamped anomaly</strong> (post-scorer, pre-fusion). When trust–anomaly
+ * fusion ran, {@link #trustScore()} and {@link #fusedPolicyScore()} carry the trust input and fused value used for
+ * policy; both are null if fusion did not apply for that request.
  */
 public final class TrainingCandidatePublishRequest {
 
@@ -21,6 +25,8 @@ public final class TrainingCandidatePublishRequest {
     private final String sentinelMode;
     private final boolean requestProceeded;
     private final boolean startupGraceActive;
+    private final Double trustScore;
+    private final Double fusedPolicyScore;
 
     public TrainingCandidatePublishRequest(
         RequestFeatures features,
@@ -33,7 +39,9 @@ public final class TrainingCandidatePublishRequest {
         String nodeId,
         String sentinelMode,
         boolean requestProceeded,
-        boolean startupGraceActive
+        boolean startupGraceActive,
+        Double trustScore,
+        Double fusedPolicyScore
     ) {
         this.features = features;
         this.policyAction = policyAction;
@@ -46,6 +54,8 @@ public final class TrainingCandidatePublishRequest {
         this.sentinelMode = sentinelMode != null ? sentinelMode : "ENFORCE";
         this.requestProceeded = requestProceeded;
         this.startupGraceActive = startupGraceActive;
+        this.trustScore = trustScore;
+        this.fusedPolicyScore = fusedPolicyScore;
     }
 
     public RequestFeatures features() {
@@ -90,5 +100,15 @@ public final class TrainingCandidatePublishRequest {
 
     public boolean startupGraceActive() {
         return startupGraceActive;
+    }
+
+    /** Trust value used when fusion produced {@link #fusedPolicyScore()}; otherwise {@code null}. */
+    public Double trustScore() {
+        return trustScore;
+    }
+
+    /** Fused score passed to policy when fusion applied; otherwise {@code null}. */
+    public Double fusedPolicyScore() {
+        return fusedPolicyScore;
     }
 }

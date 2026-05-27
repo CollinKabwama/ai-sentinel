@@ -33,7 +33,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Phase 5.3 — In-flight cap 1 with a blocking Redis SET: second cluster publish is dropped; both identities remain
+ * In-flight cap 1 with a blocking Redis SET: second cluster publish is dropped; both identities remain
  * locally quarantined; only the first key is written (peers never observe the second in Redis). Complements
  * {@link io.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineWriterTest#secondPublishDroppedWhileFirstWriteBlocksRedis()}.
  */

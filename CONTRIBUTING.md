@@ -1,6 +1,35 @@
 # Contributing to AI-Sentinel
 
-Thanks for helping improve AI-Sentinel. Contributions should match the project’s engineering style: small, reviewable changes; tests when behavior changes; documentation updates when user-visible behavior or configuration changes.
+Thanks for helping improve AI-Sentinel. Bug-fix pull requests are always welcome.
+
+For **new features** or **non-trivial behavior changes**, open an issue first so maintainers and users can discuss scope, defaults, and compatibility:
+
+[Open an issue](https://github.com/CollinKabwama/ai-sentinel/issues/new)
+
+Contributions should match the project’s style: **small, reviewable changes**; **tests** when behavior changes; **documentation** when user-visible behavior or configuration changes.
+
+---
+
+## Breaking changes
+
+When your PR introduces a **breaking change** (API, configuration, or behavior that can break existing users):
+
+- Mention **breaking change** clearly in the PR title or description so maintainers can label the PR.
+- In the PR description, include **migration notes**:
+  - What is changing and why
+  - How users should update code or configuration
+  - Before/after examples where helpful
+
+**Examples of breaking changes:** removing or renaming public types, changing default property values that alter enforcement, removing support for a configuration key, or changing semantics of scores or policy bands without a compatibility period.
+
+---
+
+## Deprecations
+
+When your PR **deprecates** functionality (but keeps it working for a transition period):
+
+- Describe what is deprecated, why, and what to use instead.
+- If you know a removal timeline, state it; otherwise say “future release” and link a tracking issue.
 
 ---
 
@@ -17,13 +46,11 @@ Thanks for helping improve AI-Sentinel. Contributions should match the project�
 
 ## Where to start
 
-When reading the codebase:
+1. **`SentinelPipeline`** — [`ai-sentinel-core/.../SentinelPipeline.java`](ai-sentinel-core/src/main/java/io/aisentinel/core/SentinelPipeline.java) — extract → score → policy → enforce → telemetry and optional training publish.
+2. **`SentinelFilter`** — [`ai-sentinel-spring-boot-starter/.../SentinelFilter.java`](ai-sentinel-spring-boot-starter/src/main/java/io/aisentinel/autoconfigure/web/SentinelFilter.java) — servlet entry point.
+3. **`SentinelAutoConfiguration`** — [`.../SentinelAutoConfiguration.java`](ai-sentinel-spring-boot-starter/src/main/java/io/aisentinel/autoconfigure/config/SentinelAutoConfiguration.java) — beans and `@ConditionalOnMissingBean` extension points.
 
-1. **`SentinelPipeline`** ([`ai-sentinel-core`](ai-sentinel-core/src/main/java/io/aisentinel/core/SentinelPipeline.java)) — orchestrates extract → score → policy → enforce → telemetry and optional training publish.
-2. **`SentinelFilter`** ([`ai-sentinel-spring-boot-starter`](ai-sentinel-spring-boot-starter/src/main/java/io/aisentinel/autoconfigure/web/SentinelFilter.java)) — servlet entry point that invokes the pipeline once per request.
-3. **`SentinelAutoConfiguration`** ([`ai-sentinel-spring-boot-starter`](ai-sentinel-spring-boot-starter/src/main/java/io/aisentinel/autoconfigure/config/SentinelAutoConfiguration.java)) — registers beans and `@ConditionalOnMissingBean` extension points.
-
-Then see [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full picture.
+See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/configuration.md`](docs/configuration.md) for the full picture.
 
 ---
 
@@ -31,8 +58,8 @@ Then see [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full picture.
 
 | Branch | Purpose |
 |--------|---------|
-| **`main`** | Stable, release-quality code. Tagged for releases. Not a direct PR target for normal work. |
-| **`dev`** | Active integration branch. Default target for all pull requests. |
+| **`main`** | Stable, release-quality code. Tagged for releases. Not the default target for day-to-day PRs. |
+| **`dev`** | Active integration branch. **Default target for pull requests.** |
 
 ### For contributors
 
@@ -50,54 +77,51 @@ Then see [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full picture.
 
 ### Hotfixes (rare)
 
-If a maintainer designates an issue as:
+If a maintainer designates an issue as **hotfix**, **security**, or **release-blocker**:
 
-- hotfix
-- security
-- release-blocker
-
-Then:
-
-- branch from `main`
-- PR into `main`
-- maintainer merges `main` back into `dev`
+- Branch from `main`, PR into `main`, then maintainers merge `main` back into `dev`.
 
 ### Releases
 
-Maintainers:
-
-- merge `dev` → `main`
-- tag release (e.g. `v0.2.0`)
-
-Contributors do NOT manage releases.
+Maintainers merge `dev` → `main` and tag releases. Contributors do not manage releases.
 
 ---
 
 ## Prerequisites
 
-- **Java 21** (see root `pom.xml`)
+- **Java 21** — required by the root `pom.xml` (`<java.version>21</java.version>`). Newer JDKs may work locally; align with CI when in doubt.
 - **Maven 3.8+**
-- **Docker** — optional; required only to run Testcontainers-based tests in `ai-sentinel-spring-boot-starter` (skipped when Docker is unavailable)
+- **Docker** — optional; needed for Testcontainers-based tests in `ai-sentinel-spring-boot-starter` (those tests are skipped when Docker is unavailable).
 
 ---
 
-## Build
+## Building
 
 From the repository root:
 
 ```bash
+java -version   # expect 21
 mvn clean install
 ```
 
+To consume a **local snapshot** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `io.aisentinel:ai-sentinel-spring-boot-starter:1.0.0-SNAPSHOT` (or the specific module you need). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
+
 ---
 
-## Tests
+## Running the tests
 
 ```bash
 mvn test
 ```
 
-Run tests before opening a PR. Distributed Redis tests need Docker when enabled.
+Run the full suite before opening a PR. To narrow scope while iterating:
+
+```bash
+mvn -pl ai-sentinel-core test
+mvn -pl ai-sentinel-spring-boot-starter test
+```
+
+If a failure is unclear, re-run with `-e` or `-X` for more Maven output, or run a single test class with `-Dtest=ClassName`.
 
 ---
 
@@ -107,37 +131,50 @@ Run tests before opening a PR. Distributed Redis tests need Docker when enabled.
 mvn -pl ai-sentinel-demo spring-boot:run
 ```
 
-Optional IF-focused profile:
+Optional Isolation Forest validation profile:
 
 ```bash
 mvn -pl ai-sentinel-demo spring-boot:run -Dspring-boot.run.profiles=stage2
 ```
 
+Python helpers (stdlib only): [`scripts/README.md`](scripts/README.md).
+
 ---
 
-## Code style
+## Code style and commits
 
-- Follow existing naming and package layout (`io.aisentinel.*`).
+- Follow existing naming and packages (`io.aisentinel.*`).
 - Prefer focused changes; avoid unrelated refactors in the same PR.
 - Match formatting and patterns used in nearby code.
-- Keep public API changes minimal and backward compatible unless explicitly agreed.
-
----
-
-## Commits
-
-- Use clear, imperative subject lines (e.g. `fix: clarify cluster throttle timeout in README`).
-- Avoid noisy or unrelated commits; squash locally if needed before push.
+- Keep public API changes minimal and backward compatible unless explicitly agreed (see **Breaking changes**).
+- Commit subjects: clear, imperative (e.g. `fix: clarify cluster throttle timeout in README`). Squash noisy commits locally before push if needed.
 
 ---
 
 ## Pull requests
 
-- Target the **`dev`** branch unless your change is a maintainer-approved hotfix (see **Branching strategy** above).
-- Describe **what** changed and **why** (short summary is enough).
-- Link related issues if any.
-- Ensure `mvn test` passes.
-- Update **README**, **ARCHITECTURE**, **`docs/configuration.md`**, and module READMEs when behavior or configuration changes.
+- Target **`dev`** unless your change is a maintainer-approved hotfix (see **Branching strategy**).
+- Describe **what** changed and **why**; link issues.
+- Ensure **`mvn test`** passes.
+- Update **README**, **ARCHITECTURE.md**, **`docs/configuration.md`**, and module READMEs when behavior or configuration changes.
+- For breaking or deprecated behavior, follow the sections above.
+
+---
+
+## Working with a fork
+
+If you fork this repository, **GitHub Actions** may fail on your fork (missing secrets, permissions, or org-only settings). To reduce noise:
+
+1. **Settings → Actions → General** — choose **Disable actions** for the fork, or  
+2. **Actions** tab — disable individual workflows you do not need.
+
+You can still open pull requests against the upstream repository; CI runs there on the PR branch.
+
+---
+
+## Draft pull requests
+
+Draft PRs are fine for work in progress or experiments. They may get less review until marked ready. Very old drafts may be closed by maintainers to keep the queue manageable; that is not a rejection—reopen or open a fresh PR when you are ready.
 
 ---
 
@@ -146,9 +183,9 @@ mvn -pl ai-sentinel-demo spring-boot:run -Dspring-boot.run.profiles=stage2
 | Area | Extension | Notes |
 |------|-----------|--------|
 | **Scoring** | `FeatureExtractor`, `AnomalyScorer` / `CompositeScorer`, `IsolationForestScorer` | Hot path must stay bounded and non-blocking for scoring. |
-| **Distributed** | `ClusterQuarantineReader` / `Writer`, `ClusterThrottleStore`, `TrainingCandidatePublisher` | Optional; fail-open; see [`ARCHITECTURE.md`](ARCHITECTURE.md) §10. |
-| **Trainer** | Separate module; consumes Kafka when `aisentinel.trainer.kafka.enabled=true` | Publishes to filesystem layout consumed by `ModelRegistryReader` on nodes. |
-| **Registry on nodes** | `ModelRegistryReader` (default: `FilesystemModelRegistry` when auto-config applies) | Refresh is off-request; no registry I/O on the servlet thread. |
+| **Distributed** | `ClusterQuarantineReader` / `Writer`, `ClusterThrottleStore`, `TrainingCandidatePublisher` | Optional; fail-open; see [`ARCHITECTURE.md`](ARCHITECTURE.md). |
+| **Trainer** | `ai-sentinel-trainer` module | Kafka when enabled; filesystem registry layout. |
+| **Registry on nodes** | `ModelRegistryReader` | Refresh off-request; no registry I/O on the servlet thread. |
 
 Use `@ConditionalOnMissingBean` where the starter already defines a bean so applications can override.
 
@@ -156,9 +193,9 @@ Use `@ConditionalOnMissingBean` where the starter already defines a bean so appl
 
 ## Invariants (do not break)
 
-1. **Request path** — Scoring and enforcement must not perform unbounded blocking or network I/O that can stall the filter thread beyond documented timeouts (e.g. Redis lookups for cluster features).
-2. **Fail-open** — When optional distributed or training features fail, the request should still be handled per policy where the code documents fail-open behavior.
-3. **Bounded memory** — Training buffers, caches, and async queues must remain capped; no unbounded growth on the hot path.
-4. **Local enforcement authority** — Cluster quarantine/throttle views are additive; local maps and decisions remain the baseline unless documented otherwise.
+1. **Request path** — No unbounded blocking or network I/O on the filter thread beyond documented timeouts (e.g. Redis for cluster features).
+2. **Fail-open** — Optional distributed or training failures must not strand requests without documented behavior.
+3. **Bounded memory** — Training buffers, caches, and queues stay capped.
+4. **Local enforcement authority** — Cluster views are additive; local maps remain baseline unless documented otherwise.
 
 Details: [`ARCHITECTURE.md`](ARCHITECTURE.md).

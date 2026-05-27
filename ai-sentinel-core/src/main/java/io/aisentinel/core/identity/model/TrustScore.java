@@ -2,7 +2,7 @@ package io.aisentinel.core.identity.model;
 
 /**
  * Session / identity trust level in {@code [0.0, 1.0]} where higher means more trusted.
- * Distinct from API anomaly risk scores; used by the Identity arm for future adaptive decisions.
+ * Distinct from API anomaly risk scores; consumed in trust evaluation, optional risk fusion, and downstream policy inputs.
  */
 public record TrustScore(double value, String reason) {
     public TrustScore {
@@ -13,7 +13,7 @@ public record TrustScore(double value, String reason) {
         reason = reason != null ? reason : "";
     }
 
-    /** Baseline for Phase 0: no behavioral trust degradation applied. */
+    /** Baseline trust when identity resolution does not attach behavioral degradation. */
     public static TrustScore fullyTrusted() {
         return new TrustScore(1.0, "baseline");
     }

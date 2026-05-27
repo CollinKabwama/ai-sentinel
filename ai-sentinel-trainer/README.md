@@ -6,7 +6,7 @@ Standalone Spring Boot application that **consumes** training candidates (from K
 
 ## Purpose
 
-1. **Consume** JSON lines matching `TrainingCandidateRecord` (schema v2) — the same events Phase 5.5 can publish from starter nodes (`ai.sentinel.distributed.training-publish-enabled`, optional Kafka).
+1. **Consume** JSON lines matching `TrainingCandidateRecord` (schema v2) — the same events starter nodes can publish when `ai.sentinel.distributed.training-publish-enabled` is true (optional Kafka transport).
 2. **Train** using the same `IsolationForestTrainer` / codec stack as the core library.
 3. **Publish** `{version}.meta.json`, `{version}.payload.bin`, and `active.json` under `aisentinel.trainer.registry.filesystem-root` / `{tenantId}/`.
 
@@ -14,9 +14,9 @@ This module does **not** run inside your API process; it is a separate deployabl
 
 ---
 
-## Relation to Phase 5.5
+## Relation to training export
 
-Starter apps **publish** candidates asynchronously (log or Kafka). **Trainer** is the **consumer** side: when `aisentinel.trainer.kafka.enabled=true` and a broker is configured, it subscribes to `aisentinel.trainer.kafka.topic` (default `aisentinel.training.candidates` — align with `ai.sentinel.distributed.training-candidates-topic` on producers). Without Kafka, the app still starts but **no messages are consumed** unless you extend the codebase.
+Starter applications **publish** candidates asynchronously (structured log lines or Kafka). **Trainer** is the **consumer** side: when `aisentinel.trainer.kafka.enabled=true` and a broker is configured, it subscribes to `aisentinel.trainer.kafka.topic` (default `aisentinel.training.candidates` — align with `ai.sentinel.distributed.training-candidates-topic` on producers). Without Kafka, the app still starts but **no messages are consumed** unless you extend the codebase with another transport.
 
 ---
 
@@ -80,9 +80,9 @@ Expose Prometheus if `micrometer-registry-prometheus` is on the classpath (see m
 
 ## Limitations
 
-- **Filesystem registry only** — No built-in S3/Redis artifact store; operators manage disk and permissions.
+- **Filesystem registry only** — No built-in S3 or Redis artifact store; operators manage disk and permissions.
 - **JVM-local `eventId` dedup** — Restarts and multiple trainer instances can see duplicates; no distributed leader election.
 - **No multi-node trainer coordination** — One trainer instance per logical pipeline is assumed; scale-out requires external design.
 - **Kafka required for live ingestion** — With `kafka.enabled=false`, wire your own feed or enable Kafka for production-style runs.
 
-For end-to-end flow and node-side refresh, see root [`README.md`](../README.md) Phase 5.5 / 5.6 and [`ARCHITECTURE.md`](../ARCHITECTURE.md) §10.
+For end-to-end flow and node-side model refresh, see the root [`README.md`](../README.md) and [`ARCHITECTURE.md`](../ARCHITECTURE.md) (distributed architecture and testing strategy).

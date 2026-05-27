@@ -1,4 +1,4 @@
-# Stage 2 validation profile: local-friendly Isolation Forest config
+# Local-friendly Isolation Forest profile for faster training during validation
 # Run with: mvn -pl ai-sentinel-demo spring-boot:run -Dspring-boot.run.profiles=stage2
 ai:
   sentinel:
@@ -10,7 +10,7 @@ ai:
       retrain-interval: 15s
       sample-rate: 1.0
       training-buffer-size: 500
-    # Stage 2.3 validation: log every score for normal vs attack comparison
+    # Log every score for normal vs attack comparison during validation
     telemetry:
       log-verbosity: FULL
       log-score-threshold: 0

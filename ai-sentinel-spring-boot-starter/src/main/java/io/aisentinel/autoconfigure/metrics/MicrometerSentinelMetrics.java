@@ -81,6 +81,10 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Counter modelRegistryInstallSuccess;
     private final Counter modelRegistryInstallFailure;
 
+    private final Counter trustBaselineRedisSuccess;
+    private final Counter trustBaselineRedisFailure;
+    private final Counter trustBaselineRedisFallback;
+
     public MicrometerSentinelMetrics(MeterRegistry registry) {
         this.scoreComposite = DistributionSummary.builder("aisentinel.score.composite")
             .description("Blended anomaly score after composite weighting")
@@ -227,6 +231,16 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
             .register(registry);
         this.modelRegistryInstallFailure = Counter.builder("aisentinel.model.registry.install.failure")
             .description("Checksum/decode/dimension rejection")
+            .register(registry);
+
+        this.trustBaselineRedisSuccess = Counter.builder("aisentinel.identity.trust.baseline.redis.success")
+            .description("Behavioral trust baseline Redis read/write succeeded")
+            .register(registry);
+        this.trustBaselineRedisFailure = Counter.builder("aisentinel.identity.trust.baseline.redis.failure")
+            .description("Behavioral trust baseline Redis operation failed")
+            .register(registry);
+        this.trustBaselineRedisFallback = Counter.builder("aisentinel.identity.trust.baseline.redis.fallback")
+            .description("Behavioral trust baseline used in-memory store after Redis failure")
             .register(registry);
     }
 
@@ -510,6 +524,21 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     @Override
     public void recordModelRegistryInstallFailure() {
         modelRegistryInstallFailure.increment();
+    }
+
+    @Override
+    public void recordTrustBaselineRedisSuccess() {
+        trustBaselineRedisSuccess.increment();
+    }
+
+    @Override
+    public void recordTrustBaselineRedisFailure() {
+        trustBaselineRedisFailure.increment();
+    }
+
+    @Override
+    public void recordTrustBaselineRedisFallback() {
+        trustBaselineRedisFallback.increment();
     }
 
     public Map<String, Object> scoreSummaryForActuator() {

@@ -29,6 +29,12 @@ final class TrainingCandidateJson {
             m.put("isolationForestScore", r.isolationForestScore());
         }
         m.put("compositeScore", r.compositeScore());
+        if (r.trustScore() != null) {
+            m.put("trustScore", r.trustScore());
+        }
+        if (r.fusedPolicyScore() != null) {
+            m.put("fusedPolicyScore", r.fusedPolicyScore());
+        }
         m.put("policyAction", r.policyAction());
         m.put("sentinelMode", r.sentinelMode());
         m.put("requestProceeded", r.requestProceeded());

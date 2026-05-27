@@ -30,7 +30,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 /**
- * Phase 5.3 — Redis unreachable: read fail-open with degraded flag; local quarantine still applied; async write failures
+ * Redis unreachable: read fail-open with degraded flag; local quarantine still applied; async write failures
  * do not propagate to the request thread. No Docker required.
  */
 class DistributedQuarantineRedisFailureTest {

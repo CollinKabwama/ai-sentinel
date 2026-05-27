@@ -1,6 +1,9 @@
 package io.aisentinel.autoconfigure.config;
 
 import io.aisentinel.core.SentinelPipeline;
+import io.aisentinel.core.fusion.DeterministicRequestRiskFusion;
+import io.aisentinel.core.fusion.NoopRequestRiskFusion;
+import io.aisentinel.core.fusion.RequestRiskFusion;
 import io.aisentinel.core.identity.spi.IdentityContextResolver;
 import io.aisentinel.core.identity.spi.IdentityResponseHook;
 import io.aisentinel.core.identity.spi.NoopIdentityContextResolver;
@@ -23,8 +26,12 @@ import io.aisentinel.distributed.throttle.ClusterThrottleStore;
 import io.aisentinel.distributed.throttle.NoopClusterThrottleStore;
 import io.aisentinel.core.feature.DefaultFeatureExtractor;
 import io.aisentinel.core.feature.FeatureExtractor;
+import io.aisentinel.core.policy.DefaultTrustPolicyAdjuster;
+import io.aisentinel.core.policy.NoopTrustPolicyAdjuster;
 import io.aisentinel.core.policy.PolicyEngine;
 import io.aisentinel.core.policy.ThresholdPolicyEngine;
+import io.aisentinel.core.policy.TrustPolicyAdjuster;
+import io.aisentinel.core.policy.TrustPolicyConfig;
 import io.aisentinel.core.scoring.BoundedTrainingBuffer;
 import io.aisentinel.core.scoring.CompositeScorer;
 import io.aisentinel.core.scoring.IsolationForestConfig;
@@ -58,9 +65,15 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.context.annotation.Conditional;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
+
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
 
 /**
- * Primary Spring Boot auto-configuration for AI-Sentinel: pipeline beans, filter, optional Isolation Forest and
+ * Primary Spring Boot auto-configuration for AI-Sentinel: pipeline beans, servlet filter registration, optional Isolation Forest and
  * distributed features. Most beans use {@link ConditionalOnMissingBean} so applications can override extension points
  * ({@link io.aisentinel.core.feature.FeatureExtractor}, {@link io.aisentinel.core.policy.PolicyEngine}, etc.).
  * <p>
@@ -424,6 +437,57 @@ public class SentinelAutoConfiguration {
     }
 
     @Bean
+    @ConditionalOnMissingBean(TrustPolicyAdjuster.class)
+    public TrustPolicyAdjuster trustPolicyAdjuster(SentinelProperties props) {
+        SentinelProperties.TrustAwarePolicy tap = props.getIdentity().getTrustAwarePolicy();
+        if (tap == null || !tap.isEnabled()) {
+            return NoopTrustPolicyAdjuster.INSTANCE;
+        }
+        if (!props.getIdentity().isEnabled()) {
+            log.warn(
+                "ai.sentinel.identity.trust-aware-policy.enabled=true but ai.sentinel.identity.enabled=false; "
+                    + "trust-aware policy has no effect until identity is enabled (no IdentityContext on requests).");
+        }
+        Set<String> methodUpper = Set.of();
+        if (tap.getHttpMethods() != null && !tap.getHttpMethods().isEmpty()) {
+            methodUpper = new HashSet<>();
+            for (String m : tap.getHttpMethods()) {
+                if (m != null && !m.isBlank()) {
+                    methodUpper.add(m.trim().toUpperCase(Locale.ROOT));
+                }
+            }
+        }
+        TrustPolicyConfig cfg = new TrustPolicyConfig(
+            true,
+            tap.isAuthenticatedOnly(),
+            tap.getProtectedEndpointPatterns() != null ? tap.getProtectedEndpointPatterns() : List.of(),
+            methodUpper,
+            tap.getTrustNoEffectMinimum(),
+            tap.getTrustMediumBandMinimum(),
+            tap.getTrustLowBandMinimum(),
+            tap.isDenyOnCriticalTrustEnabled(),
+            tap.isRequireMinRiskForTrustDeny(),
+            tap.getMinRiskScoreForTrustDeny()
+        );
+        return new DefaultTrustPolicyAdjuster(cfg);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public RequestRiskFusion requestRiskFusion(SentinelProperties props) {
+        var fusion = props.getIdentity().getFusion();
+        if (fusion.isEnabled() && !props.getIdentity().isEnabled()) {
+            log.warn(
+                "ai.sentinel.identity.fusion.enabled=true but ai.sentinel.identity.enabled=false; "
+                    + "fusion has no effect until identity is enabled (no IdentityContext on requests).");
+        }
+        if (!fusion.isEnabled()) {
+            return NoopRequestRiskFusion.INSTANCE;
+        }
+        return new DeterministicRequestRiskFusion(fusion.getStrength());
+    }
+
+    @Bean
     @ConditionalOnMissingBean
     public SentinelPipeline sentinelPipeline(FeatureExtractor featureExtractor,
                                              CompositeScorer compositeScorer,
@@ -436,7 +500,9 @@ public class SentinelAutoConfiguration {
                                              SentinelProperties props,
                                              ObjectProvider<IdentityContextResolver> identityContextResolverProvider,
                                              ObjectProvider<TrustEvaluator> trustEvaluatorProvider,
-                                             ObjectProvider<IdentityResponseHook> identityResponseHookProvider) {
+                                             ObjectProvider<TrustPolicyAdjuster> trustPolicyAdjusterProvider,
+                                             ObjectProvider<IdentityResponseHook> identityResponseHookProvider,
+                                             RequestRiskFusion requestRiskFusion) {
         log.info("Sentinel pipeline configured (mode={})", props.getMode());
         String nodeId = props.getDistributed().getTrainingPublisherNodeId();
         if (nodeId == null) {
@@ -449,6 +515,10 @@ public class SentinelAutoConfiguration {
         TrustEvaluator trustEvaluator = trustEvaluatorProvider.getIfAvailable();
         if (trustEvaluator == null) {
             trustEvaluator = NoopTrustEvaluator.INSTANCE;
+        }
+        TrustPolicyAdjuster trustPolicyAdjuster = trustPolicyAdjusterProvider.getIfAvailable();
+        if (trustPolicyAdjuster == null) {
+            trustPolicyAdjuster = NoopTrustPolicyAdjuster.INSTANCE;
         }
         IdentityResponseHook identityResponseHook = identityResponseHookProvider.getIfAvailable();
         if (identityResponseHook == null) {
@@ -470,13 +540,22 @@ public class SentinelAutoConfiguration {
             props.getMode().name(),
             identityContextResolver,
             trustEvaluator,
-            identityResponseHook
+            trustPolicyAdjuster,
+            identityResponseHook,
+            requestRiskFusion
         );
     }
 
     @Bean
-    @ConditionalOnMissingBean
-    public SentinelFilter sentinelFilter(SentinelPipeline pipeline, SentinelProperties props, SentinelMetrics sentinelMetrics) {
-        return new SentinelFilter(pipeline, props, sentinelMetrics);
+    @ConditionalOnMissingBean(name = "sentinelFilterRegistration")
+    public FilterRegistrationBean<SentinelFilter> sentinelFilterRegistration(SentinelPipeline pipeline,
+                                                                             SentinelProperties props,
+                                                                             SentinelMetrics sentinelMetrics) {
+        FilterRegistrationBean<SentinelFilter> registration = new FilterRegistrationBean<>();
+        registration.setFilter(new SentinelFilter(pipeline, props, sentinelMetrics));
+        registration.setOrder(props.getFilterOrder());
+        registration.setName("aiSentinelFilter");
+        registration.addUrlPatterns("/*");
+        return registration;
     }
 }

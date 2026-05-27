@@ -9,6 +9,8 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.util.Collections;
+import java.util.List;
+import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
@@ -99,5 +101,30 @@ class DefaultFeatureExtractorTest {
     void normalizePathParamsStaticMethod() {
         assertThat(DefaultFeatureExtractor.normalizePathParams("/api/users/123")).isEqualTo("/api/users/{id}");
         assertThat(DefaultFeatureExtractor.normalizePathParams("/api/items/abc")).isEqualTo("/api/items/abc");
+    }
+
+    @Test
+    void headerFingerprintIsLocaleInvariant() {
+        Locale old = Locale.getDefault();
+        try {
+            when(request.getRequestURI()).thenReturn("/api/hello");
+            when(request.getRemoteAddr()).thenReturn("192.168.1.1");
+            when(request.getParameterMap()).thenReturn(Collections.emptyMap());
+            when(request.getHeaderNames()).thenAnswer(inv -> Collections.enumeration(List.of("If-Match")));
+            when(request.getHeader("If-Match")).thenReturn("etag-value");
+            when(request.getHeader("Content-Length")).thenReturn(null);
+
+            Locale.setDefault(Locale.US);
+            RequestFeatures us = new DefaultFeatureExtractor(new BaselineStore(Duration.ofMinutes(1), 1000))
+                .extract(request, "hash1", new RequestContext());
+
+            Locale.setDefault(Locale.forLanguageTag("tr-TR"));
+            RequestFeatures tr = new DefaultFeatureExtractor(new BaselineStore(Duration.ofMinutes(1), 1000))
+                .extract(request, "hash1", new RequestContext());
+
+            assertThat(tr.headerFingerprintHash()).isEqualTo(us.headerFingerprintHash());
+        } finally {
+            Locale.setDefault(old);
+        }
     }
 }
