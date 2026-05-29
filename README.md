@@ -86,7 +86,7 @@ Add the starter dependency:
 
 ```xml
 <dependency>
-    <groupId>io.aisentinel</groupId>
+    <groupId>dev.aisentinel</groupId>
     <artifactId>ai-sentinel-spring-boot-starter</artifactId>
     <version>1.0.0-SNAPSHOT</version>
 </dependency>
