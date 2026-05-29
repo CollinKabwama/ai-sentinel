@@ -230,8 +230,8 @@ Local enforcement stays authoritative; Redis and transport failures are fail-ope
 ## 14. Testing strategy
 
 - **Unit tests** — `ai-sentinel-core`: scorers, policy boundaries, resolver logic, enforcement maps, IF buffer and retrain behavior, codec/metadata.
-- **Spring slice tests** — `ai-sentinel-spring-boot-starter`: auto-configuration, actuator JSON shape, filter/proxy integration, model registry beans (`io.aisentinel.autoconfigure.model.*`).
-- **Distributed / Redis** — `io.aisentinel.validation.*` and related tests: Testcontainers Redis (`@Testcontainers(disabledWithoutDocker = true)`). **Docker** (or a Docker-compatible CI agent) is required to run those tests; they are skipped when Docker is unavailable.
+- **Spring slice tests** — `ai-sentinel-spring-boot-starter`: auto-configuration, actuator JSON shape, filter/proxy integration, model registry beans (`dev.aisentinel.autoconfigure.model.*`).
+- **Distributed / Redis** — `dev.aisentinel.validation.*` and related tests: Testcontainers Redis (`@Testcontainers(disabledWithoutDocker = true)`). **Docker** (or a Docker-compatible CI agent) is required to run those tests; they are skipped when Docker is unavailable.
 - **Trainer** — `ai-sentinel-trainer` unit tests (orchestrator, buffer, message parser).
 - **Demo** — `DemoIntegrationTest` smoke test with embedded server.
 

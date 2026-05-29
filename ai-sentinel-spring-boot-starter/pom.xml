@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>io.aisentinel</groupId>
+        <groupId>dev.aisentinel</groupId>
         <artifactId>ai-sentinel</artifactId>
         <version>1.0.0-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
@@ -22,7 +22,7 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>io.aisentinel</groupId>
+            <groupId>dev.aisentinel</groupId>
             <artifactId>ai-sentinel-core</artifactId>
             <version>${project.version}</version>
         </dependency>

@@ -1,0 +1,389 @@
+package dev.aisentinel.autoconfigure.config;
+
+import dev.aisentinel.core.enforcement.EnforcementScope;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
+import lombok.Data;
+import org.hibernate.validator.constraints.time.DurationMax;
+import org.hibernate.validator.constraints.time.DurationMin;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.core.Ordered;
+import org.springframework.validation.annotation.Validated;
+
+import java.time.Duration;
+import java.util.List;
+
+/**
+ * Binds {@code ai.sentinel.*} configuration (thresholds, isolation forest, distributed, model registry).
+ * Validated at startup where constraints apply.
+ */
+@Data
+@Validated
+@ConfigurationProperties(prefix = "ai.sentinel")
+public class SentinelProperties {
+
+    public enum Mode { OFF, MONITOR, ENFORCE }
+
+    private boolean enabled = true;
+    private Mode mode = Mode.ENFORCE;
+    private List<String> excludePaths = List.of("/actuator/**", "/health", "/health/**", "/static/**", "/favicon.ico");
+    private int blockStatusCode = 429;
+    private long quarantineDurationMs = 300_000;
+    private double throttleRequestsPerSecond = 5.0;
+    private Duration baselineTtl = Duration.ofMinutes(5);
+    private int baselineMaxKeys = 100_000;
+    /** Max keys for internal maps (stateByKey, endpointHistory, throttle, quarantine). Default 100_000. */
+    private int internalMapMaxKeys = 100_000;
+    /** TTL for internal map entries (evict after this period of no access). Default 5 minutes. */
+    private Duration internalMapTtl = Duration.ofMinutes(5);
+    /** Trusted proxy IPs/CIDRs; if empty, forwarded headers are not used. When remote is trusted, client IP is taken from X-Forwarded-For (rightmost-untrusted), Forwarded, or X-Real-IP. */
+    private List<String> trustedProxies = List.of();
+    /** After startup, enforcement is limited to MONITOR for this duration (0 disables). */
+    private Duration startupGracePeriod = Duration.ZERO;
+    /** Servlet filter order for Sentinel; defaults near end of chain. */
+    private int filterOrder = Ordered.LOWEST_PRECEDENCE - 100;
+    /** Whether throttle/quarantine keys are per identity only or identity+endpoint. */
+    private EnforcementScope enforcementScope = EnforcementScope.IDENTITY_ENDPOINT;
+    /** Min samples per key before using real score (cold-start); below this return warmup-score. Default 2. */
+    private int warmupMinSamples = 2;
+    /** Score returned during warmup (cold-start) to avoid bypass. Default 0.4 (MONITOR). */
+    private double warmupScore = 0.4;
+
+    /** Policy: scores at or above this map to MONITOR (below elevated). Default 0.2. */
+    private double thresholdModerate = 0.2;
+    /** Policy: scores at or above this map to THROTTLE. Default 0.4. */
+    private double thresholdElevated = 0.4;
+    /** Policy: scores at or above this map to BLOCK. Default 0.6. */
+    private double thresholdHigh = 0.6;
+    /** Policy: scores at or above this map to QUARANTINE. Default 0.8. */
+    private double thresholdCritical = 0.8;
+
+    private IsolationForest isolationForest = new IsolationForest();
+    private Telemetry telemetry = new Telemetry();
+    /** Optional distributed coordination (cluster quarantine, throttle, training export; disabled by default). */
+    @Valid
+    private Distributed distributed = new Distributed();
+    /** Optional filesystem model registry refresh on serving nodes (off-request). */
+    @Valid
+    private ModelRegistry modelRegistry = new ModelRegistry();
+    /** Identity resolution and trust hooks: disabled by default; no change to API security behavior when off. */
+    @Valid
+    private Identity identity = new Identity();
+
+    @Data
+    public static class Identity {
+        /**
+         * When false (default), identity SPI beans use no-op implementations and {@link dev.aisentinel.core.model.RequestContext}
+         * is not populated with {@link dev.aisentinel.core.identity.model.IdentityContext}.
+         */
+        private boolean enabled = false;
+        /** Behavioral trust baselines and evaluation (only when {@link #enabled} is true). */
+        @Valid
+        private Trust trust = new Trust();
+        /** Risk fusion: combine anomaly score with trust before policy (default off; no effect without {@link #enabled}). */
+        @Valid
+        private Fusion fusion = new Fusion();
+        /** Trust-aware escalation of {@link dev.aisentinel.core.policy.EnforcementAction} after policy (default off). */
+        @Valid
+        private TrustAwarePolicy trustAwarePolicy = new TrustAwarePolicy();
+    }
+
+    @Data
+    public static class Fusion {
+        /**
+         * When true, policy sees a fused risk derived from anomaly and trust when {@link Identity#enabled} is true and
+         * an {@link dev.aisentinel.core.identity.model.IdentityContext} is present.
+         */
+        private boolean enabled = false;
+        /** Trust influence on fusion ({@code [0,1]}); higher = stronger amplification from low trust. */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double strength = 0.35;
+    }
+
+    @Data
+    public static class TrustAwarePolicy {
+        /**
+         * When false (default), {@link dev.aisentinel.core.policy.NoopTrustPolicyAdjuster} is used and anomaly policy
+         * alone drives enforcement.
+         */
+        private boolean enabled = false;
+        /** Path patterns: exact match, prefix plus {@code *}, or prefix ending with {@code /**} for subtree. Empty means no protected routes (no THROTTLE/BLOCK from trust on sensitive surfaces). */
+        private List<String> protectedEndpointPatterns = List.of();
+        /** Upper-case methods (e.g. POST); when empty, all methods match protected patterns. */
+        private List<String> httpMethods = List.of();
+        /** When true, trust bands apply only to authenticated, non-anonymous principals. */
+        private boolean authenticatedOnly = true;
+        /** Trust at or above this: no trust-based escalation. */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double trustNoEffectMinimum = 0.80;
+        /** Trust at or above this (and below no-effect): at least MONITOR. */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double trustMediumBandMinimum = 0.50;
+        /** Trust at or above this (and below medium): THROTTLE on protected routes else MONITOR. */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double trustLowBandMinimum = 0.25;
+        /**
+         * When true, critical trust (below low band) on a protected route may escalate to BLOCK when
+         * {@link #requireMinRiskForTrustDeny} is satisfied or disabled.
+         */
+        private boolean denyOnCriticalTrustEnabled = false;
+        /** When true with deny, BLOCK requires anomaly score at or above {@link #minRiskScoreForTrustDeny}. */
+        private boolean requireMinRiskForTrustDeny = true;
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double minRiskScoreForTrustDeny = 0.40;
+    }
+
+    @Data
+    public static class Trust {
+        /**
+         * When false, {@link dev.aisentinel.core.identity.spi.NoopTrustEvaluator} is used even if identity is enabled.
+         */
+        private boolean trustEvaluationEnabled = true;
+        @DurationMin(seconds = 30)
+        @DurationMax(hours = 24)
+        private Duration baselineTtl = Duration.ofMinutes(15);
+        @Min(1_000)
+        @Max(2_000_000)
+        private int baselineMaxKeys = 50_000;
+        /** {@link dev.aisentinel.core.model.RequestFeatures#requestsPerWindow()} above this adds a burst signal. */
+        private double burstRequestsThreshold = 25.0;
+        /** Upper bound on trust when history is sparse ({@code [0,1]}). */
+        @DecimalMin("0.1")
+        @DecimalMax("1.0")
+        private double sparseHistoryTrustCap = 0.82;
+        /** Cap on sum of signal penalties before mapping to trust ({@code [0,1]}). */
+        @DecimalMin("0.1")
+        @DecimalMax("1.0")
+        private double maxTotalPenalty = 0.75;
+        /**
+         * Optional Redis-backed behavioral baselines for horizontal continuity across instances.
+         * Default off; requires a {@link org.springframework.data.redis.core.StringRedisTemplate} bean when enabled.
+         */
+        @Valid
+        private TrustDistributed distributed = new TrustDistributed();
+    }
+
+    @Data
+    public static class TrustDistributed {
+        /**
+         * When true and {@code StringRedisTemplate} is available, baseline updates are mirrored to Redis with TTL;
+         * Redis errors fail open to the same in-memory store used when this flag is false.
+         */
+        private boolean enabled = false;
+        /** ASCII prefix for Redis keys (logical key is hashed for a fixed-width suffix). */
+        @Size(max = 96)
+        private String keyPrefix = "aisentinel:trust:bl:";
+        /**
+         * Max wait per behavioral-baseline Redis round-trip (single Lua EVAL). On timeout, in-memory fallback is used.
+         * Does not cancel in-flight client I/O; align {@code spring.data.redis.timeout} with this budget.
+         * <p>Spring property: {@code ai.sentinel.identity.trust.distributed.command-timeout}
+         */
+        @DurationMin(millis = 1)
+        @DurationMax(seconds = 60)
+        private Duration commandTimeout = Duration.ofMillis(50);
+    }
+
+    @Data
+    public static class ModelRegistry {
+        /**
+         * When true and {@link #filesystemRoot} is set, a background poller may install newer IF artifacts
+         * from the registry (requires {@code ai.sentinel.isolation-forest.enabled=true}).
+         */
+        private boolean refreshEnabled = false;
+        /** Root directory written by the trainer ({@code {root}/{tenant}/active.json} layout). */
+        private String filesystemRoot = "";
+        /** How often to poll for a new active pointer. */
+        @DurationMin(seconds = 10)
+        @DurationMax(hours = 24)
+        private Duration pollInterval = Duration.ofMinutes(5);
+    }
+
+    @Data
+    public static class Telemetry {
+        private String logVerbosity = "ANOMALY_ONLY";
+        private double logScoreThreshold = 0.4;
+        private int logSampleRate = 100;
+
+        public void setLogSampleRate(int v) {
+            this.logSampleRate = Math.max(1, v);
+        }
+    }
+
+    @Data
+    public static class IsolationForest {
+        private boolean enabled = false;
+        private int trainingBufferSize = 10_000;
+        private int minTrainingSamples = 100;
+        private Duration retrainInterval = Duration.ofMinutes(5);
+        private long randomSeed = 42L;
+        private double scoreWeight = 0.5;
+        /** Fraction of requests to add to training buffer (0.0–1.0). Default 0.1 */
+        private double sampleRate = 0.1;
+        /** Score returned when no model is loaded (fallback). Default 0.5 */
+        private double fallbackScore = 0.5;
+        /** Number of trees in the Isolation Forest. Default 100 */
+        private int numTrees = 100;
+        /** Maximum tree depth. Default 10 */
+        private int maxDepth = 10;
+        /** When a model is loaded, training buffer rejects samples with IF score above this (anti-poisoning). Default 0.7 */
+        private double trainingRejectionScoreThreshold = 0.7;
+        /**
+         * When true (default), the starter may register local {@code IsolationForestRetrainScheduler} when isolation forest
+         * is enabled. When model-registry refresh is fully configured ({@code refresh-enabled} and non-empty
+         * {@code filesystem-root}), that scheduler is not registered regardless of this flag; set false to disable local
+         * retrain in other deployments.
+         */
+        private boolean localRetrainEnabled = true;
+    }
+
+    @Data
+    @Validated
+    public static class Distributed {
+        /** Master switch for distributed integration beans (Redis-backed features and optional Kafka). */
+        private boolean enabled = false;
+        /** Logical tenant segment in shared Redis keys (see README distributed properties). */
+        @Size(max = 128)
+        private String tenantId = "default";
+        /** Kafka topic for {@link dev.aisentinel.distributed.training.TrainingCandidateRecord} export. */
+        private String trainingCandidatesTopic = "aisentinel.training.candidates";
+        /**
+         * When true, scored requests may export {@link dev.aisentinel.distributed.training.TrainingCandidateRecord}
+         * asynchronously (bounded; fail-open). Requires no extra infrastructure unless {@link #trainingKafkaEnabled}.
+         */
+        private boolean trainingPublishEnabled = false;
+        /** Probabilistic admission; 1.0 = always pass sample gate (subject to other gates). */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double trainingPublishSampleRate = 0.1;
+        /**
+         * When true (default), requests with composite score ≥ {@link #trainingPublishHighCompositeBypassSampleMinScore}
+         * skip the uniform sample draw so higher-risk traffic is not undersampled.
+         */
+        private boolean trainingPublishStratifiedSampling = true;
+        /**
+         * Minimum composite score (inclusive) that bypasses the uniform sample gate when stratified sampling is on.
+         */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double trainingPublishHighCompositeBypassSampleMinScore = 0.4;
+        /** Max concurrent training publish tasks per JVM (semaphore). */
+        @Min(1)
+        @Max(50_000)
+        private int trainingPublishMaxInFlight = 256;
+        /**
+         * Worker-side timeout for Kafka send completion wait ({@code future.get}). Clamped to 10s in the Kafka transport.
+         */
+        @DurationMin(millis = 1)
+        @DurationMax(seconds = 30)
+        private Duration trainingPublishTimeout = Duration.ofSeconds(2);
+        /** Minimum composite score to pass the score gate (inclusive). */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double trainingPublishMinCompositeScore = 0.0;
+        /**
+         * When true, skip export if isolation forest score exceeds {@link IsolationForest#trainingRejectionScoreThreshold}
+         * (aligns with local buffer anti-poisoning when a model is loaded).
+         */
+        private boolean trainingPublishApplyIfAntiPoisoning = true;
+        /** Logical node / instance id for trainer correlation (optional). */
+        @Size(max = 128)
+        private String trainingPublisherNodeId = "";
+        /**
+         * When true and a {@code KafkaTemplate} bean is present, use Kafka; otherwise logging transport is used.
+         */
+        private boolean trainingKafkaEnabled = false;
+        /**
+         * When true, {@link dev.aisentinel.distributed.enforcement.ClusterAwareEnforcementHandler} merges
+         * local quarantine with {@link dev.aisentinel.distributed.quarantine.ClusterQuarantineReader} (Redis or noop).
+         */
+        private boolean clusterQuarantineReadEnabled = false;
+        /**
+         * When true, local {@link dev.aisentinel.core.enforcement.CompositeEnforcementHandler} QUARANTINE actions
+         * also publish to Redis (requires {@link #enabled}, {@link Redis#enabled}, {@code StringRedisTemplate}).
+         */
+        private boolean clusterQuarantineWriteEnabled = false;
+        /**
+         * When true, THROTTLE enforcement consults a Redis-backed fixed-window counter per enforcement key so
+         * high-risk identities cannot bypass throttling by spreading requests across nodes (fail-open if Redis fails).
+         * Requires {@link #enabled}, {@link Redis#enabled}, and {@code StringRedisTemplate}.
+         */
+        private boolean clusterThrottleEnabled = false;
+        /**
+         * Wall-clock length of each cluster throttle window. Default 1s.
+         */
+        @DurationMin(millis = 100)
+        private Duration clusterThrottleWindow = Duration.ofSeconds(1);
+        /**
+         * Max requests allowed cluster-wide per enforcement key per window when {@link #clusterThrottleEnabled}.
+         */
+        @Min(1)
+        @Max(10_000_000)
+        private int clusterThrottleMaxRequestsPerWindow = 30;
+        /**
+         * Max concurrent Redis throttle script evaluations per JVM (semaphore). Additional THROTTLE-path checks
+         * fail-open. Clamped to {@code [1, 50000]} at runtime if outside range.
+         */
+        @Min(1)
+        @Max(50_000)
+        private int clusterThrottleMaxInFlight = 1024;
+        /**
+         * Max wait on the cluster throttle Redis future. When unset or non-positive, uses
+         * {@link Redis#getLookupTimeout()}.
+         */
+        private Duration clusterThrottleTimeout;
+        /** Redis cluster-quarantine client settings (no effect unless {@link #isEnabled()} and redis.enabled). */
+        private Redis redis = new Redis();
+        /** Bounded local cache for Redis quarantine GETs (request-path protection). */
+        private Cache cache = new Cache();
+
+        @Data
+        public static class Redis {
+            /**
+             * When true and {@link Distributed#enabled} and {@link Distributed#clusterQuarantineReadEnabled}
+             * and a {@link org.springframework.data.redis.core.StringRedisTemplate} bean exists,
+             * {@link dev.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineReader} is registered.
+             */
+            private boolean enabled = false;
+            /** First segment of Redis keys; full key: {@code {keyPrefix}:{tenant}:q:{enforcementKey}}. */
+            private String keyPrefix = "aisentinel";
+            /**
+             * Upper bound for how long the caller waits on a cluster quarantine Redis GET (async future).
+             * Configure {@code spring.data.redis.timeout} (Lettuce command timeout) to a similar or lower value so
+             * the client does not hold work longer than this; see README (distributed Redis / timeouts).
+             */
+            private Duration lookupTimeout = Duration.ofMillis(50);
+            /**
+             * Max concurrent async cluster quarantine Redis SETs per JVM; additional {@code publishQuarantine} calls
+             * are dropped (metric) without blocking the caller. Bounded to a sane range when bound from config.
+             */
+            private int maxInFlightQuarantineWrites = 256;
+        }
+
+        @Data
+        public static class Cache {
+            /**
+             * When false, {@link dev.aisentinel.autoconfigure.distributed.quarantine.RedisClusterQuarantineReader}
+             * skips the local cache (more Redis round-trips within the lookup timeout).
+             */
+            private boolean enabled = true;
+            /** Wall-clock TTL for positive cache entries (parsed until-millis from Redis). */
+            private Duration ttl = Duration.ofSeconds(2);
+            /**
+             * TTL for negative (not quarantined / miss) cache lines. If unset, derived as
+             * {@code max(100ms, min(positiveTtl/2, 2s))}.
+             */
+            private Duration negativeTtl;
+            /** Max cached enforcement keys; evicts when exceeded. */
+            private int maxEntries = 10_000;
+        }
+    }
+}

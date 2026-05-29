@@ -37,7 +37,7 @@ When your PR **deprecates** functionality (but keeps it working for a transition
 
 | Module | Purpose |
 |--------|---------|
-| **ai-sentinel-core** | Framework-agnostic engine: features, scorers, policy, enforcement, pipeline contracts, Isolation Forest training/scoring, model artifact types (`io.aisentinel.model.*`). |
+| **ai-sentinel-core** | Framework-agnostic engine: features, scorers, policy, enforcement, pipeline contracts, Isolation Forest training/scoring, model artifact types (`dev.aisentinel.model.*`). |
 | **ai-sentinel-spring-boot-starter** | Spring Boot auto-configuration, servlet filter, `SentinelProperties`, actuator, Micrometer adapter, optional distributed and model-registry beans. |
 | **ai-sentinel-trainer** | Optional standalone Spring Boot app: consumes training candidates (Kafka when enabled), trains IF, publishes to a filesystem model registry. See [`ai-sentinel-trainer/README.md`](ai-sentinel-trainer/README.md). |
 | **ai-sentinel-demo** | Reference app for local runs and smoke tests. |
@@ -46,9 +46,9 @@ When your PR **deprecates** functionality (but keeps it working for a transition
 
 ## Where to start
 
-1. **`SentinelPipeline`** — [`ai-sentinel-core/.../SentinelPipeline.java`](ai-sentinel-core/src/main/java/io/aisentinel/core/SentinelPipeline.java) — extract → score → policy → enforce → telemetry and optional training publish.
-2. **`SentinelFilter`** — [`ai-sentinel-spring-boot-starter/.../SentinelFilter.java`](ai-sentinel-spring-boot-starter/src/main/java/io/aisentinel/autoconfigure/web/SentinelFilter.java) — servlet entry point.
-3. **`SentinelAutoConfiguration`** — [`.../SentinelAutoConfiguration.java`](ai-sentinel-spring-boot-starter/src/main/java/io/aisentinel/autoconfigure/config/SentinelAutoConfiguration.java) — beans and `@ConditionalOnMissingBean` extension points.
+1. **`SentinelPipeline`** — [`ai-sentinel-core/.../SentinelPipeline.java`](ai-sentinel-core/src/main/java/dev/aisentinel/core/SentinelPipeline.java) — extract → score → policy → enforce → telemetry and optional training publish.
+2. **`SentinelFilter`** — [`ai-sentinel-spring-boot-starter/.../SentinelFilter.java`](ai-sentinel-spring-boot-starter/src/main/java/dev/aisentinel/autoconfigure/web/SentinelFilter.java) — servlet entry point.
+3. **`SentinelAutoConfiguration`** — [`.../SentinelAutoConfiguration.java`](ai-sentinel-spring-boot-starter/src/main/java/dev/aisentinel/autoconfigure/config/SentinelAutoConfiguration.java) — beans and `@ConditionalOnMissingBean` extension points.
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/configuration.md`](docs/configuration.md) for the full picture.
 
@@ -104,7 +104,7 @@ java -version   # expect 21
 mvn clean install
 ```
 
-To consume a **local snapshot** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `io.aisentinel:ai-sentinel-spring-boot-starter:1.0.0-SNAPSHOT` (or the specific module you need). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
+To consume a **local snapshot** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter:1.0.0-SNAPSHOT` (or the specific module you need). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
 
 ---
 
@@ -143,7 +143,7 @@ Python helpers (stdlib only): [`scripts/README.md`](scripts/README.md).
 
 ## Code style and commits
 
-- Follow existing naming and packages (`io.aisentinel.*`).
+- Follow existing naming and packages (`dev.aisentinel.*`).
 - Prefer focused changes; avoid unrelated refactors in the same PR.
 - Match formatting and patterns used in nearby code.
 - Keep public API changes minimal and backward compatible unless explicitly agreed (see **Breaking changes**).
