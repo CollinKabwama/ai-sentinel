@@ -7,13 +7,19 @@
     <parent>
         <groupId>dev.aisentinel</groupId>
         <artifactId>ai-sentinel</artifactId>
-        <version>1.0.0-SNAPSHOT</version>
+        <version>0.1.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>ai-sentinel-demo</artifactId>
     <name>ai-sentinel-demo</name>
     <description>Demo application for ai-sentinel</description>
+
+    <properties>
+        <!-- Reference app only — do not publish to Maven Central. -->
+        <skipPublishing>true</skipPublishing>
+        <maven.deploy.skip>true</maven.deploy.skip>
+    </properties>
 
     <dependencies>
         <dependency>
