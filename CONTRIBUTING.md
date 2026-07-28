@@ -106,6 +106,8 @@ mvn clean install
 
 To consume a **local snapshot** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter:1.0.0-SNAPSHOT` (or the specific module you need). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
 
+**Publishing to Maven Central:** see **[`RELEASING.md`](RELEASING.md)** for the full release checklist (Central Portal, GPG, `-Prelease` deploy).
+
 ---
 
 ## Running the tests
