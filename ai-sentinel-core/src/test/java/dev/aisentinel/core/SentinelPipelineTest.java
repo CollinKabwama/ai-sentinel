@@ -10,8 +10,8 @@ import dev.aisentinel.core.policy.PolicyEngine;
 import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.scoring.AnomalyScorer;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import dev.aisentinel.core.http.HttpRequestView;
+import dev.aisentinel.core.enforcement.EnforcementResponse;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -45,8 +45,8 @@ class SentinelPipelineTest {
         when(handler.apply(eq(EnforcementAction.QUARANTINE), any(), any(), eq("h"), eq("/api"))).thenReturn(false);
 
         SentinelPipeline pipeline = new SentinelPipeline(extractor, nanScorer, policy, handler, mock(TelemetryEmitter.class), StartupGrace.NEVER, SentinelMetrics.NOOP);
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpServletResponse response = mock(HttpServletResponse.class);
+        HttpRequestView request = mock(HttpRequestView.class);
+        EnforcementResponse response = mock(EnforcementResponse.class);
 
         boolean proceed = pipeline.process(request, response, "h");
 
@@ -76,8 +76,8 @@ class SentinelPipelineTest {
 
         StartupGrace grace = () -> true;
         SentinelPipeline pipeline = new SentinelPipeline(extractor, nanScorer, policy, handler, mock(TelemetryEmitter.class), grace, SentinelMetrics.NOOP);
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpServletResponse response = mock(HttpServletResponse.class);
+        HttpRequestView request = mock(HttpRequestView.class);
+        EnforcementResponse response = mock(EnforcementResponse.class);
 
         boolean proceed = pipeline.process(request, response, "h");
 
@@ -107,8 +107,8 @@ class SentinelPipelineTest {
         when(handler.apply(eq(EnforcementAction.QUARANTINE), any(), any(), eq("h"), eq("/api"))).thenReturn(false);
 
         SentinelPipeline pipeline = new SentinelPipeline(extractor, negativeScorer, policy, handler, mock(TelemetryEmitter.class), StartupGrace.NEVER, SentinelMetrics.NOOP);
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpServletResponse response = mock(HttpServletResponse.class);
+        HttpRequestView request = mock(HttpRequestView.class);
+        EnforcementResponse response = mock(EnforcementResponse.class);
 
         boolean proceed = pipeline.process(request, response, "h");
 

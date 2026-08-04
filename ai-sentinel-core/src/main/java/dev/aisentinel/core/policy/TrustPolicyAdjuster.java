@@ -2,10 +2,10 @@ package dev.aisentinel.core.policy;
 
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
-import jakarta.servlet.http.HttpServletRequest;
+import dev.aisentinel.core.http.HttpRequestView;
 
 /**
- * Phase 3: optionally escalates {@link EnforcementAction} using identity trust and scope rules.
+ * Optionally escalates {@link EnforcementAction} using identity trust and scope rules.
  * Anomaly {@link PolicyEngine} output is the baseline; this layer only increases severity (never relaxes).
  */
 public interface TrustPolicyAdjuster {
@@ -14,6 +14,6 @@ public interface TrustPolicyAdjuster {
                                  double riskScore,
                                  RequestFeatures features,
                                  String endpoint,
-                                 HttpServletRequest request,
+                                 HttpRequestView request,
                                  RequestContext ctx);
 }

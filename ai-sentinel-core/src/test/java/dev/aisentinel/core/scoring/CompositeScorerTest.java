@@ -1,7 +1,10 @@
 package dev.aisentinel.core.scoring;
 
+import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.model.RequestFeatures;
 import org.junit.jupiter.api.Test;
+
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -22,7 +25,13 @@ class CompositeScorerTest {
 
     @Test
     void nanScoreReturnsOneNotBypass() {
-        var composite = new CompositeScorer();
+        AtomicInteger nanClamped = new AtomicInteger();
+        var composite = new CompositeScorer(new SentinelMetrics() {
+            @Override
+            public void recordNanOrNegativeScoreClamped() {
+                nanClamped.incrementAndGet();
+            }
+        });
         composite.addScorer(new AnomalyScorer() {
             @Override
             public double score(RequestFeatures features) {
@@ -32,11 +41,18 @@ class CompositeScorerTest {
             public void update(RequestFeatures features) {}
         }, 1.0);
         assertThat(composite.score(FEATURES)).isEqualTo(1.0);
+        assertThat(nanClamped.get()).isEqualTo(1);
     }
 
     @Test
     void negativeScoreReturnsOne() {
-        var composite = new CompositeScorer();
+        AtomicInteger nanClamped = new AtomicInteger();
+        var composite = new CompositeScorer(new SentinelMetrics() {
+            @Override
+            public void recordNanOrNegativeScoreClamped() {
+                nanClamped.incrementAndGet();
+            }
+        });
         composite.addScorer(new AnomalyScorer() {
             @Override
             public double score(RequestFeatures features) { return -0.5; }
@@ -44,6 +60,7 @@ class CompositeScorerTest {
             public void update(RequestFeatures features) {}
         }, 1.0);
         assertThat(composite.score(FEATURES)).isEqualTo(1.0);
+        assertThat(nanClamped.get()).isEqualTo(1);
     }
 
     @Test

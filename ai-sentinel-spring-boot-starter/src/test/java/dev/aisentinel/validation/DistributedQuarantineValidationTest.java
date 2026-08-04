@@ -18,8 +18,8 @@ import dev.aisentinel.core.telemetry.TelemetryEmitter;
 import dev.aisentinel.distributed.enforcement.ClusterAwareEnforcementHandler;
 import dev.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
 import dev.aisentinel.distributed.quarantine.NoopClusterQuarantineWriter;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import dev.aisentinel.core.http.HttpRequestView;
+import dev.aisentinel.core.enforcement.EnforcementResponse;
 import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -41,7 +41,6 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 import org.testcontainers.utility.DockerImageName;
 
-import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -152,9 +151,8 @@ class DistributedQuarantineValidationTest {
         String redisKey = DistributedQuarantineKeyBuilder.redisKey(
             sentinelProperties.getDistributed().getRedis().getKeyPrefix(), tenant, enforcementKey);
 
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpServletResponse response = mock(HttpServletResponse.class);
-        when(response.getWriter()).thenReturn(new PrintWriter(java.io.OutputStream.nullOutputStream(), true));
+        HttpRequestView request = mock(HttpRequestView.class);
+        EnforcementResponse response = mock(EnforcementResponse.class);
 
         boolean allowed = compositeEnforcementHandler.apply(EnforcementAction.QUARANTINE, request, response, identity, endpoint);
         assertThat(allowed).isFalse();
@@ -192,10 +190,8 @@ class DistributedQuarantineValidationTest {
         String redisKey = DistributedQuarantineKeyBuilder.redisKey(
             sentinelProperties.getDistributed().getRedis().getKeyPrefix(), tenant, enforcementKey);
 
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpServletResponse response = mock(HttpServletResponse.class);
-        when(request.getRequestURI()).thenReturn(ENFORCEMENT_ENDPOINT);
-        when(response.getWriter()).thenReturn(new PrintWriter(java.io.OutputStream.nullOutputStream(), true));
+        HttpRequestView request = mock(HttpRequestView.class);
+        EnforcementResponse response = mock(EnforcementResponse.class);
 
         boolean allowed = compositeEnforcementHandler.apply(EnforcementAction.QUARANTINE, request, response, identityHash, ENFORCEMENT_ENDPOINT);
         assertThat(allowed).isFalse();

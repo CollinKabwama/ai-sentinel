@@ -2,7 +2,7 @@ package dev.aisentinel.core.policy;
 
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
-import jakarta.servlet.http.HttpServletRequest;
+import dev.aisentinel.core.http.HttpRequestView;
 
 public enum NoopTrustPolicyAdjuster implements TrustPolicyAdjuster {
     INSTANCE;
@@ -12,7 +12,7 @@ public enum NoopTrustPolicyAdjuster implements TrustPolicyAdjuster {
                                         double riskScore,
                                         RequestFeatures features,
                                         String endpoint,
-                                        HttpServletRequest request,
+                                        HttpRequestView request,
                                         RequestContext ctx) {
         return new TrustPolicyAdjustment(baseline, "");
     }

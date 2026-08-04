@@ -1,39 +1,32 @@
 package dev.aisentinel.core.feature;
 
+import dev.aisentinel.core.http.MapHttpRequestView;
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
 import dev.aisentinel.core.store.BaselineStore;
-import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
-import java.util.Collections;
-import java.util.List;
 import java.util.Locale;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
 
 class DefaultFeatureExtractorTest {
 
     private DefaultFeatureExtractor extractor;
-    private HttpServletRequest request;
+    private MapHttpRequestView request;
 
     @BeforeEach
     void setUp() {
         BaselineStore store = new BaselineStore(Duration.ofMinutes(1), 1000);
         extractor = new DefaultFeatureExtractor(store);
-        request = mock(HttpServletRequest.class);
+        request = new MapHttpRequestView().remoteAddr("192.168.1.1");
     }
 
     @Test
     void extractReturnsFeatures() {
-        when(request.getRequestURI()).thenReturn("/api/hello");
-        when(request.getRemoteAddr()).thenReturn("192.168.1.1");
-        when(request.getParameterMap()).thenReturn(Collections.emptyMap());
-        when(request.getHeaderNames()).thenReturn(Collections.emptyEnumeration());
-        when(request.getHeader("Content-Length")).thenReturn(null);
+        request.requestUri("/api/hello");
 
         RequestFeatures f = extractor.extract(request, "hash123", new RequestContext());
 
@@ -47,11 +40,7 @@ class DefaultFeatureExtractorTest {
     void endpointWithHashCodeIntegerMinValueDoesNotThrow() {
         BaselineStore store = new BaselineStore(Duration.ofMinutes(1), 1000);
         DefaultFeatureExtractor ext = new DefaultFeatureExtractor(store, 1000, 60_000L);
-        when(request.getRequestURI()).thenReturn("polygenelubricants");
-        when(request.getRemoteAddr()).thenReturn("192.168.1.1");
-        when(request.getParameterMap()).thenReturn(Collections.emptyMap());
-        when(request.getHeaderNames()).thenReturn(Collections.emptyEnumeration());
-        when(request.getHeader("Content-Length")).thenReturn(null);
+        request.requestUri("polygenelubricants");
         RequestFeatures f = ext.extract(request, "id1", new RequestContext());
         assertThat(f.endpoint()).isEqualTo("polygenelubricants");
         assertThat(f.toArray()).hasSize(7);
@@ -61,38 +50,25 @@ class DefaultFeatureExtractorTest {
     void endpointHistoryEvictsWhenOverMaxKeys() {
         BaselineStore store = new BaselineStore(Duration.ofMinutes(1), 100_000);
         DefaultFeatureExtractor ext = new DefaultFeatureExtractor(store, 3, 60_000L);
-        when(request.getParameterMap()).thenReturn(Collections.emptyMap());
-        when(request.getHeaderNames()).thenReturn(Collections.emptyEnumeration());
-        when(request.getHeader("Content-Length")).thenReturn(null);
         for (int i = 0; i < 5; i++) {
-            when(request.getRequestURI()).thenReturn("/api/" + i);
-            when(request.getRemoteAddr()).thenReturn("192.168.1.1");
+            request.requestUri("/api/" + i);
             ext.extract(request, "id" + i, new RequestContext());
         }
-        when(request.getRequestURI()).thenReturn("/api/0");
-        when(request.getRemoteAddr()).thenReturn("192.168.1.1");
+        request.requestUri("/api/0");
         RequestFeatures f = ext.extract(request, "id0", new RequestContext());
         assertThat(f.endpoint()).isEqualTo("/api/{id}");
     }
 
     @Test
     void pathParamsNormalizedToPreventMapExplosion() {
-        when(request.getRemoteAddr()).thenReturn("192.168.1.1");
-        when(request.getParameterMap()).thenReturn(Collections.emptyMap());
-        when(request.getHeaderNames()).thenReturn(Collections.emptyEnumeration());
-        when(request.getHeader("Content-Length")).thenReturn(null);
-        when(request.getRequestURI()).thenReturn("/api/users/12345");
+        request.requestUri("/api/users/12345");
         RequestFeatures f = extractor.extract(request, "hash1", new RequestContext());
         assertThat(f.endpoint()).isEqualTo("/api/users/{id}");
     }
 
     @Test
     void uuidPathParamNormalized() {
-        when(request.getRemoteAddr()).thenReturn("192.168.1.1");
-        when(request.getParameterMap()).thenReturn(Collections.emptyMap());
-        when(request.getHeaderNames()).thenReturn(Collections.emptyEnumeration());
-        when(request.getHeader("Content-Length")).thenReturn(null);
-        when(request.getRequestURI()).thenReturn("/api/orders/550e8400-e29b-41d4-a716-446655440000");
+        request.requestUri("/api/orders/550e8400-e29b-41d4-a716-446655440000");
         RequestFeatures f = extractor.extract(request, "hash1", new RequestContext());
         assertThat(f.endpoint()).isEqualTo("/api/orders/{id}");
     }
@@ -107,12 +83,7 @@ class DefaultFeatureExtractorTest {
     void headerFingerprintIsLocaleInvariant() {
         Locale old = Locale.getDefault();
         try {
-            when(request.getRequestURI()).thenReturn("/api/hello");
-            when(request.getRemoteAddr()).thenReturn("192.168.1.1");
-            when(request.getParameterMap()).thenReturn(Collections.emptyMap());
-            when(request.getHeaderNames()).thenAnswer(inv -> Collections.enumeration(List.of("If-Match")));
-            when(request.getHeader("If-Match")).thenReturn("etag-value");
-            when(request.getHeader("Content-Length")).thenReturn(null);
+            request.requestUri("/api/hello").header("If-Match", "etag-value");
 
             Locale.setDefault(Locale.US);
             RequestFeatures us = new DefaultFeatureExtractor(new BaselineStore(Duration.ofMinutes(1), 1000))
@@ -126,5 +97,12 @@ class DefaultFeatureExtractorTest {
         } finally {
             Locale.setDefault(old);
         }
+    }
+
+    @Test
+    void parameterCountReflectsParameterMap() {
+        request.requestUri("/api/search").parameter("q", "x").parameter("page", "2");
+        RequestFeatures f = extractor.extract(request, "hash1", new RequestContext());
+        assertThat(f.parameterCount()).isEqualTo(2);
     }
 }

@@ -6,7 +6,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Immutable snapshot of trust-aware policy settings (Phase 3).
+ * Immutable snapshot of trust-aware policy settings.
  */
 public record TrustPolicyConfig(
     boolean enabled,

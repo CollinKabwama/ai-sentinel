@@ -23,8 +23,8 @@ import dev.aisentinel.core.policy.TrustPolicyContextKeys;
 import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.scoring.AnomalyScorer;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import dev.aisentinel.core.http.HttpRequestView;
+import dev.aisentinel.core.enforcement.EnforcementResponse;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicReference;
@@ -73,7 +73,7 @@ class SentinelPipelineTrustPolicyTest {
         when(handler.isQuarantined(anyString(), anyString())).thenReturn(false);
         when(handler.apply(eq(EnforcementAction.MONITOR), any(), any(), eq("h"), eq("/api"))).thenReturn(true);
 
-        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpRequestView request = mock(HttpRequestView.class);
         when(request.getMethod()).thenReturn("GET");
 
         SentinelPipeline pipeline = new SentinelPipeline(
@@ -97,7 +97,7 @@ class SentinelPipelineTrustPolicyTest {
             NoopRequestRiskFusion.INSTANCE
         );
 
-        HttpServletResponse response = mock(HttpServletResponse.class);
+        EnforcementResponse response = mock(EnforcementResponse.class);
         assertThat(pipeline.process(request, response, "h")).isTrue();
         verify(handler).apply(eq(EnforcementAction.MONITOR), eq(request), eq(response), eq("h"), eq("/api"));
         assertThat(ctxRef.get().get(TrustPolicyContextKeys.TRUST_POLICY_DETAIL, String.class))
@@ -137,7 +137,7 @@ class SentinelPipelineTrustPolicyTest {
         when(handler.isQuarantined(anyString(), anyString())).thenReturn(false);
         when(handler.apply(eq(EnforcementAction.MONITOR), any(), any(), eq("h"), eq("/api"))).thenReturn(true);
 
-        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpRequestView request = mock(HttpRequestView.class);
         when(request.getMethod()).thenReturn("GET");
 
         StartupGrace graceActive = () -> true;
@@ -163,7 +163,7 @@ class SentinelPipelineTrustPolicyTest {
             NoopRequestRiskFusion.INSTANCE
         );
 
-        HttpServletResponse response = mock(HttpServletResponse.class);
+        EnforcementResponse response = mock(EnforcementResponse.class);
         assertThat(pipeline.process(request, response, "h")).isTrue();
         verify(handler).apply(eq(EnforcementAction.MONITOR), eq(request), eq(response), eq("h"), eq("/api"));
         assertThat(ctxRef.get().get(TrustPolicyContextKeys.TRUST_POLICY_DETAIL, String.class))

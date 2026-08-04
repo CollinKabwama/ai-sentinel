@@ -70,6 +70,9 @@ public final class CompositeScorer implements AnomalyScorer {
         }
         double raw = sum / totalWeight;
         if (Double.isNaN(raw) || raw < 0) {
+            // Same safety clamp as SentinelDecisionEngine; record here because default wiring never surfaces
+            // illegal values past this composite layer.
+            metrics.recordNanOrNegativeScoreClamped();
             metrics.recordCompositeScore(1.0);
             lastSnapshot = new CompositeScoreSnapshot(statistical, isolationForest, 1.0, System.currentTimeMillis());
             return 1.0;

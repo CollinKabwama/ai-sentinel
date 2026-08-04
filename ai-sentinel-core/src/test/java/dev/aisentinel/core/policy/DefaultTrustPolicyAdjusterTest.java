@@ -8,7 +8,7 @@ import dev.aisentinel.core.identity.model.SessionContext;
 import dev.aisentinel.core.identity.model.TrustScore;
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
-import jakarta.servlet.http.HttpServletRequest;
+import dev.aisentinel.core.http.HttpRequestView;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -51,8 +51,8 @@ class DefaultTrustPolicyAdjusterTest {
             IdentityRiskSignals.empty());
     }
 
-    private static HttpServletRequest post(String path) {
-        HttpServletRequest r = mock(HttpServletRequest.class);
+    private static HttpRequestView post(String path) {
+        HttpRequestView r = mock(HttpRequestView.class);
         when(r.getMethod()).thenReturn("POST");
         return r;
     }
@@ -182,7 +182,7 @@ class DefaultTrustPolicyAdjusterTest {
             "/api/admin/x", post("/api/admin/x"), ctx(authUser(0.10)));
         assertThat(postNotProtected.action()).isEqualTo(EnforcementAction.MONITOR);
 
-        HttpServletRequest get = mock(HttpServletRequest.class);
+        HttpRequestView get = mock(HttpRequestView.class);
         when(get.getMethod()).thenReturn("GET");
         TrustPolicyAdjustment getDenied = adj.adjust(EnforcementAction.ALLOW, 0.99, features("/api/admin/x"),
             "/api/admin/x", get, ctx(authUser(0.10)));
