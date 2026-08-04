@@ -84,6 +84,6 @@ mvn -pl ai-sentinel-demo -am package
 
 ## Results
 
-Full execution results, regression matrix, defects, coverage gaps, and conclusion:
-[`REGRESSION_VALIDATION_REPORT.md`](REGRESSION_VALIDATION_REPORT.md)  
-(**Conditionally validated**, 2026-08-03).
+Full execution results, regression matrix, defects, coverage gaps, and conclusion live in the
+local (gitignored) file [`docs/REGRESSION_VALIDATION_REPORT.md`](docs/REGRESSION_VALIDATION_REPORT.md)
+(**Conditionally validated**, 2026-08-03). That path is under `docs/*` and is not pushed.
