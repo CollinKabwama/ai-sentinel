@@ -6,7 +6,7 @@ package dev.aisentinel.core.identity.model;
 public record SessionContext(
     boolean present,
     String sessionIdHash,
-    /** From {@link jakarta.servlet.http.HttpSession#isNew()} when {@link #present}. */
+    /** Whether the session was created by the current request, when {@link #present}. */
     boolean newSession
 ) {
     public SessionContext {

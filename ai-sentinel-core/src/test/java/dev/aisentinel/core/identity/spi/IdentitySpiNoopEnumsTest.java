@@ -9,8 +9,8 @@ import dev.aisentinel.core.identity.model.TrustEvaluation;
 import dev.aisentinel.core.identity.model.TrustScore;
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import dev.aisentinel.core.http.HttpRequestView;
+import dev.aisentinel.core.enforcement.EnforcementResponse;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -35,7 +35,7 @@ class IdentitySpiNoopEnumsTest {
             IdentityRiskSignals.empty());
         ctx.put(IdentityContextKeys.IDENTITY_CONTEXT, before);
 
-        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpRequestView request = mock(HttpRequestView.class);
         resolver.resolve(request, "identityhash1", ctx);
 
         assertThat(ctx.get(IdentityContextKeys.IDENTITY_CONTEXT, IdentityContext.class)).isSameAs(before);
@@ -51,7 +51,7 @@ class IdentitySpiNoopEnumsTest {
             SessionContext.none(),
             TrustScore.fullyTrusted(),
             IdentityRiskSignals.empty());
-        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpRequestView request = mock(HttpRequestView.class);
         RequestFeatures features = RequestFeatures.builder()
             .identityHash("ih")
             .endpoint("/")
@@ -76,8 +76,8 @@ class IdentitySpiNoopEnumsTest {
         IdentityResponseHook hook = NoopIdentityResponseHook.INSTANCE;
         assertThat(hook).isInstanceOf(IdentityResponseHook.class);
 
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpServletResponse response = mock(HttpServletResponse.class);
+        HttpRequestView request = mock(HttpRequestView.class);
+        EnforcementResponse response = mock(EnforcementResponse.class);
         RequestFeatures features = RequestFeatures.builder()
             .identityHash("ih")
             .endpoint("/")

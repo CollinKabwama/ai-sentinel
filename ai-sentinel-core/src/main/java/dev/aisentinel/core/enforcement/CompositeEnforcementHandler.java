@@ -7,8 +7,7 @@ import dev.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
 import dev.aisentinel.distributed.quarantine.NoopClusterQuarantineWriter;
 import dev.aisentinel.distributed.throttle.ClusterThrottleStore;
 import dev.aisentinel.distributed.throttle.NoopClusterThrottleStore;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import dev.aisentinel.core.http.HttpRequestView;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Iterator;
@@ -107,7 +106,7 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
     }
 
     @Override
-    public boolean apply(EnforcementAction action, HttpServletRequest request, HttpServletResponse response,
+    public boolean apply(EnforcementAction action, HttpRequestView request, EnforcementResponse response,
                          String identityHash, String endpoint) {
         return switch (action) {
             case ALLOW -> true;
@@ -115,7 +114,7 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
                 telemetry.emit(TelemetryEvent.policyActionApplied(identityHash, endpoint, "MONITOR", null));
                 yield true;
             }
-            case THROTTLE -> applyThrottle(request, response, identityHash, endpoint);
+            case THROTTLE -> applyThrottle(response, identityHash, endpoint);
             case BLOCK -> {
                 applyBlock(response, identityHash, endpoint);
                 yield false;
@@ -207,13 +206,12 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
         }
     }
 
-    private boolean applyThrottle(HttpServletRequest request, HttpServletResponse response,
-                                  String identityHash, String endpoint) {
+    private boolean applyThrottle(EnforcementResponse response, String identityHash, String endpoint) {
         if (!tryAcquireThrottlePermit(identityHash, endpoint)) {
             try {
                 response.setStatus(429);
                 response.setContentType("text/plain;charset=UTF-8");
-                response.getWriter().write("Too Many Requests");
+                response.writeBody("Too Many Requests");
             } catch (Exception ignored) { }
             telemetry.emit(TelemetryEvent.policyActionApplied(identityHash, endpoint, "THROTTLE_APPLIED", "429"));
             return false;
@@ -222,17 +220,17 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
         return true;
     }
 
-    private void applyBlock(HttpServletResponse response, String identityHash, String endpoint) {
+    private void applyBlock(EnforcementResponse response, String identityHash, String endpoint) {
         log.debug("Blocking request for endpoint={} identityHash={}", endpoint, maskHash(identityHash));
         try {
             response.setStatus(blockStatusCode);
             response.setContentType("text/plain;charset=UTF-8");
-            response.getWriter().write(blockStatusCode == 403 ? "Forbidden" : "Too Many Requests");
+            response.writeBody(blockStatusCode == 403 ? "Forbidden" : "Too Many Requests");
         } catch (Exception ignored) { }
         telemetry.emit(TelemetryEvent.policyActionApplied(identityHash, endpoint, "BLOCK", String.valueOf(blockStatusCode)));
     }
 
-    private void applyQuarantine(HttpServletResponse response, String identityHash, String endpoint) {
+    private void applyQuarantine(EnforcementResponse response, String identityHash, String endpoint) {
         log.debug("Quarantining identityHash={} for endpoint={} durationMs={}", maskHash(identityHash), endpoint, quarantineDurationMs);
         evictQuarantineIfNeeded();
         String key = buildEnforcementStateKey(identityHash, endpoint);
@@ -246,7 +244,7 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
         try {
             response.setStatus(blockStatusCode);
             response.setContentType("text/plain;charset=UTF-8");
-            response.getWriter().write("Quarantined");
+            response.writeBody("Quarantined");
         } catch (Exception ignored) { }
         telemetry.emit(TelemetryEvent.quarantineStarted(identityHash, endpoint, quarantineDurationMs));
     }

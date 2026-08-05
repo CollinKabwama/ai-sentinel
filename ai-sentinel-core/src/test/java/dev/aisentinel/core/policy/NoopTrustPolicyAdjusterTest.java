@@ -2,7 +2,7 @@ package dev.aisentinel.core.policy;
 
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
-import jakarta.servlet.http.HttpServletRequest;
+import dev.aisentinel.core.http.HttpRequestView;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -28,7 +28,7 @@ class NoopTrustPolicyAdjusterTest {
                 .ipBucket(0)
                 .build(),
             "/api",
-            mock(HttpServletRequest.class),
+            mock(HttpRequestView.class),
             new RequestContext()
         );
         assertThat(adj.action()).isEqualTo(EnforcementAction.THROTTLE);

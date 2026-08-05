@@ -1,7 +1,7 @@
 package dev.aisentinel.core.policy;
 
 /**
- * Request context keys for trust-aware policy (Phase 3). Values are optional diagnostics only.
+ * Request context keys for trust-aware policy. Values are optional diagnostics only.
  */
 public final class TrustPolicyContextKeys {
 

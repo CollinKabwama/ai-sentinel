@@ -112,18 +112,29 @@ To consume a **local snapshot** in another project, install to your local reposi
 
 ## Running the tests
 
+Prefer the **reactor root** so modules resolve each other from the reactor build (not a stale jar in `~/.m2`).
+Requires **Java 21+** (see Prerequisites).
+
 ```bash
 mvn test
+# or
+mvn clean verify
 ```
 
-Run the full suite before opening a PR. To narrow scope while iterating:
+Running a single module in isolation only works when its dependencies are already installed with matching sources:
 
 ```bash
 mvn -pl ai-sentinel-core test
+# After core API changes, install core before an isolated starter run:
+mvn install -pl ai-sentinel-core -DskipTests
 mvn -pl ai-sentinel-spring-boot-starter test
 ```
 
+Otherwise starter tests may fail discovery with `NoClassDefFoundError` for new core types (for example `HttpRequestView`).
+
 If a failure is unclear, re-run with `-e` or `-X` for more Maven output, or run a single test class with `-Dtest=ClassName`.
+
+Docker is optional; Testcontainers-based distributed quarantine tests are skipped when Docker is unavailable.
 
 ---
 

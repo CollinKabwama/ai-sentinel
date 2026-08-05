@@ -1,5 +1,7 @@
 package dev.aisentinel.autoconfigure.identity;
 
+import dev.aisentinel.autoconfigure.web.ServletHttpRequestView;
+import dev.aisentinel.core.http.HttpRequestView;
 import dev.aisentinel.core.identity.IdentityContextKeys;
 import dev.aisentinel.core.identity.model.AuthenticationContext;
 import dev.aisentinel.core.identity.model.IdentityContext;
@@ -20,7 +22,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -28,7 +29,7 @@ import static org.mockito.Mockito.when;
 class ServletIdentityContextResolverTest {
 
     @Mock
-    private HttpServletRequest request;
+    private HttpRequestView request;
 
     @Test
     void normalizedUnauthenticated_visitorStoredWhenInspectorsSaySo() {
@@ -67,10 +68,41 @@ class ServletIdentityContextResolverTest {
         when(session.getId()).thenReturn("abc");
         when(session.isNew()).thenReturn(true);
         SessionInspector sess = new HttpSessionSessionInspector();
-        SessionContext sc = sess.inspect(req, "h");
+        SessionContext sc = sess.inspect(new ServletHttpRequestView(req), "h");
         assertThat(sc.present()).isTrue();
         assertThat(sc.newSession()).isTrue();
         assertThat(sc.sessionIdHash()).isNotEmpty();
+    }
+
+    @Test
+    void sessionAccessedBefore_isNotNew() {
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        HttpSession session = mock(HttpSession.class);
+        when(req.getSession(false)).thenReturn(session);
+        when(session.getId()).thenReturn("abc");
+        when(session.isNew()).thenReturn(false);
+        SessionContext sc = new HttpSessionSessionInspector().inspect(new ServletHttpRequestView(req), "h");
+        assertThat(sc.present()).isTrue();
+        assertThat(sc.newSession()).isFalse();
+    }
+
+    @Test
+    void sessionIsNew_usesServletIsNewEvenWhenTimestampsDiffer() {
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        HttpSession session = mock(HttpSession.class);
+        when(req.getSession(false)).thenReturn(session);
+        when(session.getId()).thenReturn("abc");
+        when(session.isNew()).thenReturn(true);
+        SessionContext sc = new HttpSessionSessionInspector().inspect(new ServletHttpRequestView(req), "h");
+        assertThat(sc.newSession()).isTrue();
+    }
+
+    @Test
+    void noSession_returnsNone() {
+        HttpServletRequest req = mock(HttpServletRequest.class);
+        when(req.getSession(false)).thenReturn(null);
+        SessionContext sc = new HttpSessionSessionInspector().inspect(new ServletHttpRequestView(req), "h");
+        assertThat(sc.present()).isFalse();
     }
 
     @Test
@@ -101,7 +133,7 @@ class ServletIdentityContextResolverTest {
             SessionInspector sessionInspector = new HttpSessionSessionInspector();
             var resolver = new ServletIdentityContextResolver(authInspector, sessionInspector);
             RequestContext ctx = new RequestContext();
-            resolver.resolve(req, "h", ctx);
+            resolver.resolve(new ServletHttpRequestView(req), "h", ctx);
             IdentityContext id = ctx.get(IdentityContextKeys.IDENTITY_CONTEXT, IdentityContext.class);
             assertThat(id.authentication().principalName()).isEqualTo("sam");
             assertThat(id.authentication().authenticated()).isTrue();

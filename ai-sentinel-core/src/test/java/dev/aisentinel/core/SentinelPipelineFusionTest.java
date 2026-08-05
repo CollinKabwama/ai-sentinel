@@ -30,8 +30,8 @@ import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.scoring.AnomalyScorer;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
 import dev.aisentinel.distributed.training.NoopTrainingCandidatePublisher;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import dev.aisentinel.core.http.HttpRequestView;
+import dev.aisentinel.core.enforcement.EnforcementResponse;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -104,7 +104,7 @@ class SentinelPipelineFusionTest {
         AnomalyScorer scorer = mock(AnomalyScorer.class);
         when(scorer.score(any())).thenReturn(0.35);
         SentinelPipeline p = pipeline(resolver, NoopRequestRiskFusion.INSTANCE, policy, scorer, NoopIdentityResponseHook.INSTANCE);
-        p.process(mock(HttpServletRequest.class), mock(HttpServletResponse.class), "h");
+        p.process(mock(HttpRequestView.class), mock(EnforcementResponse.class), "h");
         ArgumentCaptor<Double> scoreCap = ArgumentCaptor.forClass(Double.class);
         verify(policy).evaluate(scoreCap.capture(), any(), eq("/api"));
         assertThat(scoreCap.getValue()).isEqualTo(0.35);
@@ -122,7 +122,7 @@ class SentinelPipelineFusionTest {
             policy,
             scorer,
             NoopIdentityResponseHook.INSTANCE);
-        p.process(mock(HttpServletRequest.class), mock(HttpServletResponse.class), "h");
+        p.process(mock(HttpRequestView.class), mock(EnforcementResponse.class), "h");
         ArgumentCaptor<Double> scoreCap = ArgumentCaptor.forClass(Double.class);
         verify(policy).evaluate(scoreCap.capture(), any(), eq("/api"));
         assertThat(scoreCap.getValue()).isEqualTo(0.35);
@@ -143,7 +143,7 @@ class SentinelPipelineFusionTest {
         AnomalyScorer scorer = mock(AnomalyScorer.class);
         when(scorer.score(any())).thenReturn(0.35);
         SentinelPipeline noFusion = pipeline(resolver, NoopRequestRiskFusion.INSTANCE, policyNoFusion, scorer, NoopIdentityResponseHook.INSTANCE);
-        noFusion.process(mock(HttpServletRequest.class), mock(HttpServletResponse.class), "h");
+        noFusion.process(mock(HttpRequestView.class), mock(EnforcementResponse.class), "h");
         ArgumentCaptor<Double> capNo = ArgumentCaptor.forClass(Double.class);
         verify(policyNoFusion).evaluate(capNo.capture(), any(), eq("/api"));
         assertThat(capNo.getValue()).isEqualTo(0.35);
@@ -173,7 +173,7 @@ class SentinelPipelineFusionTest {
             NoopTrustPolicyAdjuster.INSTANCE,
             NoopIdentityResponseHook.INSTANCE,
             new DeterministicRequestRiskFusion(0.9));
-        assertThat(fusedPipeline.process(mock(HttpServletRequest.class), mock(HttpServletResponse.class), "h")).isTrue();
+        assertThat(fusedPipeline.process(mock(HttpRequestView.class), mock(EnforcementResponse.class), "h")).isTrue();
         verify(handler).apply(argThat(a -> a != EnforcementAction.ALLOW && a != EnforcementAction.MONITOR),
             any(), any(), eq("h"), eq("/api"));
     }
@@ -234,7 +234,7 @@ class SentinelPipelineFusionTest {
             NoopTrustPolicyAdjuster.INSTANCE,
             NoopIdentityResponseHook.INSTANCE,
             throwing);
-        assertThat(p.process(mock(HttpServletRequest.class), mock(HttpServletResponse.class), "h")).isTrue();
+        assertThat(p.process(mock(HttpRequestView.class), mock(EnforcementResponse.class), "h")).isTrue();
         assertThat(failOpen.get()).isEqualTo(1);
         ArgumentCaptor<Double> cap = ArgumentCaptor.forClass(Double.class);
         verify(policy).evaluate(cap.capture(), any(), eq("/api"));
@@ -258,7 +258,7 @@ class SentinelPipelineFusionTest {
         AnomalyScorer scorer = mock(AnomalyScorer.class);
         when(scorer.score(any())).thenReturn(0.3);
         SentinelPipeline p = pipeline(resolver, new DeterministicRequestRiskFusion(0.4), policy, scorer, hook);
-        p.process(mock(HttpServletRequest.class), mock(HttpServletResponse.class), "h");
+        p.process(mock(HttpRequestView.class), mock(EnforcementResponse.class), "h");
         FusedRisk fr = ctxSeen.get().get(FusionContextKeys.FUSED_RISK, FusedRisk.class);
         assertThat(fr).isNotNull();
         assertThat(fr.anomalyScore()).isEqualTo(0.3);

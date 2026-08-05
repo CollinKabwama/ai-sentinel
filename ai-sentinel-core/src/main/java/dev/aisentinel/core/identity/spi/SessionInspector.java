@@ -1,13 +1,14 @@
 package dev.aisentinel.core.identity.spi;
 
 import dev.aisentinel.core.identity.model.SessionContext;
-import jakarta.servlet.http.HttpServletRequest;
+import dev.aisentinel.core.http.HttpRequestView;
 
 /**
- * Inspects servlet session metadata for {@link IdentityContext} assembly (hashed identifiers only).
+ * Inspects session metadata exposed by {@link dev.aisentinel.core.http.HttpRequestView} for
+ * {@link IdentityContext} assembly (hashed identifiers only).
  */
 @FunctionalInterface
 public interface SessionInspector {
 
-    SessionContext inspect(HttpServletRequest request, String identityHash);
+    SessionContext inspect(HttpRequestView request, String identityHash);
 }

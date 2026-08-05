@@ -2,7 +2,7 @@ package dev.aisentinel.core.identity.spi;
 
 import dev.aisentinel.core.identity.model.AuthenticationContext;
 import dev.aisentinel.core.identity.model.SessionContext;
-import jakarta.servlet.http.HttpServletRequest;
+import dev.aisentinel.core.http.HttpRequestView;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -17,7 +17,7 @@ class IdentitySpiFunctionalContractsTest {
     void sessionInspectorLambdaReturnsSessionContext() {
         SessionInspector inspector = (request, identityHash) -> SessionContext.ofHashedId("deadbeef", true);
 
-        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpRequestView request = mock(HttpRequestView.class);
         SessionContext ctx = inspector.inspect(request, "identityhash1");
 
         assertThat(ctx.present()).isTrue();
@@ -30,7 +30,7 @@ class IdentitySpiFunctionalContractsTest {
         AuthenticationInspector inspector =
             (request, identityHash) -> AuthenticationContext.unauthenticated(false);
 
-        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpRequestView request = mock(HttpRequestView.class);
         AuthenticationContext auth = inspector.inspect(request, "identityhash1");
 
         assertThat(auth.authenticated()).isFalse();

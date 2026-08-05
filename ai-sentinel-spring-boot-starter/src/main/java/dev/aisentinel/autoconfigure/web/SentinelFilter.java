@@ -2,6 +2,8 @@ package dev.aisentinel.autoconfigure.web;
 
 import dev.aisentinel.autoconfigure.config.SentinelProperties;
 import dev.aisentinel.core.SentinelPipeline;
+import dev.aisentinel.core.enforcement.DiscardingEnforcementResponse;
+import dev.aisentinel.core.enforcement.EnforcementResponse;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -16,6 +18,10 @@ import java.io.IOException;
 /**
  * Servlet filter that runs the {@link dev.aisentinel.core.SentinelPipeline} once per request (after auth when ordered late).
  * Respects {@link dev.aisentinel.autoconfigure.config.SentinelProperties#getExcludePaths()} and mode OFF/MONITOR/ENFORCE.
+ * <p>
+ * In {@link SentinelProperties.Mode#MONITOR}, enforcement writes are discarded so a custom
+ * {@link dev.aisentinel.core.enforcement.EnforcementHandler} cannot double-write the client response while the
+ * filter always continues the chain.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -41,7 +47,14 @@ public class SentinelFilter extends OncePerRequestFilter {
         String identityHash = resolveIdentityHash(request);
 
         try {
-            boolean proceed = pipeline.process(request, response, identityHash);
+            EnforcementResponse enforcementResponse = props.getMode() == SentinelProperties.Mode.MONITOR
+                ? DiscardingEnforcementResponse.INSTANCE
+                : new ServletEnforcementResponse(response);
+
+            boolean proceed = pipeline.process(
+                new ServletHttpRequestView(request),
+                enforcementResponse,
+                identityHash);
 
             if (props.getMode() == SentinelProperties.Mode.MONITOR) {
                 filterChain.doFilter(request, response);

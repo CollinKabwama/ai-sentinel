@@ -1,23 +1,20 @@
 package dev.aisentinel.core.enforcement;
 
+import dev.aisentinel.core.http.HttpRequestView;
 import dev.aisentinel.core.policy.EnforcementAction;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
 import dev.aisentinel.core.telemetry.TelemetryEvent;
 import dev.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
 import dev.aisentinel.distributed.quarantine.NoopClusterQuarantineWriter;
 import dev.aisentinel.distributed.throttle.ClusterThrottleStore;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -29,22 +26,21 @@ class CompositeEnforcementHandlerTest {
     @Test
     void getQuarantineCountReturnsActiveQuarantines() throws Exception {
         handler = new CompositeEnforcementHandler(429, 60_000L, 5.0, telemetry, 100, 60_000L);
-        when(response.getWriter()).thenReturn(new java.io.PrintWriter(java.io.OutputStream.nullOutputStream()));
         handler.apply(EnforcementAction.QUARANTINE, request, response, "h1", "/api");
         handler.apply(EnforcementAction.QUARANTINE, request, response, "h2", "/api");
         assertThat(handler.getQuarantineCount()).isEqualTo(2);
     }
 
     private TelemetryEmitter telemetry;
-    private HttpServletRequest request;
-    private HttpServletResponse response;
+    private HttpRequestView request;
+    private EnforcementResponse response;
     private CompositeEnforcementHandler handler;
 
     @BeforeEach
     void setUp() {
         telemetry = mock(TelemetryEmitter.class);
-        request = mock(HttpServletRequest.class);
-        response = mock(HttpServletResponse.class);
+        request = mock(HttpRequestView.class);
+        response = mock(EnforcementResponse.class);
     }
 
     @Test
@@ -63,7 +59,6 @@ class CompositeEnforcementHandlerTest {
     @Test
     void quarantineBoundedMapDoesNotThrow() throws Exception {
         handler = new CompositeEnforcementHandler(429, 10_000L, 5.0, telemetry, 2, 60_000L);
-        when(response.getWriter()).thenReturn(new java.io.PrintWriter(java.io.OutputStream.nullOutputStream()));
         handler.apply(EnforcementAction.QUARANTINE, request, response, "h1", "/api");
         handler.apply(EnforcementAction.QUARANTINE, request, response, "h2", "/api");
         handler.apply(EnforcementAction.QUARANTINE, request, response, "h3", "/api");
@@ -90,7 +85,6 @@ class CompositeEnforcementHandlerTest {
     @Test
     void isQuarantinedExpiredEntryRemovedAtomically() throws Exception {
         handler = new CompositeEnforcementHandler(429, 50L, 5.0, telemetry, 100, 60_000L);
-        when(response.getWriter()).thenReturn(new java.io.PrintWriter(java.io.OutputStream.nullOutputStream()));
         handler.apply(EnforcementAction.QUARANTINE, request, response, "h1", "/api");
         Thread.sleep(60);
         assertThat(handler.isQuarantined("h1", "/api")).isFalse();
@@ -104,7 +98,6 @@ class CompositeEnforcementHandlerTest {
         doThrow(new RuntimeException("redis down")).when(writer).publishQuarantine(anyString(), anyString(), anyLong());
         handler = new CompositeEnforcementHandler(429, 60_000L, 5.0, telemetry, 100, 60_000L,
             EnforcementScope.IDENTITY_ENDPOINT, writer, "tenant-a");
-        when(response.getWriter()).thenReturn(new java.io.PrintWriter(java.io.OutputStream.nullOutputStream()));
         boolean allowed = handler.apply(EnforcementAction.QUARANTINE, request, response, "id1", "/api");
         assertThat(allowed).isFalse();
         assertThat(handler.isQuarantined("id1", "/api")).isTrue();
@@ -116,7 +109,6 @@ class CompositeEnforcementHandlerTest {
         ClusterQuarantineWriter writer = mock(ClusterQuarantineWriter.class);
         handler = new CompositeEnforcementHandler(429, 60_000L, 5.0, telemetry, 100, 60_000L,
             EnforcementScope.IDENTITY_GLOBAL, writer, "t");
-        when(response.getWriter()).thenReturn(new java.io.PrintWriter(java.io.OutputStream.nullOutputStream()));
         handler.apply(EnforcementAction.QUARANTINE, request, response, "gh", "/x");
         verify(writer).publishQuarantine(eq("t"), eq("gh"), anyLong());
     }
@@ -144,7 +136,6 @@ class CompositeEnforcementHandlerTest {
     @Test
     void blockUsesConfiguredBlockStatusCode() throws Exception {
         handler = new CompositeEnforcementHandler(503, 60_000L, 5.0, telemetry, 100, 60_000L);
-        when(response.getWriter()).thenReturn(new PrintWriter(java.io.OutputStream.nullOutputStream()));
         boolean allowed = handler.apply(EnforcementAction.BLOCK, request, response, "hashhash12", "/api");
         assertThat(allowed).isFalse();
         verify(response).setStatus(503);
@@ -154,7 +145,6 @@ class CompositeEnforcementHandlerTest {
     @Test
     void throttleResponseUses429EvenWhenBlockStatusCodeDiffers() throws Exception {
         handler = new CompositeEnforcementHandler(403, 60_000L, 1.0, telemetry, 100, 60_000L);
-        when(response.getWriter()).thenReturn(new PrintWriter(java.io.OutputStream.nullOutputStream()));
         assertThat(handler.apply(EnforcementAction.THROTTLE, request, response, "idididid12", "/api")).isTrue();
         assertThat(handler.apply(EnforcementAction.THROTTLE, request, response, "idididid12", "/api")).isFalse();
         verify(response).setStatus(429);
@@ -162,27 +152,27 @@ class CompositeEnforcementHandlerTest {
     }
 
     @Test
-    void throttleEmitsTelemetryWhenResponseWriterFails() throws Exception {
+    void throttleEmitsTelemetryWhenResponseBodyWriteFails() throws Exception {
         handler = new CompositeEnforcementHandler(429, 60_000L, 1.0, telemetry, 100, 60_000L);
-        when(response.getWriter()).thenThrow(new IOException("response committed"));
+        doThrow(new IOException("response committed")).when(response).writeBody(anyString());
         assertThat(handler.apply(EnforcementAction.THROTTLE, request, response, "idididid12", "/api")).isTrue();
         assertThat(handler.apply(EnforcementAction.THROTTLE, request, response, "idididid12", "/api")).isFalse();
         verify(telemetry).emit(argThat(e -> policyActionWithDetail(e, "THROTTLE_APPLIED", "429")));
     }
 
     @Test
-    void blockEmitsTelemetryWhenResponseWriterFails() throws Exception {
+    void blockEmitsTelemetryWhenResponseBodyWriteFails() throws Exception {
         handler = new CompositeEnforcementHandler(429, 60_000L, 5.0, telemetry, 100, 60_000L);
-        when(response.getWriter()).thenThrow(new IOException("broken pipe"));
+        doThrow(new IOException("broken pipe")).when(response).writeBody(anyString());
         boolean allowed = handler.apply(EnforcementAction.BLOCK, request, response, "hashhash12", "/api");
         assertThat(allowed).isFalse();
         verify(telemetry).emit(argThat(e -> policyActionWithDetail(e, "BLOCK", "429")));
     }
 
     @Test
-    void quarantineEmitsTelemetryWhenResponseWriterFails() throws Exception {
+    void quarantineEmitsTelemetryWhenResponseBodyWriteFails() throws Exception {
         handler = new CompositeEnforcementHandler(429, 60_000L, 5.0, telemetry, 100, 60_000L);
-        when(response.getWriter()).thenThrow(new IOException("broken pipe"));
+        doThrow(new IOException("broken pipe")).when(response).writeBody(anyString());
         boolean allowed = handler.apply(EnforcementAction.QUARANTINE, request, response, "hashhash12", "/api");
         assertThat(allowed).isFalse();
         verify(telemetry).emit(argThat(e -> "QuarantineStarted".equals(e.type())
@@ -206,19 +196,23 @@ class CompositeEnforcementHandlerTest {
     @Test
     void block403WritesForbiddenBody() throws Exception {
         handler = new CompositeEnforcementHandler(403, 60_000L, 5.0, telemetry, 100, 60_000L);
-        java.io.StringWriter sw = new java.io.StringWriter();
-        when(response.getWriter()).thenReturn(new PrintWriter(sw));
         handler.apply(EnforcementAction.BLOCK, request, response, "hashhash12", "/api");
-        assertThat(sw.toString()).isEqualTo("Forbidden");
+        verify(response).writeBody("Forbidden");
     }
 
     @Test
     void blockNon403WritesTooManyRequestsBody() throws Exception {
         handler = new CompositeEnforcementHandler(503, 60_000L, 5.0, telemetry, 100, 60_000L);
-        java.io.StringWriter sw = new java.io.StringWriter();
-        when(response.getWriter()).thenReturn(new PrintWriter(sw));
         handler.apply(EnforcementAction.BLOCK, request, response, "hashhash12", "/api");
-        assertThat(sw.toString()).isEqualTo("Too Many Requests");
+        verify(response).writeBody("Too Many Requests");
+    }
+
+    @Test
+    void quarantineWritesQuarantinedBody() throws Exception {
+        handler = new CompositeEnforcementHandler(429, 60_000L, 5.0, telemetry, 100, 60_000L);
+        handler.apply(EnforcementAction.QUARANTINE, request, response, "hashhash12", "/api");
+        verify(response).setStatus(429);
+        verify(response).writeBody("Quarantined");
     }
 
     @Test
@@ -234,7 +228,6 @@ class CompositeEnforcementHandlerTest {
         ClusterQuarantineWriter writer = mock(ClusterQuarantineWriter.class);
         handler = new CompositeEnforcementHandler(429, 60_000L, 5.0, telemetry, 100, 60_000L,
             EnforcementScope.IDENTITY_ENDPOINT, writer, "tenant-z");
-        when(response.getWriter()).thenReturn(new PrintWriter(java.io.OutputStream.nullOutputStream()));
         handler.apply(EnforcementAction.QUARANTINE, request, response, "qqqqqqqq12", "");
         verify(writer).publishQuarantine(eq("tenant-z"), eq("qqqqqqqq12|"), anyLong());
         assertThat(handler.isQuarantined("qqqqqqqq12", "")).isTrue();
@@ -256,7 +249,6 @@ class CompositeEnforcementHandlerTest {
         when(store.tryAcquire(anyString(), anyString())).thenReturn(true);
         handler = new CompositeEnforcementHandler(429, 60_000L, 1.0, telemetry, 100, 60_000L,
             EnforcementScope.IDENTITY_ENDPOINT, NoopClusterQuarantineWriter.INSTANCE, store, "tid");
-        when(response.getWriter()).thenReturn(new PrintWriter(java.io.OutputStream.nullOutputStream()));
         assertThat(handler.apply(EnforcementAction.THROTTLE, request, response, "zzzzzzzz12", "/api")).isTrue();
         assertThat(handler.apply(EnforcementAction.THROTTLE, request, response, "zzzzzzzz12", "/api")).isFalse();
         verify(telemetry).emit(argThat(e -> policyActionWithDetail(e, "THROTTLE_APPLIED", "429")));

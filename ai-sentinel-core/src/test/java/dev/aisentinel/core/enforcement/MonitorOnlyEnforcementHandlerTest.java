@@ -2,8 +2,6 @@ package dev.aisentinel.core.enforcement;
 
 import dev.aisentinel.core.policy.EnforcementAction;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;

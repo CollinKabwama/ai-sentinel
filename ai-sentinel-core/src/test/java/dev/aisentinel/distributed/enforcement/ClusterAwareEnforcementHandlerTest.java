@@ -4,8 +4,8 @@ import dev.aisentinel.core.enforcement.EnforcementHandler;
 import dev.aisentinel.core.enforcement.EnforcementScope;
 import dev.aisentinel.core.policy.EnforcementAction;
 import dev.aisentinel.distributed.quarantine.ClusterQuarantineReader;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import dev.aisentinel.core.http.HttpRequestView;
+import dev.aisentinel.core.enforcement.EnforcementResponse;
 import org.junit.jupiter.api.Test;
 
 import java.util.OptionalLong;
@@ -19,7 +19,7 @@ class ClusterAwareEnforcementHandlerTest {
     void localQuarantineShortCircuitsWithoutCallingCluster() {
         var delegate = new EnforcementHandler() {
             @Override
-            public boolean apply(EnforcementAction action, HttpServletRequest request, HttpServletResponse response,
+            public boolean apply(EnforcementAction action, HttpRequestView request, EnforcementResponse response,
                                  String identityHash, String endpoint) {
                 return true;
             }
@@ -41,7 +41,7 @@ class ClusterAwareEnforcementHandlerTest {
         long future = System.currentTimeMillis() + 60_000;
         var delegate = new EnforcementHandler() {
             @Override
-            public boolean apply(EnforcementAction action, HttpServletRequest request, HttpServletResponse response,
+            public boolean apply(EnforcementAction action, HttpRequestView request, EnforcementResponse response,
                                  String identityHash, String endpoint) {
                 return true;
             }
@@ -66,7 +66,7 @@ class ClusterAwareEnforcementHandlerTest {
         long past = System.currentTimeMillis() - 60_000;
         var delegate = new EnforcementHandler() {
             @Override
-            public boolean apply(EnforcementAction action, HttpServletRequest request, HttpServletResponse response,
+            public boolean apply(EnforcementAction action, HttpRequestView request, EnforcementResponse response,
                                  String identityHash, String endpoint) {
                 return true;
             }
@@ -86,7 +86,7 @@ class ClusterAwareEnforcementHandlerTest {
         long future = System.currentTimeMillis() + 60_000;
         var delegate = new EnforcementHandler() {
             @Override
-            public boolean apply(EnforcementAction action, HttpServletRequest request, HttpServletResponse response,
+            public boolean apply(EnforcementAction action, HttpRequestView request, EnforcementResponse response,
                                  String identityHash, String endpoint) {
                 return true;
             }
@@ -109,7 +109,7 @@ class ClusterAwareEnforcementHandlerTest {
     void noopClusterReaderMatchesLocalOnly() {
         var delegate = new EnforcementHandler() {
             @Override
-            public boolean apply(EnforcementAction action, HttpServletRequest request, HttpServletResponse response,
+            public boolean apply(EnforcementAction action, HttpRequestView request, EnforcementResponse response,
                                  String identityHash, String endpoint) {
                 return true;
             }
@@ -128,14 +128,14 @@ class ClusterAwareEnforcementHandlerTest {
     void applyDelegates() {
         var delegate = new EnforcementHandler() {
             @Override
-            public boolean apply(EnforcementAction action, HttpServletRequest request, HttpServletResponse response,
+            public boolean apply(EnforcementAction action, HttpRequestView request, EnforcementResponse response,
                                  String identityHash, String endpoint) {
                 return false;
             }
         };
         var handler = new ClusterAwareEnforcementHandler(delegate, (t, k) -> OptionalLong.empty(), "t1",
             EnforcementScope.IDENTITY_ENDPOINT);
-        assertThat(handler.apply(EnforcementAction.ALLOW, mock(HttpServletRequest.class), mock(HttpServletResponse.class),
+        assertThat(handler.apply(EnforcementAction.ALLOW, mock(HttpRequestView.class), mock(EnforcementResponse.class),
             "id", "/a")).isFalse();
     }
 }

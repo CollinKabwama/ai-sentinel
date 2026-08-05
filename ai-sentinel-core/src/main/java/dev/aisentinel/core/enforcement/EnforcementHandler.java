@@ -1,9 +1,7 @@
 package dev.aisentinel.core.enforcement;
 
+import dev.aisentinel.core.http.HttpRequestView;
 import dev.aisentinel.core.policy.EnforcementAction;
-
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 /**
  * Applies {@link EnforcementAction} to the HTTP request/response (throttle, block, quarantine, etc.).
@@ -16,7 +14,7 @@ import jakarta.servlet.http.HttpServletResponse;
  */
 public interface EnforcementHandler {
 
-    boolean apply(EnforcementAction action, HttpServletRequest request, HttpServletResponse response,
+    boolean apply(EnforcementAction action, HttpRequestView request, EnforcementResponse response,
                   String identityHash, String endpoint);
 
     /**
@@ -28,7 +26,10 @@ public interface EnforcementHandler {
         return false;
     }
 
-    /** @deprecated use {@link #isQuarantined(String, String)} */
+    /**
+     * @deprecated use {@link #isQuarantined(String, String)}. The pipeline and decision engine call only the
+     * two-argument form; overriding this overload alone has no effect on quarantine checks.
+     */
     @Deprecated
     default boolean isQuarantined(String identityHash) {
         return isQuarantined(identityHash, "");

@@ -111,7 +111,10 @@ class RedisClusterQuarantineWriterTest {
             assertThat(metrics.failures.get()).isEqualTo(1);
 
             writer.publishQuarantine("t", "k2", System.currentTimeMillis() - 1);
-            Thread.sleep(150);
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (metrics.skippedExpired.get() < 1 && System.nanoTime() < deadline) {
+                Thread.sleep(10);
+            }
             assertThat(status.isRedisWriterDegraded()).isTrue();
             assertThat(metrics.successes.get()).isZero();
             assertThat(metrics.skippedExpired.get()).isEqualTo(1);

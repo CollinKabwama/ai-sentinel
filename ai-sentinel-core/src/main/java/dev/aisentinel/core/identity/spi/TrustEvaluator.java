@@ -4,7 +4,7 @@ import dev.aisentinel.core.identity.model.IdentityContext;
 import dev.aisentinel.core.identity.model.TrustEvaluation;
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
-import jakarta.servlet.http.HttpServletRequest;
+import dev.aisentinel.core.http.HttpRequestView;
 
 /**
  * Behavioral / session trust evaluation for the Identity arm. Must not alter API anomaly scores or policy.
@@ -17,5 +17,5 @@ import jakarta.servlet.http.HttpServletRequest;
  */
 public interface TrustEvaluator {
 
-    TrustEvaluation evaluate(IdentityContext identity, HttpServletRequest request, RequestFeatures features, RequestContext ctx);
+    TrustEvaluation evaluate(IdentityContext identity, HttpRequestView request, RequestFeatures features, RequestContext ctx);
 }

@@ -1,13 +1,13 @@
 package dev.aisentinel.core.identity.spi;
 
 import dev.aisentinel.core.identity.model.AuthenticationContext;
-import jakarta.servlet.http.HttpServletRequest;
+import dev.aisentinel.core.http.HttpRequestView;
 
 /**
- * Inspects servlet-layer authentication for {@link IdentityContext} assembly.
+ * Inspects the ambient authentication of the current request for {@link IdentityContext} assembly.
  */
 @FunctionalInterface
 public interface AuthenticationInspector {
 
-    AuthenticationContext inspect(HttpServletRequest request, String identityHash);
+    AuthenticationContext inspect(HttpRequestView request, String identityHash);
 }

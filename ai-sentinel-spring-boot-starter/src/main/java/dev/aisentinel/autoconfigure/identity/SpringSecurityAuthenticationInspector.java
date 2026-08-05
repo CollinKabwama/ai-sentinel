@@ -1,8 +1,8 @@
 package dev.aisentinel.autoconfigure.identity;
 
+import dev.aisentinel.core.http.HttpRequestView;
 import dev.aisentinel.core.identity.model.AuthenticationContext;
 import dev.aisentinel.core.identity.spi.AuthenticationInspector;
-import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Method;
@@ -64,7 +64,7 @@ public final class SpringSecurityAuthenticationInspector implements Authenticati
     }
 
     @Override
-    public AuthenticationContext inspect(HttpServletRequest request, String identityHash) {
+    public AuthenticationContext inspect(HttpRequestView request, String identityHash) {
         if (!SPRING_SECURITY_REFLECTION_AVAILABLE) {
             return AuthenticationContext.unauthenticated(false);
         }

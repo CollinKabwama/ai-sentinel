@@ -10,8 +10,8 @@ import dev.aisentinel.core.policy.PolicyEngine;
 import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.scoring.AnomalyScorer;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import dev.aisentinel.core.http.HttpRequestView;
+import dev.aisentinel.core.enforcement.EnforcementResponse;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -41,7 +41,7 @@ class SentinelPipelineMetricsTest {
         SentinelPipeline pipeline = new SentinelPipeline(
             extractor, badScorer, policy, handler, mock(TelemetryEmitter.class), StartupGrace.NEVER, metrics);
 
-        boolean proceed = pipeline.process(mock(HttpServletRequest.class), mock(HttpServletResponse.class), "h");
+        boolean proceed = pipeline.process(mock(HttpRequestView.class), mock(EnforcementResponse.class), "h");
 
         assertThat(proceed).isTrue();
         verify(metrics).recordScoringError();
@@ -72,7 +72,7 @@ class SentinelPipelineMetricsTest {
         SentinelPipeline pipeline = new SentinelPipeline(
             extractor, scorer, policy, handler, mock(TelemetryEmitter.class), StartupGrace.NEVER, metrics);
 
-        pipeline.process(mock(HttpServletRequest.class), mock(HttpServletResponse.class), "h");
+        pipeline.process(mock(HttpRequestView.class), mock(EnforcementResponse.class), "h");
 
         verify(metrics).recordPolicyAction(EnforcementAction.ALLOW);
         verify(metrics).recordPipelineLatencyNanos(anyLong());

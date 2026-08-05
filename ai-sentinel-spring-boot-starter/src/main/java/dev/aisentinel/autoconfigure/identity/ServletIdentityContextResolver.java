@@ -7,8 +7,8 @@ import dev.aisentinel.core.identity.model.TrustScore;
 import dev.aisentinel.core.identity.spi.AuthenticationInspector;
 import dev.aisentinel.core.identity.spi.IdentityContextResolver;
 import dev.aisentinel.core.identity.spi.SessionInspector;
+import dev.aisentinel.core.http.HttpRequestView;
 import dev.aisentinel.core.model.RequestContext;
-import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Assembles a normalized {@link IdentityContext} from {@link AuthenticationInspector} and {@link SessionInspector}
@@ -26,7 +26,7 @@ public final class ServletIdentityContextResolver implements IdentityContextReso
     }
 
     @Override
-    public void resolve(HttpServletRequest request, String identityHash, RequestContext ctx) {
+    public void resolve(HttpRequestView request, String identityHash, RequestContext ctx) {
         var auth = authenticationInspector.inspect(request, identityHash);
         var session = sessionInspector.inspect(request, identityHash);
         var identity = new IdentityContext(auth, session, TrustScore.fullyTrusted(), IdentityRiskSignals.empty());
