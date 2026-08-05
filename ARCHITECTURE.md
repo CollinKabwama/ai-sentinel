@@ -23,7 +23,7 @@ Latency is optimized with bounded maps, careful locking, and lock-free IF infere
 
 ```
 ai-sentinel/
-├── ai-sentinel-core/                 # Framework-agnostic engine
+├── ai-sentinel-core/                 # Framework-independent engine (no servlet, no Spring)
 ├── ai-sentinel-spring-boot-starter/  # Servlet filter, auto-config, actuator, Micrometer
 ├── ai-sentinel-trainer/              # Optional app: Kafka consumer, IF training, filesystem registry publisher
 ├── ai-sentinel-demo/                 # Reference application
@@ -41,9 +41,14 @@ There is **no** `ai-sentinel-dashboard` module; visualize via Prometheus/Grafana
 ```
 Client
   ↓
-SentinelFilter
+SentinelFilter (ServletHttpRequestView / ServletEnforcementResponse)
   ↓
-Feature extraction → Scoring → Policy → Enforcement
+SentinelPipeline
+  → IdentityContextResolver (optional)
+  → FeatureExtractor
+  → SentinelDecisionEngine → RiskDecision
+  → EnforcementHandler
+  → TrainingCandidatePublisher / IdentityResponseHook
 ```
 
 **Optional training / registry path** (async and off-request for registry refresh; not on the servlet hot path for model fetch):
@@ -53,30 +58,39 @@ TrainingCandidatePublisher → Kafka (optional) → ai-sentinel-trainer → file
 ```
 
 ```mermaid
-flowchart LR
+flowchart TB
     Req[HTTP Request]
     Filter[SentinelFilter]
+    View[HttpRequestView]
+    Pipeline[SentinelPipeline]
+    Id[IdentityContextResolver]
     Extractor[FeatureExtractor]
-    Stat[StatisticalScorer]
-    IF[IsolationForestScorer]
-    Comp[CompositeScorer]
-    Pol[PolicyEngine]
+    Engine[SentinelDecisionEngine]
+    Decision[RiskDecision]
     Enf[EnforcementHandler]
+    Train[TrainingCandidatePublisher]
+    Hook[IdentityResponseHook]
     Tel[TelemetryEmitter]
 
     Req --> Filter
-    Filter --> Extractor
-    Extractor --> Stat
-    Extractor --> IF
-    Stat --> Comp
-    IF --> Comp
-    Comp --> Pol
-    Pol --> Enf
-    Enf --> Tel
+    Filter --> View
+    View --> Pipeline
+    Pipeline --> Id
+    Id --> Extractor
+    Extractor --> Engine
+    Engine --> Decision
+    Engine --> Tel
+    Decision --> Enf
+    Enf --> Train
+    Train --> Hook
 ```
 
-1. **`SentinelFilter`** resolves identity (client IP via **`ClientIpResolver`** when proxies are trusted, plus optional Spring Security principal), skips excluded paths, then runs the pipeline.
-2. **`SentinelPipeline`** extracts features, scores, evaluates policy, applies enforcement, emits telemetry, and records metrics (including fail-open paths on errors).
+Inside **`SentinelDecisionEngine`**, evaluation is sequential: trust → anomaly score → clamp → optional fusion → policy → trust-aware adjustment → grace/quarantine overrides → `RiskDecision`.
+1. **`SentinelFilter`** resolves identity (client IP via **`ClientIpResolver`** when proxies are trusted, plus optional Spring Security principal), skips excluded paths, wraps the servlet request/response in **`ServletHttpRequestView`** and **`ServletEnforcementResponse`**, then runs the pipeline. In **MONITOR** mode, enforcement writes use **`DiscardingEnforcementResponse`** so the client response is not double-written.
+2. **`SentinelPipeline`** resolves identity context, extracts features, delegates the risk decision to **`SentinelDecisionEngine`**, applies enforcement, publishes training candidates, and runs the response hook (including fail-open paths on errors).
+3. **`SentinelDecisionEngine`** performs the servlet-free evaluation — trust, scoring, clamping, optional fusion, policy, trust adjustment, telemetry, startup grace and quarantine overrides — and returns a **`RiskDecision`**. It never writes to the response.
+
+**Framework boundary.** Core sees HTTP only through **`HttpRequestView`** (read) and **`EnforcementResponse`** (write), both defined in `ai-sentinel-core`. The Spring Boot starter supplies the only shipped implementations. `CoreIndependenceArchTest` fails the build if any core class gains a dependency on `jakarta.servlet`, `javax.servlet`, `org.springframework`, or `reactor.netty`.
 
 ---
 
@@ -85,7 +99,7 @@ flowchart LR
 **Interface:** `FeatureExtractor`
 
 ```java
-RequestFeatures extract(HttpServletRequest request, String identityHash, RequestContext ctx);
+RequestFeatures extract(HttpRequestView request, String identityHash, RequestContext ctx);
 ```
 
 **`DefaultFeatureExtractor`** builds `RequestFeatures` with:
@@ -189,7 +203,7 @@ Trusted entries may be literal IPs or **CIDR** prefixes.
 
 **End-to-end flow (when enabled):** starter **nodes** asynchronously **publish** training candidates → **trainer** consumes and trains → **writes** registry artifacts → starter **nodes** **refresh** and install Isolation Forest models from the filesystem registry. Redis and Kafka are optional; log-based transport and local-only operation remain valid.
 
-Local enforcement stays authoritative; Redis and transport failures are fail-open. Property names and validation scope: root [`README.md`](README.md).
+Local enforcement stays authoritative; Redis and transport failures are fail-open. Property names and validation scope: [`docs/configuration.md`](docs/configuration.md).
 
 ---
 
@@ -208,6 +222,12 @@ Local enforcement stays authoritative; Redis and transport failures are fail-ope
 | Features | `FeatureExtractor` |
 | Scoring | `AnomalyScorer` / register additional scorers only via custom `CompositeScorer` bean |
 | Policy | `PolicyEngine` |
+| Trust-aware policy | `TrustPolicyAdjuster` |
+| Risk fusion | `RequestRiskFusion` |
+| Identity resolution | `IdentityContextResolver` |
+| Authentication / session | `AuthenticationInspector`, `SessionInspector` |
+| Trust evaluation | `TrustEvaluator` |
+| Post-pipeline hook | `IdentityResponseHook` |
 | Enforcement | `EnforcementHandler` (or wrap `CompositeEnforcementHandler`) |
 | Telemetry | `TelemetryEmitter` |
 | Metrics | `SentinelMetrics` |
@@ -215,13 +235,13 @@ Local enforcement stays authoritative; Redis and transport failures are fail-ope
 | Cluster throttle store | `ClusterThrottleStore` (default noop; Redis when wired) |
 | Model registry read | `ModelRegistryReader` (default **`FilesystemModelRegistry`** when model-registry refresh auto-configuration is active) |
 
-**Wiring:** Spring Boot auto-configuration uses **`@ConditionalOnMissingBean`** on these types (see `SentinelAutoConfiguration`, `ModelRegistryAutoConfiguration`, and distributed packages). Provide your own bean of the same type to replace the default implementation.
+**Wiring:** Spring Boot auto-configuration uses **`@ConditionalOnMissingBean`** on these types (see `SentinelAutoConfiguration`, identity auto-configuration, `ModelRegistryAutoConfiguration`, and distributed packages). Provide your own bean of the same type to replace the default implementation.
 
 ---
 
 ## 13. Dependencies (reality)
 
-- **ai-sentinel-core:** SLF4J, Micrometer Core, Jakarta Servlet API (provided), Lombok (provided), JUnit/Mockito/AssertJ (test).
+- **ai-sentinel-core:** SLF4J, Micrometer Core, Lombok (provided), JUnit/Mockito/AssertJ/ArchUnit (test). No servlet API and no Spring on the compile or runtime classpath.
 - **ai-sentinel-spring-boot-starter:** Spring Boot Web, Actuator, Security (optional integration), Micrometer; depends on **ai-sentinel-core** only (not on the trainer).
 - **ai-sentinel-trainer:** **ai-sentinel-core**, Spring Boot starter (`spring-boot-starter`), JSON (`spring-boot-starter-json`), Kafka (`spring-kafka`), Actuator, optional Micrometer Prometheus at runtime; Lombok (provided); test stack JUnit 5 / AssertJ / `spring-boot-starter-test`. Standalone deployable; **not** a transitive dependency of applications that only use the starter library.
 

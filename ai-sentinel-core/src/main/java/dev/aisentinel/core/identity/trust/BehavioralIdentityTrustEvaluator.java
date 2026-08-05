@@ -8,7 +8,7 @@ import dev.aisentinel.core.identity.model.TrustScore;
 import dev.aisentinel.core.identity.spi.TrustEvaluator;
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
-import jakarta.servlet.http.HttpServletRequest;
+import dev.aisentinel.core.http.HttpRequestView;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -34,7 +34,7 @@ public final class BehavioralIdentityTrustEvaluator implements TrustEvaluator {
     }
 
     @Override
-    public TrustEvaluation evaluate(IdentityContext identity, HttpServletRequest request, RequestFeatures features,
+    public TrustEvaluation evaluate(IdentityContext identity, HttpRequestView request, RequestFeatures features,
                                     RequestContext ctx) {
         String key = baselineKey(identity, features.identityHash());
         long now = features.timestampMillis() > 0 ? features.timestampMillis() : System.currentTimeMillis();

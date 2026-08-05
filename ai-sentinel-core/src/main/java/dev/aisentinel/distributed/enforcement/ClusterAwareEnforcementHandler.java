@@ -5,8 +5,8 @@ import dev.aisentinel.core.enforcement.EnforcementScope;
 import dev.aisentinel.core.policy.EnforcementAction;
 import dev.aisentinel.distributed.quarantine.ClusterQuarantineReader;
 import dev.aisentinel.distributed.quarantine.NoopClusterQuarantineReader;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import dev.aisentinel.core.http.HttpRequestView;
+import dev.aisentinel.core.enforcement.EnforcementResponse;
 
 import java.util.OptionalLong;
 
@@ -35,7 +35,7 @@ public final class ClusterAwareEnforcementHandler implements EnforcementHandler 
     }
 
     @Override
-    public boolean apply(EnforcementAction action, HttpServletRequest request, HttpServletResponse response,
+    public boolean apply(EnforcementAction action, HttpRequestView request, EnforcementResponse response,
                          String identityHash, String endpoint) {
         return delegate.apply(action, request, response, identityHash, endpoint);
     }

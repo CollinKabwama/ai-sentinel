@@ -3,7 +3,7 @@ package dev.aisentinel.core.feature;
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
 import dev.aisentinel.core.store.BaselineStore;
-import jakarta.servlet.http.HttpServletRequest;
+import dev.aisentinel.core.http.HttpRequestView;
 
 import java.util.Enumeration;
 import java.util.HashMap;
@@ -44,7 +44,7 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
     }
 
     @Override
-    public RequestFeatures extract(HttpServletRequest request, String identityHash, RequestContext ctx) {
+    public RequestFeatures extract(HttpRequestView request, String identityHash, RequestContext ctx) {
         long now = System.currentTimeMillis();
         String endpoint = normalizeEndpoint(request.getRequestURI());
 
@@ -151,7 +151,7 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
         volatile long lastAccessMs;
     }
 
-    private double extractTokenAgeSeconds(HttpServletRequest request) {
+    private double extractTokenAgeSeconds(HttpRequestView request) {
         String auth = request.getHeader("Authorization");
         if (auth == null) return -1;
         String issuedStr = request.getHeader("X-Token-Issued-At");
@@ -164,7 +164,7 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
         }
     }
 
-    private long extractPayloadSize(HttpServletRequest request) {
+    private long extractPayloadSize(HttpRequestView request) {
         String cl = request.getHeader("Content-Length");
         if (cl == null) return 0;
         try {
@@ -174,7 +174,7 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
         }
     }
 
-    private long computeHeaderFingerprint(HttpServletRequest request) {
+    private long computeHeaderFingerprint(HttpRequestView request) {
         Map<String, String> h = new HashMap<>();
         Enumeration<String> names = request.getHeaderNames();
         if (names == null) return 0;
@@ -193,7 +193,7 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
         return endpointHistory.size();
     }
 
-    private int extractIpBucket(HttpServletRequest request) {
+    private int extractIpBucket(HttpRequestView request) {
         String ip = request.getRemoteAddr();
         if (ip == null) return 0;
         if (ip.contains(":")) {

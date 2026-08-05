@@ -9,13 +9,12 @@ import dev.aisentinel.core.enforcement.EnforcementScope;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.policy.EnforcementAction;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import dev.aisentinel.core.http.HttpRequestView;
+import dev.aisentinel.core.enforcement.EnforcementResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
-import java.io.PrintWriter;
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -63,9 +62,8 @@ class DistributedQuarantineDroppedWriteCompositeTest {
             writer,
             "tenant-a");
 
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpServletResponse response = mock(HttpServletResponse.class);
-        when(response.getWriter()).thenReturn(new PrintWriter(java.io.OutputStream.nullOutputStream(), true));
+        HttpRequestView request = mock(HttpRequestView.class);
+        EnforcementResponse response = mock(EnforcementResponse.class);
 
         try {
             assertThat(composite.apply(EnforcementAction.QUARANTINE, request, response, "id1", "/a")).isFalse();
@@ -109,9 +107,8 @@ class DistributedQuarantineDroppedWriteCompositeTest {
                 EnforcementScope.IDENTITY_ENDPOINT,
                 writer,
                 "t");
-            HttpServletRequest request = mock(HttpServletRequest.class);
-            HttpServletResponse response = mock(HttpServletResponse.class);
-            when(response.getWriter()).thenReturn(new PrintWriter(java.io.OutputStream.nullOutputStream(), true));
+            HttpRequestView request = mock(HttpRequestView.class);
+            EnforcementResponse response = mock(EnforcementResponse.class);
             assertThat(composite.apply(EnforcementAction.QUARANTINE, request, response, "z", "/z")).isFalse();
             long elapsedMs = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - t0);
             assertThat(elapsedMs).isLessThan(500L);

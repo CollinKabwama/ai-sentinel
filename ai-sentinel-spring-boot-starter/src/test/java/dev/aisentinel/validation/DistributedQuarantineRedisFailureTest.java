@@ -10,8 +10,8 @@ import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.policy.EnforcementAction;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
 import dev.aisentinel.distributed.quarantine.NoopClusterQuarantineWriter;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import dev.aisentinel.core.http.HttpRequestView;
+import dev.aisentinel.core.enforcement.EnforcementResponse;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.connection.RedisStandaloneConfiguration;
@@ -20,7 +20,6 @@ import org.springframework.data.redis.connection.lettuce.LettuceConnectionFactor
 import org.springframework.data.redis.core.StringRedisTemplate;
 
 import java.io.IOException;
-import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.time.Duration;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -76,9 +75,8 @@ class DistributedQuarantineRedisFailureTest {
             writer,
             "t");
         try {
-            HttpServletRequest request = mock(HttpServletRequest.class);
-            HttpServletResponse response = mock(HttpServletResponse.class);
-            when(response.getWriter()).thenReturn(new PrintWriter(java.io.OutputStream.nullOutputStream(), true));
+            HttpRequestView request = mock(HttpRequestView.class);
+            EnforcementResponse response = mock(EnforcementResponse.class);
 
             boolean allowed = composite.apply(EnforcementAction.QUARANTINE, request, response, "id1", "/api");
             assertThat(allowed).isFalse();
@@ -107,9 +105,8 @@ class DistributedQuarantineRedisFailureTest {
             EnforcementScope.IDENTITY_ENDPOINT,
             NoopClusterQuarantineWriter.INSTANCE,
             "t");
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpServletResponse response = mock(HttpServletResponse.class);
-        when(response.getWriter()).thenReturn(new PrintWriter(java.io.OutputStream.nullOutputStream(), true));
+        HttpRequestView request = mock(HttpRequestView.class);
+        EnforcementResponse response = mock(EnforcementResponse.class);
         assertThat(composite.apply(EnforcementAction.QUARANTINE, request, response, "x", "/y")).isFalse();
         assertThat(composite.isQuarantined("x", "/y")).isTrue();
     }

@@ -1,7 +1,7 @@
 package dev.aisentinel.autoconfigure.identity;
 
 import dev.aisentinel.core.identity.model.AuthenticationContext;
-import jakarta.servlet.http.HttpServletRequest;
+import dev.aisentinel.core.http.HttpRequestView;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -25,7 +25,7 @@ class SpringSecurityAuthenticationInspectorTest {
     @Test
     void returnsUnauthenticatedWhenNoSecurityContext() {
         SecurityContextHolder.clearContext();
-        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpRequestView request = mock(HttpRequestView.class);
         assertThat(inspector.inspect(request, "hash"))
             .isEqualTo(AuthenticationContext.unauthenticated());
     }
@@ -34,7 +34,7 @@ class SpringSecurityAuthenticationInspectorTest {
     void returnsPrincipalWhenAuthenticated() {
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken("alice", "cred", List.of()));
-        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpRequestView request = mock(HttpRequestView.class);
         assertThat(inspector.inspect(request, "hash"))
             .isEqualTo(AuthenticationContext.ofAuthenticated("alice", "UsernamePasswordAuthenticationToken", List.of()));
     }
@@ -43,7 +43,7 @@ class SpringSecurityAuthenticationInspectorTest {
     void returnsRoleNamesWhenAuthoritiesPresent() {
         SecurityContextHolder.getContext().setAuthentication(
             new UsernamePasswordAuthenticationToken("bob", "c", List.of(new SimpleGrantedAuthority("ROLE_APP"))));
-        HttpServletRequest request = mock(HttpServletRequest.class);
+        HttpRequestView request = mock(HttpRequestView.class);
         assertThat(inspector.inspect(request, "hash").roleNames()).containsExactly("ROLE_APP");
     }
 }

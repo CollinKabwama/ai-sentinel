@@ -6,7 +6,7 @@ package dev.aisentinel.core.policy;
 public record TrustPolicyAdjustment(EnforcementAction action, String trustPolicyDetail) {
     public TrustPolicyAdjustment {
         if (action == null) {
-            throw new IllegalArgumentException("action");
+            throw new IllegalArgumentException("TrustPolicyAdjustment requires a non-null EnforcementAction");
         }
         trustPolicyDetail = trustPolicyDetail != null ? trustPolicyDetail : "";
     }

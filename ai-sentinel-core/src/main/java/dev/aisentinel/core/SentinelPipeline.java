@@ -1,11 +1,12 @@
 package dev.aisentinel.core;
 
+import dev.aisentinel.core.decision.RiskDecision;
+import dev.aisentinel.core.decision.SentinelDecisionEngine;
 import dev.aisentinel.core.enforcement.EnforcementHandler;
+import dev.aisentinel.core.enforcement.EnforcementResponse;
 import dev.aisentinel.core.enforcement.EnforcementScope;
 import dev.aisentinel.core.feature.FeatureExtractor;
-import dev.aisentinel.core.identity.IdentityContextKeys;
-import dev.aisentinel.core.identity.model.IdentityContext;
-import dev.aisentinel.core.identity.model.TrustEvaluation;
+import dev.aisentinel.core.http.HttpRequestView;
 import dev.aisentinel.core.identity.spi.IdentityContextResolver;
 import dev.aisentinel.core.identity.spi.IdentityResponseHook;
 import dev.aisentinel.core.identity.spi.NoopIdentityContextResolver;
@@ -18,8 +19,6 @@ import dev.aisentinel.core.policy.EnforcementAction;
 import dev.aisentinel.core.policy.NoopTrustPolicyAdjuster;
 import dev.aisentinel.core.policy.PolicyEngine;
 import dev.aisentinel.core.policy.TrustPolicyAdjuster;
-import dev.aisentinel.core.policy.TrustPolicyAdjustment;
-import dev.aisentinel.core.policy.TrustPolicyContextKeys;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.scoring.AnomalyScorer;
@@ -29,17 +28,15 @@ import dev.aisentinel.core.fusion.FusionContextKeys;
 import dev.aisentinel.core.fusion.NoopRequestRiskFusion;
 import dev.aisentinel.core.fusion.RequestRiskFusion;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
-import dev.aisentinel.core.telemetry.TelemetryEvent;
 import dev.aisentinel.distributed.training.NoopTrainingCandidatePublisher;
 import dev.aisentinel.distributed.training.TrainingCandidatePublishRequest;
 import dev.aisentinel.distributed.training.TrainingCandidatePublisher;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Central orchestration of feature extraction, scoring, policy, enforcement, telemetry, metrics, and optional
- * training export. Invoked from the servlet filter (Spring Boot starter) on each request.
+ * Central orchestration of identity resolution, feature extraction, the {@link SentinelDecisionEngine}, enforcement,
+ * and optional training export. Invoked from the servlet filter (Spring Boot starter) on each request via the
+ * framework-neutral {@link HttpRequestView} / {@link EnforcementResponse} boundary.
  * <p>
  * Request-path invariants: scoring and policy run synchronously; training publish is async and fail-open; failures in
  * scoring may fail-open per pipeline logic without blocking indefinitely.
@@ -48,12 +45,9 @@ import lombok.extern.slf4j.Slf4j;
 public final class SentinelPipeline {
 
     private final FeatureExtractor featureExtractor;
-    private final AnomalyScorer scorer;
     private final CompositeScorer compositeScorerOrNull;
-    private final PolicyEngine policyEngine;
     private final EnforcementHandler enforcementHandler;
-    private final TelemetryEmitter telemetry;
-    private final StartupGrace startupGrace;
+    private final SentinelDecisionEngine decisionEngine;
     private final SentinelMetrics metrics;
     private final TrainingCandidatePublisher trainingCandidatePublisher;
     private final EnforcementScope enforcementScope;
@@ -61,10 +55,7 @@ public final class SentinelPipeline {
     private final String trainingNodeId;
     private final String sentinelModeName;
     private final IdentityContextResolver identityContextResolver;
-    private final TrustEvaluator trustEvaluator;
-    private final TrustPolicyAdjuster trustPolicyAdjuster;
     private final IdentityResponseHook identityResponseHook;
-    private final RequestRiskFusion riskFusion;
 
     public SentinelPipeline(FeatureExtractor featureExtractor, AnomalyScorer scorer, PolicyEngine policyEngine,
                             EnforcementHandler enforcementHandler, TelemetryEmitter telemetry, StartupGrace startupGrace,
@@ -94,13 +85,11 @@ public final class SentinelPipeline {
                             IdentityResponseHook identityResponseHook,
                             RequestRiskFusion riskFusion) {
         this.featureExtractor = featureExtractor;
-        this.scorer = scorer;
         this.compositeScorerOrNull = compositeScorerOrNull;
-        this.policyEngine = policyEngine;
         this.enforcementHandler = enforcementHandler;
-        this.telemetry = telemetry;
-        this.startupGrace = startupGrace != null ? startupGrace : StartupGrace.NEVER;
         this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
+        this.decisionEngine = new SentinelDecisionEngine(scorer, policyEngine, enforcementHandler, telemetry,
+            startupGrace, this.metrics, trustEvaluator, trustPolicyAdjuster, riskFusion);
         this.trainingCandidatePublisher = trainingCandidatePublisher != null
             ? trainingCandidatePublisher
             : NoopTrainingCandidatePublisher.INSTANCE;
@@ -109,16 +98,15 @@ public final class SentinelPipeline {
         this.trainingNodeId = trainingNodeId != null ? trainingNodeId : "";
         this.sentinelModeName = sentinelModeName != null ? sentinelModeName : "ENFORCE";
         this.identityContextResolver = identityContextResolver != null ? identityContextResolver : NoopIdentityContextResolver.INSTANCE;
-        this.trustEvaluator = trustEvaluator != null ? trustEvaluator : NoopTrustEvaluator.INSTANCE;
-        this.trustPolicyAdjuster = trustPolicyAdjuster != null ? trustPolicyAdjuster : NoopTrustPolicyAdjuster.INSTANCE;
         this.identityResponseHook = identityResponseHook != null ? identityResponseHook : NoopIdentityResponseHook.INSTANCE;
-        this.riskFusion = riskFusion != null ? riskFusion : NoopRequestRiskFusion.INSTANCE;
     }
 
     /**
-     * Process request. Returns true if request should proceed (doFilter), false if already responded.
+     * Runs identity resolution, feature extraction, decision evaluation, enforcement, and optional training publish.
+     *
+     * @return {@code true} if the filter chain should continue; {@code false} if the response was already committed
      */
-    public boolean process(HttpServletRequest request, HttpServletResponse response, String identityHash) {
+    public boolean process(HttpRequestView request, EnforcementResponse response, String identityHash) {
         long pipelineStart = System.nanoTime();
         RequestContext ctx = new RequestContext();
         RequestFeatures features = null;
@@ -128,14 +116,16 @@ public final class SentinelPipeline {
             try {
                 identityContextResolver.resolve(request, identityHash, ctx);
             } catch (Exception e) {
-                log.debug("Identity resolution failed for {}: {}", request.getRequestURI(), e.getMessage());
+                log.debug("Identity resolution failed for {}: {}: {}",
+                    request.getRequestURI(), e.getClass().getSimpleName(), e.getMessage());
                 metrics.recordFailOpen();
             }
 
             try {
                 features = featureExtractor.extract(request, identityHash, ctx);
             } catch (Exception e) {
-                log.debug("Feature extraction failed for {}: {}", request.getRequestURI(), e.getMessage());
+                log.debug("Feature extraction failed for {}: {}: {}",
+                    request.getRequestURI(), e.getClass().getSimpleName(), e.getMessage());
                 metrics.recordFailOpen();
                 returnValue = true;
                 return returnValue;
@@ -143,87 +133,17 @@ public final class SentinelPipeline {
 
             hookEligible = true;
 
-            IdentityContext identityCtx = ctx.get(IdentityContextKeys.IDENTITY_CONTEXT, IdentityContext.class);
-            if (identityCtx != null) {
-                try {
-                    TrustEvaluation te = trustEvaluator.evaluate(identityCtx, request, features, ctx);
-                    if (te != null) {
-                        ctx.put(IdentityContextKeys.IDENTITY_CONTEXT,
-                            identityCtx.withTrustAndRisk(te.trustScore(), te.riskSignals()));
-                    }
-                } catch (Exception e) {
-                    log.debug("Trust evaluation failed for {}: {}", features.endpoint(), e.getMessage());
-                    metrics.recordFailOpen();
-                }
-            }
-
-            double rawScore;
-            long scoreStart = System.nanoTime();
-            try {
-                rawScore = scorer.score(features);
-                scorer.update(features);
-            } catch (Exception e) {
-                log.debug("Scoring failed for {}: {}", features.endpoint(), e.getMessage());
-                metrics.recordScoringError();
-                metrics.recordFailOpen();
+            RiskDecision decision = decisionEngine.evaluate(request, identityHash, features, ctx);
+            if (decision == null) {
                 returnValue = true;
                 return returnValue;
-            } finally {
-                metrics.recordScoringLatencyNanos(System.nanoTime() - scoreStart);
             }
 
-            if (Double.isNaN(rawScore) || rawScore < 0) {
-                metrics.recordNanOrNegativeScoreClamped();
-            }
-            double score = clampScore(rawScore);
-
-            double policyScore = score;
-            if (riskFusion.enabled()) {
-                IdentityContext identityForFusion = ctx.get(IdentityContextKeys.IDENTITY_CONTEXT, IdentityContext.class);
-                if (identityForFusion != null) {
-                    try {
-                        double trust = identityForFusion.trust().value();
-                        if (!Double.isNaN(trust)) {
-                            FusedRisk fused = riskFusion.fuse(score, trust);
-                            policyScore = fused.fusedScore();
-                            ctx.put(FusionContextKeys.FUSED_RISK, fused);
-                        }
-                    } catch (Exception e) {
-                        log.debug("Risk fusion failed for {}: {}", features.endpoint(), e.getMessage());
-                        metrics.recordFailOpen();
-                    }
-                }
-            }
-
-            EnforcementAction action = policyEngine.evaluate(policyScore, features, features.endpoint());
-            try {
-                TrustPolicyAdjustment tp = trustPolicyAdjuster.adjust(action, score, features, features.endpoint(),
-                    request, ctx);
-                action = tp.action();
-                if (tp.trustPolicyDetail() != null && !tp.trustPolicyDetail().isBlank()) {
-                    ctx.put(TrustPolicyContextKeys.TRUST_POLICY_DETAIL, tp.trustPolicyDetail());
-                }
-            } catch (Exception e) {
-                log.debug("Trust policy adjustment failed for {}: {}", features.endpoint(), e.getMessage());
-                metrics.recordFailOpen();
-            }
-
-            telemetry.emit(TelemetryEvent.threatScored(identityHash, features.endpoint(), policyScore));
-            if (score > 0.5) {
-                telemetry.emit(TelemetryEvent.anomalyDetected(identityHash, features.endpoint(), score));
-            }
-
-            boolean startupGraceActive = startupGrace.isGraceActive();
-            if (startupGraceActive) {
-                action = EnforcementAction.MONITOR;
-            } else if (enforcementHandler.isQuarantined(identityHash, features.endpoint())) {
-                action = EnforcementAction.QUARANTINE;
-            }
-
-            metrics.recordPolicyAction(action);
+            EnforcementAction action = decision.action();
             boolean proceed = enforcementHandler.apply(action, request, response, identityHash, features.endpoint());
 
-            offerTrainingCandidate(features, identityHash, action, score, proceed, startupGraceActive, ctx);
+            offerTrainingCandidate(features, identityHash, action, decision.anomalyScore(), proceed,
+                decision.startupGraceActive(), ctx);
 
             returnValue = proceed;
             return returnValue;
@@ -277,15 +197,5 @@ public final class SentinelPipeline {
             log.debug("Training candidate publisher failed: {}", e.toString());
             metrics.recordTrainingCandidatePublishUnexpectedFailure();
         }
-    }
-
-    /**
-     * Prevents NaN or out-of-range scores from causing policy bypass; treat NaN as high risk.
-     * Fusion runs only after this clamp, so {@link dev.aisentinel.core.fusion.DeterministicRequestRiskFusion}'s internal
-     * {@code clamp01} treating NaN as 0 is not used for raw scorer output on the request path.
-     */
-    private static double clampScore(double score) {
-        if (Double.isNaN(score) || score < 0) return 1.0;
-        return Math.min(1.0, score);
     }
 }

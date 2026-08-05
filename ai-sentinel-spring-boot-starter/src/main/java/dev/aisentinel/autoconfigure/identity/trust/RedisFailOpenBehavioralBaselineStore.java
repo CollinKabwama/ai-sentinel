@@ -209,7 +209,7 @@ public final class RedisFailOpenBehavioralBaselineStore implements BehavioralBas
             byte[] digest = md.digest(logicalKey.getBytes(StandardCharsets.UTF_8));
             return prefix + HexFormat.of().formatHex(digest);
         } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException(e);
+            throw new IllegalStateException("SHA-256 MessageDigest is required for trust baseline Redis keys", e);
         }
     }
 

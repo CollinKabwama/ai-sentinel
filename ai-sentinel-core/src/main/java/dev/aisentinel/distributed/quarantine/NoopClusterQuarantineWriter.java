@@ -1,7 +1,8 @@
 package dev.aisentinel.distributed.quarantine;
 
 /**
- * Default writer: no cross-node replication.
+ * Default writer when cluster quarantine publish is off: discards quarantine events.
+ * Thread-safe singleton.
  */
 public final class NoopClusterQuarantineWriter implements ClusterQuarantineWriter {
 

@@ -1,8 +1,8 @@
 package dev.aisentinel.core.feature;
 
+import dev.aisentinel.core.http.HttpRequestView;
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
-import jakarta.servlet.http.HttpServletRequest;
 
 /**
  * Extracts privacy-aware numeric features from an HTTP request.
@@ -18,7 +18,7 @@ public interface FeatureExtractor {
      * @param ctx          optional request context
      * @return immutable feature vector for scoring
      */
-    RequestFeatures extract(HttpServletRequest request, String identityHash, RequestContext ctx);
+    RequestFeatures extract(HttpRequestView request, String identityHash, RequestContext ctx);
 
     /**
      * Approximate size of extractor-internal caches for actuator/metrics (e.g. endpoint history). Default none.

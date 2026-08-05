@@ -9,7 +9,7 @@ import dev.aisentinel.core.identity.model.TrustEvaluation;
 import dev.aisentinel.core.identity.model.TrustScore;
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
-import jakarta.servlet.http.HttpServletRequest;
+import dev.aisentinel.core.http.HttpRequestView;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -43,7 +43,7 @@ class BehavioralIdentityTrustEvaluatorTest {
             SessionContext.ofHashedId("sess-stable"),
             TrustScore.fullyTrusted(),
             IdentityRiskSignals.empty());
-        HttpServletRequest req = mock(HttpServletRequest.class);
+        HttpRequestView req = mock(HttpRequestView.class);
         RequestContext ctx = new RequestContext();
         TrustEvaluation third = null;
         for (int i = 0; i < 3; i++) {
@@ -63,7 +63,7 @@ class BehavioralIdentityTrustEvaluatorTest {
             SessionContext.ofHashedId("sess-sparse"),
             TrustScore.fullyTrusted(),
             IdentityRiskSignals.empty());
-        TrustEvaluation first = ev.evaluate(id, mock(HttpServletRequest.class),
+        TrustEvaluation first = ev.evaluate(id, mock(HttpRequestView.class),
             features("/a", 1.0, 1L, 0, 1L), new RequestContext());
         assertThat(first.riskSignals().components()).containsKey(IdentityRiskSignalKeys.SPARSE_HISTORY);
         assertThat(first.trustScore().value()).isLessThanOrEqualTo(0.82);
@@ -78,7 +78,7 @@ class BehavioralIdentityTrustEvaluatorTest {
             SessionContext.ofHashedId("sess-burst"),
             TrustScore.fullyTrusted(),
             IdentityRiskSignals.empty());
-        TrustEvaluation te = ev.evaluate(id, mock(HttpServletRequest.class),
+        TrustEvaluation te = ev.evaluate(id, mock(HttpRequestView.class),
             features("/x", 80.0, 1L, 0, 1L), new RequestContext());
         assertThat(te.riskSignals().components()).containsKey(IdentityRiskSignalKeys.REQUEST_BURST);
         assertThat(te.trustScore().value()).isLessThan(0.95);
@@ -93,7 +93,7 @@ class BehavioralIdentityTrustEvaluatorTest {
             SessionContext.ofHashedId("sess-ip"),
             TrustScore.fullyTrusted(),
             IdentityRiskSignals.empty());
-        HttpServletRequest req = mock(HttpServletRequest.class);
+        HttpRequestView req = mock(HttpRequestView.class);
         RequestContext ctx = new RequestContext();
         ev.evaluate(id, req, features("/p", 1.0, 1L, 3, 1L), ctx);
         TrustEvaluation second = ev.evaluate(id, req, features("/p", 1.0, 1L, 99, 2L), ctx);
@@ -109,7 +109,7 @@ class BehavioralIdentityTrustEvaluatorTest {
             SessionContext.ofHashedId("sess-ua"),
             TrustScore.fullyTrusted(),
             IdentityRiskSignals.empty());
-        HttpServletRequest req = mock(HttpServletRequest.class);
+        HttpRequestView req = mock(HttpRequestView.class);
         RequestContext ctx = new RequestContext();
         ev.evaluate(id, req, features("/p", 1.0, 100L, 0, 1L), ctx);
         TrustEvaluation second = ev.evaluate(id, req, features("/p", 1.0, 200L, 0, 2L), ctx);
@@ -125,7 +125,7 @@ class BehavioralIdentityTrustEvaluatorTest {
             SessionContext.ofHashedId("new-s", true),
             TrustScore.fullyTrusted(),
             IdentityRiskSignals.empty());
-        TrustEvaluation te = ev.evaluate(id, mock(HttpServletRequest.class),
+        TrustEvaluation te = ev.evaluate(id, mock(HttpRequestView.class),
             features("/n", 1.0, 1L, 0, 1L), new RequestContext());
         assertThat(te.riskSignals().components()).containsKey(IdentityRiskSignalKeys.NEW_SESSION);
     }
@@ -172,7 +172,7 @@ class BehavioralIdentityTrustEvaluatorTest {
             SessionContext.ofHashedId("combo", true),
             TrustScore.fullyTrusted(),
             IdentityRiskSignals.empty());
-        TrustEvaluation te = ev.evaluate(id, mock(HttpServletRequest.class),
+        TrustEvaluation te = ev.evaluate(id, mock(HttpRequestView.class),
             features("/p", 80.0, 1L, 0, 1L), new RequestContext());
         var c = te.riskSignals().components();
         assertThat(c).containsKeys(

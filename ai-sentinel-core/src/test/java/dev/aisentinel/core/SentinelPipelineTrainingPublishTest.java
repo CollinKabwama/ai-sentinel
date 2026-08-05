@@ -18,8 +18,8 @@ import dev.aisentinel.core.policy.NoopTrustPolicyAdjuster;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
 import dev.aisentinel.distributed.training.TrainingCandidatePublishRequest;
 import dev.aisentinel.distributed.training.TrainingCandidatePublisher;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import dev.aisentinel.core.http.HttpRequestView;
+import dev.aisentinel.core.enforcement.EnforcementResponse;
 import org.junit.jupiter.api.Test;
 
 import java.util.concurrent.atomic.AtomicLong;
@@ -78,8 +78,8 @@ class SentinelPipelineTrainingPublishTest {
             NoopRequestRiskFusion.INSTANCE
         );
 
-        HttpServletRequest request = mock(HttpServletRequest.class);
-        HttpServletResponse response = mock(HttpServletResponse.class);
+        HttpRequestView request = mock(HttpRequestView.class);
+        EnforcementResponse response = mock(EnforcementResponse.class);
         assertThat(pipeline.process(request, response, "h")).isTrue();
         verify(publisher).publish(any(TrainingCandidatePublishRequest.class));
         assertThat(unexpected.get()).isEqualTo(1);

@@ -36,3 +36,4 @@ Maintainers will acknowledge receipt when possible and coordinate a fix and disc
 - **Trainer dedup is JVM-local** — Duplicate `eventId` handling does not survive process restarts or multiple trainer instances without external coordination.
 
 No security boundary is perfect; review changes in your own threat model before production use.
+This project is an early open-source release (see parent `pom.xml` version); treat production readiness as an operator judgment, not a claim of the library alone.

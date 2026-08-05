@@ -3,7 +3,8 @@ package dev.aisentinel.distributed.quarantine;
 import java.util.OptionalLong;
 
 /**
- * Default reader: no shared quarantine (single-node behavior).
+ * Default reader when cluster quarantine is off: always empty (local enforcement only).
+ * Thread-safe singleton.
  */
 public final class NoopClusterQuarantineReader implements ClusterQuarantineReader {
 

@@ -5,7 +5,7 @@ import dev.aisentinel.core.identity.model.AuthenticationContext;
 import dev.aisentinel.core.identity.model.IdentityContext;
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
-import jakarta.servlet.http.HttpServletRequest;
+import dev.aisentinel.core.http.HttpRequestView;
 
 import java.util.Locale;
 
@@ -25,7 +25,7 @@ public final class DefaultTrustPolicyAdjuster implements TrustPolicyAdjuster {
                                         double riskScore,
                                         RequestFeatures features,
                                         String endpoint,
-                                        HttpServletRequest request,
+                                        HttpRequestView request,
                                         RequestContext ctx) {
         if (!config.enabled()) {
             return new TrustPolicyAdjustment(baseline, "");
@@ -54,7 +54,7 @@ public final class DefaultTrustPolicyAdjuster implements TrustPolicyAdjuster {
                                              double riskScore,
                                              RequestFeatures features,
                                              String endpoint,
-                                             HttpServletRequest request) {
+                                             HttpRequestView request) {
         if (Double.isNaN(trust)) {
             return new TrustPolicyAdjustment(baseline, "");
         }

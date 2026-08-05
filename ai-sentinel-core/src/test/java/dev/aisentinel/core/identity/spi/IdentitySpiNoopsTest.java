@@ -8,8 +8,8 @@ import dev.aisentinel.core.identity.model.TrustEvaluation;
 import dev.aisentinel.core.identity.model.TrustScore;
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
+import dev.aisentinel.core.http.HttpRequestView;
+import dev.aisentinel.core.enforcement.EnforcementResponse;
 import org.junit.jupiter.api.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -24,7 +24,7 @@ class IdentitySpiNoopsTest {
     void noopIdentityContextResolverLeavesContextUnchanged() {
         RequestContext ctx = new RequestContext();
         ctx.put("k", "v");
-        NoopIdentityContextResolver.INSTANCE.resolve(mock(HttpServletRequest.class), "hash", ctx);
+        NoopIdentityContextResolver.INSTANCE.resolve(mock(HttpRequestView.class), "hash", ctx);
         assertThat(ctx.get("k", String.class)).isEqualTo("v");
     }
 
@@ -38,7 +38,7 @@ class IdentitySpiNoopsTest {
         );
         TrustEvaluation out = NoopTrustEvaluator.INSTANCE.evaluate(
             id,
-            mock(HttpServletRequest.class),
+            mock(HttpRequestView.class),
             RequestFeatures.builder()
                 .identityHash("h")
                 .endpoint("/")
@@ -59,8 +59,8 @@ class IdentitySpiNoopsTest {
     @Test
     void noopIdentityResponseHookAcceptsInvocation() {
         NoopIdentityResponseHook.INSTANCE.afterPipeline(
-            mock(HttpServletRequest.class),
-            mock(HttpServletResponse.class),
+            mock(HttpRequestView.class),
+            mock(EnforcementResponse.class),
             "h",
             RequestFeatures.builder()
                 .identityHash("h")
@@ -82,7 +82,7 @@ class IdentitySpiNoopsTest {
     @Test
     void sessionInspectorFunctionalContract() {
         SessionInspector inspector = (req, hash) -> SessionContext.ofHashedId("abc", true);
-        SessionContext sc = inspector.inspect(mock(HttpServletRequest.class), "hash");
+        SessionContext sc = inspector.inspect(mock(HttpRequestView.class), "hash");
         assertThat(sc.sessionIdHash()).isEqualTo("abc");
         assertThat(sc.newSession()).isTrue();
     }
@@ -90,6 +90,6 @@ class IdentitySpiNoopsTest {
     @Test
     void authenticationInspectorFunctionalContract() {
         AuthenticationInspector auth = (req, hash) -> AuthenticationContext.ofPrincipal("user");
-        assertThat(auth.inspect(mock(HttpServletRequest.class), "h").principalName()).isEqualTo("user");
+        assertThat(auth.inspect(mock(HttpRequestView.class), "h").principalName()).isEqualTo("user");
     }
 }
