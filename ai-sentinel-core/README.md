@@ -1,7 +1,11 @@
 # ai-sentinel-core
 
-Framework-agnostic engine: **`SentinelPipeline`** (feature extract → score → policy → enforce → telemetry), scorers, policy, enforcement handlers, optional training-export contracts, and **`dev.aisentinel.model`** types for registry artifacts.
+Framework-independent identity-risk engine (no Spring, no Servlet API on the classpath).
 
-No Spring dependency in this module. Consumed by **`ai-sentinel-spring-boot-starter`** and **`ai-sentinel-trainer`**.
+**Primary types:** `SentinelPipeline` (orchestration), `SentinelDecisionEngine` / `RiskDecision` (pure evaluation),
+`HttpRequestView` / `EnforcementResponse` (transport boundary), feature extraction, `AnomalyScorer` implementations,
+policy, enforcement handlers, identity/trust/fusion SPIs, and `dev.aisentinel.model` registry artifact types.
 
-**Next:** [Root README](../README.md) · [Architecture](../ARCHITECTURE.md) — request lifecycle, scoring, policy, enforcement, distributed architecture, and extension points.
+Consumed by **`ai-sentinel-spring-boot-starter`** and **`ai-sentinel-trainer`**.
+
+**Next:** [Root README](../README.md) · [Architecture](../ARCHITECTURE.md)

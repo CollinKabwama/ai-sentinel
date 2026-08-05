@@ -67,7 +67,8 @@ public class SentinelFilter extends OncePerRequestFilter {
             }
             filterChain.doFilter(request, response);
         } catch (Exception e) {
-            log.warn("Sentinel pipeline error for path={}, allowing request: {}", request.getRequestURI(), e.getMessage());
+            log.warn("Sentinel pipeline error for path={}, allowing request (fail-open): {}: {}",
+                request.getRequestURI(), e.getClass().getSimpleName(), e.getMessage());
             metrics.recordFailOpen();
             filterChain.doFilter(request, response);
         }

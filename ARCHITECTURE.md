@@ -41,9 +41,14 @@ There is **no** `ai-sentinel-dashboard` module; visualize via Prometheus/Grafana
 ```
 Client
   ↓
-SentinelFilter
+SentinelFilter (ServletHttpRequestView / ServletEnforcementResponse)
   ↓
-Feature extraction → Scoring → Policy → Enforcement
+SentinelPipeline
+  → IdentityContextResolver (optional)
+  → FeatureExtractor
+  → SentinelDecisionEngine → RiskDecision
+  → EnforcementHandler
+  → TrainingCandidatePublisher / IdentityResponseHook
 ```
 
 **Optional training / registry path** (async and off-request for registry refresh; not on the servlet hot path for model fetch):
@@ -53,34 +58,41 @@ TrainingCandidatePublisher → Kafka (optional) → ai-sentinel-trainer → file
 ```
 
 ```mermaid
-flowchart LR
+flowchart TB
     Req[HTTP Request]
     Filter[SentinelFilter]
     View[HttpRequestView]
+    Pipeline[SentinelPipeline]
+    Id[IdentityContextResolver]
     Extractor[FeatureExtractor]
     Engine[SentinelDecisionEngine]
-    Stat[StatisticalScorer]
-    IF[IsolationForestScorer]
-    Comp[CompositeScorer]
+    Trust[TrustEvaluator]
+    Scorer[AnomalyScorer]
+    Fusion[RequestRiskFusion]
     Pol[PolicyEngine]
+    TrustPol[TrustPolicyAdjuster]
+    Decision[RiskDecision]
     Enf[EnforcementHandler]
     Tel[TelemetryEmitter]
 
     Req --> Filter
     Filter --> View
-    View --> Extractor
+    View --> Pipeline
+    Pipeline --> Id
+    Id --> Extractor
     Extractor --> Engine
-    Engine --> Stat
-    Engine --> IF
-    Stat --> Comp
-    IF --> Comp
-    Comp --> Pol
-    Pol --> Enf
-    Enf --> Tel
+    Engine --> Trust
+    Engine --> Scorer
+    Engine --> Fusion
+    Engine --> Pol
+    Engine --> TrustPol
+    Engine --> Decision
+    Decision --> Enf
+    Engine --> Tel
 ```
 
-1. **`SentinelFilter`** resolves identity (client IP via **`ClientIpResolver`** when proxies are trusted, plus optional Spring Security principal), skips excluded paths, wraps the servlet request/response in **`ServletHttpRequestView`** and **`ServletEnforcementResponse`**, then runs the pipeline.
-2. **`SentinelPipeline`** extracts features, delegates the risk decision to **`SentinelDecisionEngine`**, applies enforcement, publishes training candidates, and runs the response hook (including fail-open paths on errors).
+1. **`SentinelFilter`** resolves identity (client IP via **`ClientIpResolver`** when proxies are trusted, plus optional Spring Security principal), skips excluded paths, wraps the servlet request/response in **`ServletHttpRequestView`** and **`ServletEnforcementResponse`**, then runs the pipeline. In **MONITOR** mode, enforcement writes use **`DiscardingEnforcementResponse`** so the client response is not double-written.
+2. **`SentinelPipeline`** resolves identity context, extracts features, delegates the risk decision to **`SentinelDecisionEngine`**, applies enforcement, publishes training candidates, and runs the response hook (including fail-open paths on errors).
 3. **`SentinelDecisionEngine`** performs the servlet-free evaluation — trust, scoring, clamping, optional fusion, policy, trust adjustment, telemetry, startup grace and quarantine overrides — and returns a **`RiskDecision`**. It never writes to the response.
 
 **Framework boundary.** Core sees HTTP only through **`HttpRequestView`** (read) and **`EnforcementResponse`** (write), both defined in `ai-sentinel-core`. The Spring Boot starter supplies the only shipped implementations. `CoreIndependenceArchTest` fails the build if any core class gains a dependency on `jakarta.servlet`, `javax.servlet`, `org.springframework`, or `reactor.netty`.

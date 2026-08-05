@@ -115,11 +115,10 @@ Fix any test or build failures before continuing.
 
 ### 2. Set a non-SNAPSHOT version
 
-Central **release** publishing rejects `-SNAPSHOT` versions. Update the parent and every module parent reference, for example `1.0.0`:
+Central **release** publishing rejects `-SNAPSHOT` versions. Update the parent and every module parent reference to the release version (for example bump `0.1.0` → `0.2.0`):
 
 ```bash
-# Example: bump 1.0.0-SNAPSHOT → 1.0.0 in all pom.xml files
-# (adjust from/to versions as needed)
+# Example: bump versions in all pom.xml files (adjust from/to as needed)
 ```
 
 Confirm no `SNAPSHOT` remains:

@@ -3,9 +3,9 @@ package dev.aisentinel.core.runtime;
 /**
  * Indicates whether the JVM is still within a configurable post-startup window where enforcement may be relaxed.
  * <p>
- * Read on the request path during pipeline processing. {@link #isGraceActive} should be cheap (typically a time
- * comparison). When grace is active, the pipeline typically applies {@link dev.aisentinel.core.enforcement.CompositeEnforcementHandler}
- * behavior in a monitor-oriented way (see {@link dev.aisentinel.core.SentinelPipeline}).
+ * Read on the request path inside {@link dev.aisentinel.core.decision.SentinelDecisionEngine}.
+ * {@link #isGraceActive()} should be cheap (typically a time comparison). When grace is active, the engine forces
+ * {@link dev.aisentinel.core.policy.EnforcementAction#MONITOR} before quarantine overrides are applied.
  */
 public interface StartupGrace {
 

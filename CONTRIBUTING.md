@@ -8,6 +8,8 @@ For **new features** or **non-trivial behavior changes**, open an issue first so
 
 Contributions should match the project’s style: **small, reviewable changes**; **tests** when behavior changes; **documentation** when user-visible behavior or configuration changes.
 
+By participating, you agree to follow the [`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md).
+
 ---
 
 ## Breaking changes
@@ -37,7 +39,7 @@ When your PR **deprecates** functionality (but keeps it working for a transition
 
 | Module | Purpose |
 |--------|---------|
-| **ai-sentinel-core** | Framework-agnostic engine: features, scorers, policy, enforcement, pipeline contracts, Isolation Forest training/scoring, model artifact types (`dev.aisentinel.model.*`). |
+| **ai-sentinel-core** | Framework-agnostic engine: features, scorers, `SentinelDecisionEngine` / `RiskDecision`, policy, enforcement, pipeline contracts, Isolation Forest training/scoring, model artifact types (`dev.aisentinel.model.*`). |
 | **ai-sentinel-spring-boot-starter** | Spring Boot auto-configuration, servlet filter, `SentinelProperties`, actuator, Micrometer adapter, optional distributed and model-registry beans. |
 | **ai-sentinel-trainer** | Optional standalone Spring Boot app: consumes training candidates (Kafka when enabled), trains IF, publishes to a filesystem model registry. See [`ai-sentinel-trainer/README.md`](ai-sentinel-trainer/README.md). |
 | **ai-sentinel-demo** | Reference app for local runs and smoke tests. |
@@ -46,9 +48,10 @@ When your PR **deprecates** functionality (but keeps it working for a transition
 
 ## Where to start
 
-1. **`SentinelPipeline`** — [`ai-sentinel-core/.../SentinelPipeline.java`](ai-sentinel-core/src/main/java/dev/aisentinel/core/SentinelPipeline.java) — extract → score → policy → enforce → telemetry and optional training publish.
-2. **`SentinelFilter`** — [`ai-sentinel-spring-boot-starter/.../SentinelFilter.java`](ai-sentinel-spring-boot-starter/src/main/java/dev/aisentinel/autoconfigure/web/SentinelFilter.java) — servlet entry point.
-3. **`SentinelAutoConfiguration`** — [`.../SentinelAutoConfiguration.java`](ai-sentinel-spring-boot-starter/src/main/java/dev/aisentinel/autoconfigure/config/SentinelAutoConfiguration.java) — beans and `@ConditionalOnMissingBean` extension points.
+1. **`SentinelPipeline`** — [`ai-sentinel-core/.../SentinelPipeline.java`](ai-sentinel-core/src/main/java/dev/aisentinel/core/SentinelPipeline.java) — identity resolve → feature extract → **`SentinelDecisionEngine`** (score / fuse / policy) → enforce → optional training publish.
+2. **`SentinelDecisionEngine`** — [`.../decision/SentinelDecisionEngine.java`](ai-sentinel-core/src/main/java/dev/aisentinel/core/decision/SentinelDecisionEngine.java) — framework-free risk decision returning `RiskDecision` (never writes the HTTP response).
+3. **`SentinelFilter`** — [`ai-sentinel-spring-boot-starter/.../SentinelFilter.java`](ai-sentinel-spring-boot-starter/src/main/java/dev/aisentinel/autoconfigure/web/SentinelFilter.java) — servlet entry point and adapter boundary.
+4. **`SentinelAutoConfiguration`** — [`.../SentinelAutoConfiguration.java`](ai-sentinel-spring-boot-starter/src/main/java/dev/aisentinel/autoconfigure/config/SentinelAutoConfiguration.java) — beans and `@ConditionalOnMissingBean` extension points.
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/configuration.md`](docs/configuration.md) for the full picture.
 
@@ -104,7 +107,7 @@ java -version   # expect 21
 mvn clean install
 ```
 
-To consume a **local snapshot** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter:1.0.0-SNAPSHOT` (or the specific module you need). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
+To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter:0.1.0` (or the version in the parent `pom.xml`). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
 
 **Publishing to Maven Central:** see **[`RELEASING.md`](RELEASING.md)** for the full release checklist (Central Portal, GPG, `-Prelease` deploy).
 
@@ -135,6 +138,10 @@ Otherwise starter tests may fail discovery with `NoClassDefFoundError` for new c
 If a failure is unclear, re-run with `-e` or `-X` for more Maven output, or run a single test class with `-Dtest=ClassName`.
 
 Docker is optional; Testcontainers-based distributed quarantine tests are skipped when Docker is unavailable.
+
+Regression scenarios for the decision path (enforcement actions, fail-open, adapter boundary) live in
+`ai-sentinel-core` / starter test packages (`…regression…`, `ServletAdapterEndToEndRegressionTest`, ArchUnit).
+See also [`ARCHITECTURE.md`](ARCHITECTURE.md) § testing / validation notes.
 
 ---
 

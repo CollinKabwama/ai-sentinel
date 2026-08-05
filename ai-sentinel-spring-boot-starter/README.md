@@ -1,7 +1,9 @@
 # ai-sentinel-spring-boot-starter
 
-Spring Boot auto-configuration: **`SentinelFilter`**, **`SentinelAutoConfiguration`**, **`SentinelProperties`** (`ai.sentinel.*`), actuator **`/actuator/sentinel`**, Micrometer **`MicrometerSentinelMetrics`**, and optional distributed / filesystem model-registry beans.
+Spring Boot integration for AI-Sentinel: **`SentinelFilter`**, **`SentinelAutoConfiguration`**,
+**`SentinelProperties`** (`ai.sentinel.*`), servlet adapters (`ServletHttpRequestView`, `ServletEnforcementResponse`),
+actuator **`/actuator/sentinel`**, Micrometer metrics, and optional Redis / Kafka / filesystem model-registry beans.
 
-Depends only on **`ai-sentinel-core`**.
+Depends on **`ai-sentinel-core`**. Custom beans replace defaults via `@ConditionalOnMissingBean`.
 
-**Next:** [Root README](../README.md) · [Configuration](../docs/configuration.md) · [Architecture](../ARCHITECTURE.md) — Spring integration, distributed components, dependencies, and testing.
+**Next:** [Root README](../README.md) · [Configuration](../docs/configuration.md) · [Architecture](../ARCHITECTURE.md)

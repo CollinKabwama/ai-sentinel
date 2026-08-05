@@ -28,7 +28,7 @@ AI-Sentinel is a library and Spring Boot starter that evaluates each HTTP reques
 
 | Layer | Responsibility |
 |-------|------------------|
-| **ai-sentinel-core** | `SentinelPipeline`, feature extraction, scoring, policy, enforcement, telemetry contracts, identity, trust, and fusion types |
+| **ai-sentinel-core** | Framework-independent engine: `SentinelPipeline`, `SentinelDecisionEngine` / `RiskDecision`, features, scoring, policy, enforcement, identity, trust, and fusion |
 | **ai-sentinel-spring-boot-starter** | Auto-configuration, `SentinelFilter`, `SentinelProperties`, actuator, Micrometer, optional Redis and Kafka integration |
 | **ai-sentinel-trainer** | Optional application: consumes training candidates, trains Isolation Forest models, publishes artifacts to a shared filesystem registry |
 | **ai-sentinel-demo** | Reference application and smoke tests |
@@ -41,12 +41,15 @@ Runtime details, extension points, and distributed components are described in *
 
 ```text
 Request
+  → SentinelFilter (servlet adapter)
   → Identity resolution (optional)
   → Feature extraction
-  → Behavioral trust evaluation (optional)
-  → Anomaly scoring
-  → Risk fusion (optional)
-  → Policy evaluation
+  → SentinelDecisionEngine
+      → Behavioral trust (optional)
+      → Anomaly scoring (AnomalyScorer)
+      → Risk fusion (optional)
+      → Policy evaluation (PolicyEngine)
+      → Trust-aware policy adjustment (optional)
   → Enforcement
   → Telemetry / metrics
 ```
@@ -88,9 +91,11 @@ Add the starter dependency:
 <dependency>
     <groupId>dev.aisentinel</groupId>
     <artifactId>ai-sentinel-spring-boot-starter</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>0.1.0</version>
 </dependency>
 ```
+
+Published artifacts use the version in the parent `pom.xml` (currently **0.1.0**). For a local build not yet released, install with `mvn clean install` and use that same version.
 
 ---
 
@@ -140,7 +145,7 @@ Spring Boot **`@ConditionalOnMissingBean`** is applied across the pipeline. You 
 
 | Module | Role |
 |--------|------|
-| **ai-sentinel-core** | Features, statistical and IF scoring, policy, enforcement, pipeline, telemetry contracts |
+| **ai-sentinel-core** | Features, statistical and IF scoring, `SentinelDecisionEngine`, policy, enforcement, pipeline, telemetry contracts |
 | **ai-sentinel-spring-boot-starter** | Auto-configuration, servlet filter, `SentinelProperties`, actuator, Micrometer adapter |
 | **ai-sentinel-trainer** | Optional app: Kafka consumer for training candidates, IF training, filesystem registry publisher |
 | **ai-sentinel-demo** | Reference app (`/api/hello`), actuator, optional traffic simulator |
@@ -157,10 +162,12 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 
 ## Current limitations
 
+- **Early release (0.1.0)** — suitable for evaluation and integration; treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)).
 - **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository).
 - **Trainer `eventId` dedup** is JVM-local; multiple trainer instances are not coordinated without external design.
-- **Multi-JVM validation** for cluster features is not fully automated in CI; many integration tests use one JVM per suite.
+- **Multi-JVM / Docker validation** for cluster quarantine and throttle is not run in default CI when Docker is unavailable; those Testcontainers tests are skipped.
 - **Registry disk** — no automatic artifact cleanup; operators manage retention.
+- **Custom SPI breaking change** — core SPIs take `HttpRequestView` / `EnforcementResponse` (not servlet types); starter auto-config consumers are unaffected.
 
 ---
 
@@ -173,6 +180,7 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 ## Contributing
 
 Development uses the **`dev`** branch — see **[`CONTRIBUTING.md`](CONTRIBUTING.md)** for workflow, layout, tests, and PR expectations.
+Please also follow the **[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)**.
 
 - Match existing style and module boundaries.
 - Run **`mvn test`** before submitting.
