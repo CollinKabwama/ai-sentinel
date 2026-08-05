@@ -66,13 +66,10 @@ flowchart TB
     Id[IdentityContextResolver]
     Extractor[FeatureExtractor]
     Engine[SentinelDecisionEngine]
-    Trust[TrustEvaluator]
-    Scorer[AnomalyScorer]
-    Fusion[RequestRiskFusion]
-    Pol[PolicyEngine]
-    TrustPol[TrustPolicyAdjuster]
     Decision[RiskDecision]
     Enf[EnforcementHandler]
+    Train[TrainingCandidatePublisher]
+    Hook[IdentityResponseHook]
     Tel[TelemetryEmitter]
 
     Req --> Filter
@@ -81,16 +78,14 @@ flowchart TB
     Pipeline --> Id
     Id --> Extractor
     Extractor --> Engine
-    Engine --> Trust
-    Engine --> Scorer
-    Engine --> Fusion
-    Engine --> Pol
-    Engine --> TrustPol
     Engine --> Decision
-    Decision --> Enf
     Engine --> Tel
+    Decision --> Enf
+    Enf --> Train
+    Train --> Hook
 ```
 
+Inside **`SentinelDecisionEngine`**, evaluation is sequential: trust → anomaly score → clamp → optional fusion → policy → trust-aware adjustment → grace/quarantine overrides → `RiskDecision`.
 1. **`SentinelFilter`** resolves identity (client IP via **`ClientIpResolver`** when proxies are trusted, plus optional Spring Security principal), skips excluded paths, wraps the servlet request/response in **`ServletHttpRequestView`** and **`ServletEnforcementResponse`**, then runs the pipeline. In **MONITOR** mode, enforcement writes use **`DiscardingEnforcementResponse`** so the client response is not double-written.
 2. **`SentinelPipeline`** resolves identity context, extracts features, delegates the risk decision to **`SentinelDecisionEngine`**, applies enforcement, publishes training candidates, and runs the response hook (including fail-open paths on errors).
 3. **`SentinelDecisionEngine`** performs the servlet-free evaluation — trust, scoring, clamping, optional fusion, policy, trust adjustment, telemetry, startup grace and quarantine overrides — and returns a **`RiskDecision`**. It never writes to the response.
@@ -208,7 +203,7 @@ Trusted entries may be literal IPs or **CIDR** prefixes.
 
 **End-to-end flow (when enabled):** starter **nodes** asynchronously **publish** training candidates → **trainer** consumes and trains → **writes** registry artifacts → starter **nodes** **refresh** and install Isolation Forest models from the filesystem registry. Redis and Kafka are optional; log-based transport and local-only operation remain valid.
 
-Local enforcement stays authoritative; Redis and transport failures are fail-open. Property names and validation scope: root [`README.md`](README.md).
+Local enforcement stays authoritative; Redis and transport failures are fail-open. Property names and validation scope: [`docs/configuration.md`](docs/configuration.md).
 
 ---
 
@@ -227,6 +222,12 @@ Local enforcement stays authoritative; Redis and transport failures are fail-ope
 | Features | `FeatureExtractor` |
 | Scoring | `AnomalyScorer` / register additional scorers only via custom `CompositeScorer` bean |
 | Policy | `PolicyEngine` |
+| Trust-aware policy | `TrustPolicyAdjuster` |
+| Risk fusion | `RequestRiskFusion` |
+| Identity resolution | `IdentityContextResolver` |
+| Authentication / session | `AuthenticationInspector`, `SessionInspector` |
+| Trust evaluation | `TrustEvaluator` |
+| Post-pipeline hook | `IdentityResponseHook` |
 | Enforcement | `EnforcementHandler` (or wrap `CompositeEnforcementHandler`) |
 | Telemetry | `TelemetryEmitter` |
 | Metrics | `SentinelMetrics` |
@@ -234,7 +235,7 @@ Local enforcement stays authoritative; Redis and transport failures are fail-ope
 | Cluster throttle store | `ClusterThrottleStore` (default noop; Redis when wired) |
 | Model registry read | `ModelRegistryReader` (default **`FilesystemModelRegistry`** when model-registry refresh auto-configuration is active) |
 
-**Wiring:** Spring Boot auto-configuration uses **`@ConditionalOnMissingBean`** on these types (see `SentinelAutoConfiguration`, `ModelRegistryAutoConfiguration`, and distributed packages). Provide your own bean of the same type to replace the default implementation.
+**Wiring:** Spring Boot auto-configuration uses **`@ConditionalOnMissingBean`** on these types (see `SentinelAutoConfiguration`, identity auto-configuration, `ModelRegistryAutoConfiguration`, and distributed packages). Provide your own bean of the same type to replace the default implementation.
 
 ---
 

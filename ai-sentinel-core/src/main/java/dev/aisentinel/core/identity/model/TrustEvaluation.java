@@ -6,7 +6,7 @@ package dev.aisentinel.core.identity.model;
 public record TrustEvaluation(TrustScore trustScore, IdentityRiskSignals riskSignals) {
     public TrustEvaluation {
         if (trustScore == null) {
-            throw new IllegalArgumentException("trustScore");
+            throw new IllegalArgumentException("TrustEvaluation requires a non-null trustScore");
         }
         riskSignals = riskSignals != null ? riskSignals : IdentityRiskSignals.empty();
     }

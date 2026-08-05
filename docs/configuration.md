@@ -11,6 +11,11 @@ Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer
 | `ai.sentinel.enabled` | `true` | Master switch |
 | `ai.sentinel.mode` | `ENFORCE` | `OFF`, `MONITOR`, `ENFORCE` |
 | `ai.sentinel.exclude-paths` | actuator, health, static, favicon | Comma-separated Ant-style patterns |
+| `ai.sentinel.block-status-code` | `429` | HTTP status written on BLOCK / throttle-exhaust / quarantine responses |
+| `ai.sentinel.quarantine-duration-ms` | `300000` | Local quarantine TTL in milliseconds |
+| `ai.sentinel.throttle-requests-per-second` | `5.0` | Local token-bucket style throttle rate |
+| `ai.sentinel.baseline-ttl` / `baseline-max-keys` | `5m` / `100000` | Statistical baseline store bounds |
+| `ai.sentinel.internal-map-max-keys` / `internal-map-ttl` | `100000` / `5m` | Local throttle/quarantine map bounds |
 | `ai.sentinel.trusted-proxies` | _(empty)_ | IPs or CIDRs; when remote matches, client IP from forwarded headers (see trusted proxy handling in [`ARCHITECTURE.md`](../ARCHITECTURE.md)) |
 | `ai.sentinel.filter-order` | `2147483547` (same as `Ordered.LOWEST_PRECEDENCE - 100`, i.e. `Integer.MAX_VALUE - 100`) | Servlet filter order for Sentinel; adjust when you need Sentinel before/after other app filters or Spring Security chain behavior |
 | `ai.sentinel.threshold-moderate` … `threshold-critical` | `0.2` … `0.8` | Strictly increasing, in `[0,1]` |
@@ -18,9 +23,20 @@ Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer
 | `ai.sentinel.startup-grace-period` | `0` | Duration (e.g. `5m`) enforcing monitor-only after startup |
 | `ai.sentinel.enforcement-scope` | `IDENTITY_ENDPOINT` | Throttle/quarantine key scope |
 | `ai.sentinel.isolation-forest.enabled` | `false` | In-core Isolation Forest |
-| `ai.sentinel.identity.enabled` | `false` | When true, resolve `IdentityContext` and enable trust / fusion beans (see identity table below) |
+| `ai.sentinel.isolation-forest.local-retrain-enabled` | `true` | Allow in-process IF retrain when IF is enabled (independent of registry refresh) |
+| `ai.sentinel.isolation-forest.score-weight` | `0.5` | Weight of IF vs statistical score in the default composite blend |
+| `ai.sentinel.isolation-forest.training-buffer-size` | `10000` | Bounded buffer for local retrain samples |
+| `ai.sentinel.isolation-forest.min-training-samples` | `100` | Minimum samples before local retrain |
+| `ai.sentinel.isolation-forest.retrain-interval` | `5m` | Local retrain cadence |
+| `ai.sentinel.isolation-forest.sample-rate` | `0.1` | Fraction of requests admitted to the training buffer |
+| `ai.sentinel.isolation-forest.training-rejection-score-threshold` | `0.7` | Used with training anti-poisoning gates |
+| `ai.sentinel.identity.enabled` | `false` | When true, resolve `IdentityContext` and enable trust / fusion beans (see identity tables below) |
 | `ai.sentinel.identity.fusion.enabled` | `false` | Risk fusion: combine anomaly score with identity trust before policy (no effect when identity is off) |
+| `ai.sentinel.identity.fusion.strength` | `0.35` | Fusion blend strength in `[0,1]` when fusion is enabled |
 | `ai.sentinel.telemetry.log-verbosity` | `ANOMALY_ONLY` | `FULL`, `ANOMALY_ONLY`, `SAMPLED`, `NONE` |
+| `ai.sentinel.telemetry.log-score-threshold` | `0.4` | Score floor for anomaly-oriented verbosity modes |
+| `ai.sentinel.telemetry.log-sample-rate` | `100` | Sampling denominator for `SAMPLED` verbosity |
+| `ai.sentinel.distributed.tenant-id` | `default` | Tenant segment in shared Redis / registry paths (align with trainer) |
 | `ai.sentinel.distributed.cluster-quarantine-read-enabled` | `false` | Merge cluster quarantine into `isQuarantined` (local OR Redis view) |
 | `ai.sentinel.distributed.cluster-quarantine-write-enabled` | `false` | After local `QUARANTINE`, publish `until` to Redis (requires `distributed.enabled`, `redis.enabled`, template; async, fail-open) |
 | `ai.sentinel.distributed.cluster-throttle-enabled` | `false` | On the **THROTTLE** action path only, consult a Redis fixed-window counter per enforcement key (cluster-wide cap; fail-open if Redis fails; requires `distributed.enabled`, `redis.enabled`, template) |
@@ -61,6 +77,23 @@ Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer
 | `ai.sentinel.identity.trust.distributed.enabled` | `false` | When true and a `StringRedisTemplate` bean exists, baselines use Redis (atomic Lua + TTL); otherwise in-memory only |
 | `ai.sentinel.identity.trust.distributed.key-prefix` | `aisentinel:trust:bl:` | Redis key prefix; logical keys are hashed to a fixed-width suffix |
 | `ai.sentinel.identity.trust.distributed.command-timeout` | `50ms` | Max wait on the Redis **EVAL** (Lua) round-trip for behavioral baselines; binds to `SentinelProperties.TrustDistributed#commandTimeout`. Timeout or error falls back to in-memory (does not cancel in-flight I/O—align `spring.data.redis.timeout`) |
+
+### Trust-aware policy (`ai.sentinel.identity.trust-aware-policy.*`)
+
+Escalates (never relaxes) the anomaly `PolicyEngine` action using identity trust. Requires identity resolution (`ai.sentinel.identity.enabled=true`).
+
+| Property | Default | Notes |
+|----------|---------|--------|
+| `ai.sentinel.identity.trust-aware-policy.enabled` | `false` | Master switch |
+| `ai.sentinel.identity.trust-aware-policy.authenticated-only` | `true` | Only escalate for authenticated identities |
+| `ai.sentinel.identity.trust-aware-policy.protected-endpoint-patterns` | _(empty)_ | Ant-style paths treated as higher sensitivity |
+| `ai.sentinel.identity.trust-aware-policy.http-methods` | _(empty)_ | Restrict escalation to listed methods (empty = all) |
+| `ai.sentinel.identity.trust-aware-policy.trust-no-effect-minimum` | `0.80` | Trust at/above this band: no escalation |
+| `ai.sentinel.identity.trust-aware-policy.trust-medium-band-minimum` | `0.50` | Medium trust band floor |
+| `ai.sentinel.identity.trust-aware-policy.trust-low-band-minimum` | `0.25` | Low trust band floor |
+| `ai.sentinel.identity.trust-aware-policy.deny-on-critical-trust-enabled` | `false` | Allow critical-trust deny path |
+| `ai.sentinel.identity.trust-aware-policy.require-min-risk-for-trust-deny` | `true` | Require anomaly score ≥ min when denying |
+| `ai.sentinel.identity.trust-aware-policy.min-risk-score-for-trust-deny` | `0.40` | Minimum anomaly score gate for trust deny |
 
 ### Redis and request-path budget
 

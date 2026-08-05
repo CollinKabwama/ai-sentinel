@@ -16,7 +16,7 @@ AI-Sentinel is a library and Spring Boot starter that evaluates each HTTP reques
 
 - **Identity-aware security** — Optional integration with Spring Security and HTTP sessions to resolve `IdentityContext` and attach trust metadata to the request.
 - **Behavioral trust** — Per-identity baselines and trust scores derived from request history, drift signals, and burst patterns.
-- **Anomaly detection** — Welford-based statistical scoring plus an optional in-core Isolation Forest.
+- **Anomaly detection** — Statistical baselines plus an optional in-core Isolation Forest model.
 - **Risk fusion** — Optional combination of anomaly score and identity trust so policy evaluates a single fused risk scalar.
 - **Adaptive enforcement** — Threshold-driven actions (throttle, block, quarantine) with monitor-only mode and startup grace.
 - **Distributed state (optional)** — Redis-backed cluster quarantine and throttle, asynchronous **training candidate** export, a standalone **trainer** application, and filesystem **model registry** refresh on serving nodes.
@@ -28,7 +28,7 @@ AI-Sentinel is a library and Spring Boot starter that evaluates each HTTP reques
 
 | Layer | Responsibility |
 |-------|------------------|
-| **ai-sentinel-core** | Framework-independent engine: `SentinelPipeline`, `SentinelDecisionEngine` / `RiskDecision`, features, scoring, policy, enforcement, identity, trust, and fusion |
+| **ai-sentinel-core** | Framework-independent engine (pipeline, decision engine, scoring, policy, enforcement) |
 | **ai-sentinel-spring-boot-starter** | Auto-configuration, `SentinelFilter`, `SentinelProperties`, actuator, Micrometer, optional Redis and Kafka integration |
 | **ai-sentinel-trainer** | Optional application: consumes training candidates, trains Isolation Forest models, publishes artifacts to a shared filesystem registry |
 | **ai-sentinel-demo** | Reference application and smoke tests |
@@ -65,7 +65,7 @@ Request
 1. **Build** — `git clone <repository-url> && cd ai-sentinel && mvn clean install`
 2. **Demo API** — `mvn -pl ai-sentinel-demo spring-boot:run` → `http://localhost:8080/api/hello` and `http://localhost:8080/actuator/sentinel`
 3. **Optional trainer** — With Kafka and candidates flowing: `mvn -pl ai-sentinel-trainer spring-boot:run`, set `aisentinel.trainer.kafka.enabled=true`, and align registry paths with `ai.sentinel.model-registry.filesystem-root`. See [`ai-sentinel-trainer/README.md`](ai-sentinel-trainer/README.md).
-4. **Tests** — `mvn test` (Docker optional for some starter integration tests)
+4. **Tests** — `mvn test` or `mvn clean verify` from the repo root (preferred so modules resolve from the reactor). Docker is optional: Testcontainers-based distributed quarantine tests are **skipped** when Docker is unavailable (see [`CONTRIBUTING.md`](CONTRIBUTING.md)).
 
 ---
 
@@ -107,10 +107,10 @@ All state is **in-process**: statistical baselines, optional Isolation Forest tr
 
 ### Distributed mode (optional)
 
-Enable **`ai.sentinel.distributed.*`** and add **`spring-boot-starter-data-redis`** when you need cluster-wide quarantine visibility, cluster throttle counters, or asynchronous training export. Enable **`ai.sentinel.identity.trust.distributed.enabled`** (with a `StringRedisTemplate` bean) to share **behavioral trust baselines** across horizontal replicas; on Redis timeout or error, the implementation **fails open** to the same in-memory baseline semantics used in local mode.
+Enable **`ai.sentinel.distributed.*`** and add **`spring-boot-starter-data-redis`** when you need cluster-wide quarantine visibility, cluster throttle counters, or asynchronous training export. Enable **`ai.sentinel.identity.trust.distributed.enabled`** (with a `StringRedisTemplate` bean) to share **behavioral trust baselines** across horizontal replicas; on Redis timeout or error, the implementation **fails open** to in-memory baseline semantics.
 
 - **Cluster quarantine and throttle** — Redis lookups use bounded waits; local enforcement remains authoritative when Redis is unavailable.
-- **Behavioral baselines (Redis)** — Each update runs as one Redis **EVAL** (Lua) script (read-merge-write with TTL). The client enforces **`ai.sentinel.identity.trust.distributed.command-timeout`** on that round-trip; align `spring.data.redis.timeout` with the same budget.
+- **Behavioral baselines (Redis)** — Shared across replicas with a short command timeout; failures fall back to local memory. Align `spring.data.redis.timeout` with `ai.sentinel.identity.trust.distributed.command-timeout` (see [`docs/configuration.md`](docs/configuration.md)).
 - **Training and model registry** — Bounded, fail-open async publish; trainer writes to a **filesystem** layout that serving nodes poll for new models.
 
 Optional integrations do not change the core policy math unless you turn the corresponding flags on.

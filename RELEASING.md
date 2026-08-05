@@ -118,7 +118,9 @@ Fix any test or build failures before continuing.
 Central **release** publishing rejects `-SNAPSHOT` versions. Update the parent and every module parent reference to the release version (for example bump `0.1.0` → `0.2.0`):
 
 ```bash
-# Example: bump versions in all pom.xml files (adjust from/to as needed)
+# Example with the versions plugin (adjust newVersion as needed):
+# mvn versions:set -DnewVersion=0.2.0 -DgenerateBackupPoms=false
+# Or edit the <version> in the parent pom.xml and each module's parent reference.
 ```
 
 Confirm no `SNAPSHOT` remains:
@@ -159,15 +161,15 @@ Artifacts usually appear on Maven Central within minutes; search indexing can ta
 ### 5. Tag and push
 
 ```bash
-git tag -a v1.0.0 -m "Release 1.0.0"
-git push origin v1.0.0
+git tag -a v0.2.0 -m "Release 0.2.0"
+git push origin v0.2.0
 ```
 
-Commit the version bump on `main` if it is not already committed.
+Commit the version bump on `main` if it is not already committed. Use the same version string you published (current line is **0.1.0**).
 
-### 6. Bump to the next SNAPSHOT (optional)
+### 6. Bump to the next development version (optional)
 
-After the tag, set versions back to the next development line (e.g. `1.0.1-SNAPSHOT`) so day-to-day work does not reuse a published release version.
+After the tag, set versions to the next development line (for example `0.2.1-SNAPSHOT` if you enable SNAPSHOT publishing, or simply `0.2.1`) so day-to-day work does not reuse a published release version.
 
 ---
 
