@@ -91,7 +91,8 @@ public final class SentinelDecisionEngine {
                         identityCtx.withTrustAndRisk(te.trustScore(), te.riskSignals()));
                 }
             } catch (Exception e) {
-                log.debug("Trust evaluation failed for {}: {}", features.endpoint(), e.getMessage());
+                log.debug("Trust evaluation failed for {}: {}: {}",
+                    features.endpoint(), e.getClass().getSimpleName(), e.getMessage());
                 metrics.recordFailOpen();
             }
         }
@@ -102,7 +103,8 @@ public final class SentinelDecisionEngine {
             rawScore = scorer.score(features);
             scorer.update(features);
         } catch (Exception e) {
-            log.debug("Scoring failed for {}: {}", features.endpoint(), e.getMessage());
+            log.debug("Scoring failed for {}: {}: {}",
+                features.endpoint(), e.getClass().getSimpleName(), e.getMessage());
             metrics.recordScoringError();
             metrics.recordFailOpen();
             return null;
@@ -130,7 +132,8 @@ public final class SentinelDecisionEngine {
                         ctx.put(FusionContextKeys.FUSED_RISK, fused);
                     }
                 } catch (Exception e) {
-                    log.debug("Risk fusion failed for {}: {}", features.endpoint(), e.getMessage());
+                    log.debug("Risk fusion failed for {}: {}: {}",
+                        features.endpoint(), e.getClass().getSimpleName(), e.getMessage());
                     metrics.recordFailOpen();
                 }
             }
@@ -145,7 +148,8 @@ public final class SentinelDecisionEngine {
                 ctx.put(TrustPolicyContextKeys.TRUST_POLICY_DETAIL, tp.trustPolicyDetail());
             }
         } catch (Exception e) {
-            log.debug("Trust policy adjustment failed for {}: {}", features.endpoint(), e.getMessage());
+            log.debug("Trust policy adjustment failed for {}: {}: {}",
+                features.endpoint(), e.getClass().getSimpleName(), e.getMessage());
             metrics.recordFailOpen();
         }
 

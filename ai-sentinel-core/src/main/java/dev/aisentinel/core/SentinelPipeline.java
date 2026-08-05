@@ -102,7 +102,9 @@ public final class SentinelPipeline {
     }
 
     /**
-     * Process request. Returns true if request should proceed (doFilter), false if already responded.
+     * Runs identity resolution, feature extraction, decision evaluation, enforcement, and optional training publish.
+     *
+     * @return {@code true} if the filter chain should continue; {@code false} if the response was already committed
      */
     public boolean process(HttpRequestView request, EnforcementResponse response, String identityHash) {
         long pipelineStart = System.nanoTime();
@@ -114,14 +116,16 @@ public final class SentinelPipeline {
             try {
                 identityContextResolver.resolve(request, identityHash, ctx);
             } catch (Exception e) {
-                log.debug("Identity resolution failed for {}: {}", request.getRequestURI(), e.getMessage());
+                log.debug("Identity resolution failed for {}: {}: {}",
+                    request.getRequestURI(), e.getClass().getSimpleName(), e.getMessage());
                 metrics.recordFailOpen();
             }
 
             try {
                 features = featureExtractor.extract(request, identityHash, ctx);
             } catch (Exception e) {
-                log.debug("Feature extraction failed for {}: {}", request.getRequestURI(), e.getMessage());
+                log.debug("Feature extraction failed for {}: {}: {}",
+                    request.getRequestURI(), e.getClass().getSimpleName(), e.getMessage());
                 metrics.recordFailOpen();
                 returnValue = true;
                 return returnValue;

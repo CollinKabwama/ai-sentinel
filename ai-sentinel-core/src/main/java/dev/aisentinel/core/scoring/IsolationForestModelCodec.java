@@ -47,30 +47,30 @@ public final class IsolationForestModelCodec {
             throw new IOException("payload too small");
         }
         if (bytes.length > MAX_PAYLOAD_BYTES) {
-            throw new IOException("payload too large");
+            throw new IOException("IsolationForestModelCodec: model payload exceeds size limit");
         }
         DataInputStream in = new DataInputStream(new ByteArrayInputStream(bytes));
         byte[] m = new byte[4];
         in.readFully(m);
         if (!Arrays.equals(m, MAGIC)) {
-            throw new IOException("bad magic");
+            throw new IOException("IsolationForestModelCodec: invalid magic bytes (not an AI-Sentinel IF artifact)");
         }
         int ver = in.readInt();
         if (ver != FORMAT_VERSION) {
-            throw new IOException("unsupported format version: " + ver);
+            throw new IOException("IsolationForestModelCodec: unsupported format version: " + ver);
         }
         int numTrees = in.readInt();
         int numSamples = in.readInt();
         int dimension = in.readInt();
         if (numTrees <= 0 || numTrees > 50_000 || dimension <= 0 || dimension > 256 || numSamples < 0) {
-            throw new IOException("invalid header");
+            throw new IOException("IsolationForestModelCodec: invalid header fields");
         }
         IsolationForestModel.TreeNode[] trees = new IsolationForestModel.TreeNode[numTrees];
         for (int i = 0; i < numTrees; i++) {
             trees[i] = readNode(in);
         }
         if (in.available() > 0) {
-            throw new IOException("trailing bytes");
+            throw new IOException("IsolationForestModelCodec: unexpected trailing bytes after model payload");
         }
         return new IsolationForestModel(trees, numSamples, dimension);
     }
@@ -93,12 +93,12 @@ public final class IsolationForestModelCodec {
         if (kind == 0) {
             int size = in.readInt();
             if (size < 0) {
-                throw new IOException("bad leaf size");
+                throw new IOException("IsolationForestModelCodec: negative leaf size");
             }
             return new IsolationForestModel.TreeNode(size);
         }
         if (kind != 1) {
-            throw new IOException("bad node kind");
+            throw new IOException("IsolationForestModelCodec: unknown node kind: " + kind);
         }
         int fi = in.readInt();
         double sv = in.readDouble();

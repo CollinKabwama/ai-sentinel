@@ -1,7 +1,8 @@
 package dev.aisentinel.distributed.training;
 
 /**
- * Default no-op publisher (disabled export).
+ * Default publisher when training export is disabled: discards candidates.
+ * Thread-safe singleton.
  */
 public final class NoopTrainingCandidatePublisher implements TrainingCandidatePublisher {
 

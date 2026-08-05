@@ -12,8 +12,8 @@ public interface PolicyEngine {
 
     /**
      * @param riskScore    composite score in {@code [0.0, 1.0]} (may be NaN or out of range in edge cases; callers
-     *                     may clamp before policy)
-     * @param features     request features (for future policy extensions)
+     *                     typically clamp before policy)
+     * @param features     request features available for policy rules that need more than the scalar score
      * @param endpoint     normalized request path or endpoint key
      * @return enforcement action to apply
      */

@@ -16,7 +16,7 @@ AI-Sentinel is a library and Spring Boot starter that evaluates each HTTP reques
 
 - **Identity-aware security** — Optional integration with Spring Security and HTTP sessions to resolve `IdentityContext` and attach trust metadata to the request.
 - **Behavioral trust** — Per-identity baselines and trust scores derived from request history, drift signals, and burst patterns.
-- **Anomaly detection** — Welford-based statistical scoring plus an optional in-core Isolation Forest.
+- **Anomaly detection** — Statistical baselines plus an optional in-core Isolation Forest model.
 - **Risk fusion** — Optional combination of anomaly score and identity trust so policy evaluates a single fused risk scalar.
 - **Adaptive enforcement** — Threshold-driven actions (throttle, block, quarantine) with monitor-only mode and startup grace.
 - **Distributed state (optional)** — Redis-backed cluster quarantine and throttle, asynchronous **training candidate** export, a standalone **trainer** application, and filesystem **model registry** refresh on serving nodes.
@@ -28,7 +28,7 @@ AI-Sentinel is a library and Spring Boot starter that evaluates each HTTP reques
 
 | Layer | Responsibility |
 |-------|------------------|
-| **ai-sentinel-core** | `SentinelPipeline`, feature extraction, scoring, policy, enforcement, telemetry contracts, identity, trust, and fusion types |
+| **ai-sentinel-core** | Framework-independent engine (pipeline, decision engine, scoring, policy, enforcement) |
 | **ai-sentinel-spring-boot-starter** | Auto-configuration, `SentinelFilter`, `SentinelProperties`, actuator, Micrometer, optional Redis and Kafka integration |
 | **ai-sentinel-trainer** | Optional application: consumes training candidates, trains Isolation Forest models, publishes artifacts to a shared filesystem registry |
 | **ai-sentinel-demo** | Reference application and smoke tests |
@@ -41,12 +41,15 @@ Runtime details, extension points, and distributed components are described in *
 
 ```text
 Request
+  → SentinelFilter (servlet adapter)
   → Identity resolution (optional)
   → Feature extraction
-  → Behavioral trust evaluation (optional)
-  → Anomaly scoring
-  → Risk fusion (optional)
-  → Policy evaluation
+  → SentinelDecisionEngine
+      → Behavioral trust (optional)
+      → Anomaly scoring (AnomalyScorer)
+      → Risk fusion (optional)
+      → Policy evaluation (PolicyEngine)
+      → Trust-aware policy adjustment (optional)
   → Enforcement
   → Telemetry / metrics
 ```
@@ -62,7 +65,7 @@ Request
 1. **Build** — `git clone <repository-url> && cd ai-sentinel && mvn clean install`
 2. **Demo API** — `mvn -pl ai-sentinel-demo spring-boot:run` → `http://localhost:8080/api/hello` and `http://localhost:8080/actuator/sentinel`
 3. **Optional trainer** — With Kafka and candidates flowing: `mvn -pl ai-sentinel-trainer spring-boot:run`, set `aisentinel.trainer.kafka.enabled=true`, and align registry paths with `ai.sentinel.model-registry.filesystem-root`. See [`ai-sentinel-trainer/README.md`](ai-sentinel-trainer/README.md).
-4. **Tests** — `mvn test` (Docker optional for some starter integration tests)
+4. **Tests** — `mvn test` or `mvn clean verify` from the repo root (preferred so modules resolve from the reactor). Docker is optional: Testcontainers-based distributed quarantine tests are **skipped** when Docker is unavailable (see [`CONTRIBUTING.md`](CONTRIBUTING.md)).
 
 ---
 
@@ -88,9 +91,11 @@ Add the starter dependency:
 <dependency>
     <groupId>dev.aisentinel</groupId>
     <artifactId>ai-sentinel-spring-boot-starter</artifactId>
-    <version>1.0.0-SNAPSHOT</version>
+    <version>0.1.0</version>
 </dependency>
 ```
+
+Published artifacts use the version in the parent `pom.xml` (currently **0.1.0**). For a local build not yet released, install with `mvn clean install` and use that same version.
 
 ---
 
@@ -102,10 +107,10 @@ All state is **in-process**: statistical baselines, optional Isolation Forest tr
 
 ### Distributed mode (optional)
 
-Enable **`ai.sentinel.distributed.*`** and add **`spring-boot-starter-data-redis`** when you need cluster-wide quarantine visibility, cluster throttle counters, or asynchronous training export. Enable **`ai.sentinel.identity.trust.distributed.enabled`** (with a `StringRedisTemplate` bean) to share **behavioral trust baselines** across horizontal replicas; on Redis timeout or error, the implementation **fails open** to the same in-memory baseline semantics used in local mode.
+Enable **`ai.sentinel.distributed.*`** and add **`spring-boot-starter-data-redis`** when you need cluster-wide quarantine visibility, cluster throttle counters, or asynchronous training export. Enable **`ai.sentinel.identity.trust.distributed.enabled`** (with a `StringRedisTemplate` bean) to share **behavioral trust baselines** across horizontal replicas; on Redis timeout or error, the implementation **fails open** to in-memory baseline semantics.
 
 - **Cluster quarantine and throttle** — Redis lookups use bounded waits; local enforcement remains authoritative when Redis is unavailable.
-- **Behavioral baselines (Redis)** — Each update runs as one Redis **EVAL** (Lua) script (read-merge-write with TTL). The client enforces **`ai.sentinel.identity.trust.distributed.command-timeout`** on that round-trip; align `spring.data.redis.timeout` with the same budget.
+- **Behavioral baselines (Redis)** — Shared across replicas with a short command timeout; failures fall back to local memory. Align `spring.data.redis.timeout` with `ai.sentinel.identity.trust.distributed.command-timeout` (see [`docs/configuration.md`](docs/configuration.md)).
 - **Training and model registry** — Bounded, fail-open async publish; trainer writes to a **filesystem** layout that serving nodes poll for new models.
 
 Optional integrations do not change the core policy math unless you turn the corresponding flags on.
@@ -140,7 +145,7 @@ Spring Boot **`@ConditionalOnMissingBean`** is applied across the pipeline. You 
 
 | Module | Role |
 |--------|------|
-| **ai-sentinel-core** | Features, statistical and IF scoring, policy, enforcement, pipeline, telemetry contracts |
+| **ai-sentinel-core** | Features, statistical and IF scoring, `SentinelDecisionEngine`, policy, enforcement, pipeline, telemetry contracts |
 | **ai-sentinel-spring-boot-starter** | Auto-configuration, servlet filter, `SentinelProperties`, actuator, Micrometer adapter |
 | **ai-sentinel-trainer** | Optional app: Kafka consumer for training candidates, IF training, filesystem registry publisher |
 | **ai-sentinel-demo** | Reference app (`/api/hello`), actuator, optional traffic simulator |
@@ -157,10 +162,12 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 
 ## Current limitations
 
+- **Early release (0.1.0)** — suitable for evaluation and integration; treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)).
 - **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository).
 - **Trainer `eventId` dedup** is JVM-local; multiple trainer instances are not coordinated without external design.
-- **Multi-JVM validation** for cluster features is not fully automated in CI; many integration tests use one JVM per suite.
+- **Multi-JVM / Docker validation** for cluster quarantine and throttle is not run in default CI when Docker is unavailable; those Testcontainers tests are skipped.
 - **Registry disk** — no automatic artifact cleanup; operators manage retention.
+- **Custom SPI breaking change** — core SPIs take `HttpRequestView` / `EnforcementResponse` (not servlet types); starter auto-config consumers are unaffected.
 
 ---
 
@@ -173,6 +180,9 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 ## Contributing
 
 Development uses the **`dev`** branch — see **[`CONTRIBUTING.md`](CONTRIBUTING.md)** for workflow, layout, tests, and PR expectations.
+Please also follow the **[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)**.
+
+Documentation cleanup notes for this release line: **[`docs/DOCUMENTATION_CLEANUP_REPORT.md`](docs/DOCUMENTATION_CLEANUP_REPORT.md)**.
 
 - Match existing style and module boundaries.
 - Run **`mvn test`** before submitting.

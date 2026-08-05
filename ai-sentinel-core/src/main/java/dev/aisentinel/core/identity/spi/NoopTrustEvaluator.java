@@ -7,7 +7,8 @@ import dev.aisentinel.core.model.RequestFeatures;
 import dev.aisentinel.core.http.HttpRequestView;
 
 /**
- * Default when identity or trust evaluation is off: does not adjust trust or risk signals.
+ * Default when identity or trust evaluation is off: returns {@code null} so the decision engine
+ * skips trust updates. Thread-safe singleton.
  */
 public enum NoopTrustEvaluator implements TrustEvaluator {
     INSTANCE;

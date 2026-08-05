@@ -4,6 +4,10 @@ import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
 import dev.aisentinel.core.http.HttpRequestView;
 
+/**
+ * No-op {@link TrustPolicyAdjuster}: returns the baseline {@link EnforcementAction} unchanged.
+ * Used when trust-aware policy escalation is disabled.
+ */
 public enum NoopTrustPolicyAdjuster implements TrustPolicyAdjuster {
     INSTANCE;
 

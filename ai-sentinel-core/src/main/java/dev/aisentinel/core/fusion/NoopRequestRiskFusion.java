@@ -1,7 +1,8 @@
 package dev.aisentinel.core.fusion;
 
 /**
- * Fusion disabled: policy input remains the anomaly score; {@link #fuse} is only used if mis-invoked (pass-through).
+ * Default when risk fusion is disabled: {@link #enabled()} is false and policy uses the anomaly score alone.
+ * Thread-safe singleton.
  */
 public enum NoopRequestRiskFusion implements RequestRiskFusion {
     INSTANCE;
