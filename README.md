@@ -182,6 +182,8 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 Development uses the **`dev`** branch — see **[`CONTRIBUTING.md`](CONTRIBUTING.md)** for workflow, layout, tests, and PR expectations.
 Please also follow the **[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)**.
 
+Documentation cleanup notes for this release line: **[`docs/DOCUMENTATION_CLEANUP_REPORT.md`](docs/DOCUMENTATION_CLEANUP_REPORT.md)**.
+
 - Match existing style and module boundaries.
 - Run **`mvn test`** before submitting.
 - Update documentation when behavior or configuration changes.
