@@ -25,11 +25,12 @@ import static dev.aisentinel.core.scenario.ScenarioTestSupport.newStatisticalSco
 
 /**
  * Test-only baseline update strategy comparison. Real {@link StatisticalScorer} + {@link PolicyEngine};
- * the test runner controls {@code update()} (not {@code SentinelDecisionEngine}, which always updates).
+ * the test runner controls {@code update()} for strategies not yet expressed solely through
+ * {@link SentinelDecisionEngine} (production now defaults to {@code ALLOW_OR_MONITOR} gating).
  * <p>
  * Each strategy starts from a <strong>seeded</strong> calm baseline (forced updates) so results are not
  * confounded by warmupScore=0.4 mapping to THROTTLE when this harness scores→policy directly
- * (production {@link SentinelDecisionEngine} now applies configurable warmup action, default MONITOR).
+ * (production {@link SentinelDecisionEngine} applies configurable warmup action, default MONITOR).
  */
 class BaselineUpdateStrategyComparisonTest {
 

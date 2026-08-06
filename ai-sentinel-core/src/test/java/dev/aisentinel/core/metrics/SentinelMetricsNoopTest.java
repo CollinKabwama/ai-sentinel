@@ -49,8 +49,14 @@ class SentinelMetricsNoopTest {
         if (type == long.class) {
             return 99L;
         }
+        if (type == boolean.class) {
+            return false;
+        }
         if (type == EnforcementAction.class) {
             return EnforcementAction.ALLOW;
+        }
+        if (type == String.class) {
+            return "ALLOW_OR_MONITOR";
         }
         throw new IllegalArgumentException("Update SentinelMetricsNoopTest for new parameter type: " + type);
     }

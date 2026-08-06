@@ -61,8 +61,9 @@ class RealisticVarianceSuddenStepScenarioTest {
         assertThat(THROTTLE_PLUS.contains(wide.firstAction)).isTrue();
         assertThat(wide.firstScore).isLessThanOrEqualTo(mild.firstScore);
 
-        assertThat(mild.lastScore).isLessThan(mild.firstScore);
-        assertThat(wide.lastScore).isLessThan(wide.firstScore);
+        // Default baseline-update gating: THROTTLE+ steps do not train, so scores hold.
+        assertThat(mild.lastScore).isEqualTo(mild.firstScore);
+        assertThat(wide.lastScore).isEqualTo(wide.firstScore);
     }
 
     private static StepResult runStep(double[] pattern, int repeats, double calmProbeRpw, String label) {
