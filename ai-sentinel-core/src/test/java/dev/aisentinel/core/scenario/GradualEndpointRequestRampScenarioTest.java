@@ -53,7 +53,7 @@ class GradualEndpointRequestRampScenarioTest {
 
         assertThat(obs.get(0).anomalyScore()).isEqualTo(WARMUP_SCORE);
         assertThat(obs.get(1).anomalyScore()).isEqualTo(WARMUP_SCORE);
-        // R-037: warmup action is MONITOR (not THROTTLE from score 0.4 ∩ elevated threshold).
+        // Warmup action is MONITOR (not THROTTLE from score 0.4 ∩ elevated threshold).
         assertThat(obs.get(0).action()).isEqualTo(EnforcementAction.MONITOR);
         assertThat(obs.get(1).action()).isEqualTo(EnforcementAction.MONITOR);
 

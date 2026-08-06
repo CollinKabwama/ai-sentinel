@@ -68,8 +68,8 @@ public final class SentinelDecisionEngine {
 
     /**
      * @param statisticalWarmupAction action applied when evaluation includes {@link EvaluationStatus#STATISTICAL_WARMUP}
-     *                                (default {@link EnforcementAction#MONITOR}); must be {@link EnforcementAction#ALLOW},
-     *                                {@link EnforcementAction#MONITOR}, or {@link EnforcementAction#THROTTLE} (legacy)
+     *                                (default {@link EnforcementAction#MONITOR}); must be {@link EnforcementAction#ALLOW}
+     *                                or {@link EnforcementAction#MONITOR} (other values are normalized to {@code MONITOR})
      */
     public SentinelDecisionEngine(AnomalyScorer scorer,
                                   PolicyEngine policyEngine,
@@ -98,8 +98,8 @@ public final class SentinelDecisionEngine {
             return EnforcementAction.MONITOR;
         }
         return switch (action) {
-            case ALLOW, MONITOR, THROTTLE -> action;
-            case BLOCK, QUARANTINE -> EnforcementAction.MONITOR;
+            case ALLOW, MONITOR -> action;
+            case THROTTLE, BLOCK, QUARANTINE -> EnforcementAction.MONITOR;
         };
     }
 
@@ -108,7 +108,7 @@ public final class SentinelDecisionEngine {
      * ignored); a scoring failure aborts the decision entirely.
      * <p>
      * Never writes to the HTTP response. Does enrich {@code ctx} in place (trust evaluation, fused risk,
-     * trust-policy detail) — same side-effect contract as the pre-extraction pipeline logic.
+     * trust-policy detail) — same side-effect contract as earlier pipeline evaluation.
      *
      * @param ctx per-request context; enriched in-place with trust, fusion, and policy detail keys
      * @return the decision, or {@code null} when scoring failed and the caller must fail open

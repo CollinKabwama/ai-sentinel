@@ -58,16 +58,14 @@ public class SentinelProperties {
     private double warmupScore = 0.4;
     /**
      * Enforcement action while {@code EvaluationStatus.STATISTICAL_WARMUP} is active. Default {@code MONITOR}.
-     * Allowed: {@code ALLOW}, {@code MONITOR}, {@code THROTTLE} (legacy score-band reproduction).
-     * {@code BLOCK}/{@code QUARANTINE} are rejected at binding validation.
+     * Allowed: {@code ALLOW} or {@code MONITOR}. Other actions are rejected at binding validation.
      */
     private EnforcementAction warmupAction = EnforcementAction.MONITOR;
 
-    @jakarta.validation.constraints.AssertTrue(message = "ai.sentinel.warmup-action must be ALLOW, MONITOR, or THROTTLE")
+    @jakarta.validation.constraints.AssertTrue(message = "ai.sentinel.warmup-action must be ALLOW or MONITOR")
     public boolean isWarmupActionAllowed() {
         return warmupAction == EnforcementAction.ALLOW
-            || warmupAction == EnforcementAction.MONITOR
-            || warmupAction == EnforcementAction.THROTTLE;
+            || warmupAction == EnforcementAction.MONITOR;
     }
 
     /** Policy: scores at or above this map to MONITOR (below elevated). Default 0.2. */

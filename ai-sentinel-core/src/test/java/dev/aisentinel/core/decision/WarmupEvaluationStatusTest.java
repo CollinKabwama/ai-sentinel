@@ -27,7 +27,7 @@ import java.util.Set;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * R-037 / R-043: statistical warmup must not enter enforcement bands by score collision,
+ * Statistical warmup must not enter enforcement bands by score collision,
  * and evaluation lifecycle statuses must be observable on {@link RiskDecision}.
  */
 class WarmupEvaluationStatusTest {
@@ -103,16 +103,9 @@ class WarmupEvaluationStatusTest {
     }
 
     @Test
-    void customWarmupAction_legacyThrottle() {
-        StatisticalScorer scorer = new StatisticalScorer();
-        SentinelDecisionEngine engine = engine(scorer, EnforcementAction.THROTTLE);
-        RiskDecision d = engine.evaluate(shell(), IDENTITY, features(1), new RequestContext());
-        assertThat(d.action()).isEqualTo(EnforcementAction.THROTTLE);
-        assertThat(d.hasStatus(EvaluationStatus.STATISTICAL_WARMUP)).isTrue();
-    }
-
-    @Test
-    void blockWarmupAction_coercedToMonitor() {
+    void nonAllowOrMonitorWarmupAction_normalizedToMonitor() {
+        assertThat(SentinelDecisionEngine.normalizeWarmupAction(EnforcementAction.THROTTLE))
+            .isEqualTo(EnforcementAction.MONITOR);
         assertThat(SentinelDecisionEngine.normalizeWarmupAction(EnforcementAction.BLOCK))
             .isEqualTo(EnforcementAction.MONITOR);
         assertThat(SentinelDecisionEngine.normalizeWarmupAction(EnforcementAction.QUARANTINE))
@@ -134,7 +127,7 @@ class WarmupEvaluationStatusTest {
     }
 
     @Test
-    void riskDecisionOf_compatibilityEmptyStatuses() {
+    void riskDecisionOf_emptyStatuses() {
         RiskDecision d = RiskDecision.of(EnforcementAction.ALLOW, 0.1, 0.1, features(1), new RequestContext(), false);
         assertThat(d.evaluationStatuses()).isEmpty();
     }

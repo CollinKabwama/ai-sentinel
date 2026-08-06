@@ -35,7 +35,7 @@ public record RiskDecision(
     }
 
     /**
-     * Compatibility factory matching the prior six-component shape (empty evaluation statuses).
+     * Factory without evaluation statuses (empty set).
      */
     public static RiskDecision of(EnforcementAction action,
                                   double anomalyScore,
