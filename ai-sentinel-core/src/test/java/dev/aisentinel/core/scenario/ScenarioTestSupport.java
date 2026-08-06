@@ -82,7 +82,7 @@ final class ScenarioTestSupport {
 
     /**
      * Test-only evaluate: real scorer + policy, with caller-controlled {@code update()}.
-     * Does <strong>not</strong> use {@link SentinelDecisionEngine} (which always updates).
+     * Does <strong>not</strong> use {@link SentinelDecisionEngine} (runner controls {@code update()}).
      */
     static GatedObservation gatedEvaluate(StatisticalScorer scorer, PolicyEngine policy,
                                           RequestFeatures features, BaselineUpdateStrategy strategy,

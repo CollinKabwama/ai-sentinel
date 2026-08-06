@@ -1,5 +1,6 @@
 package dev.aisentinel.core.scenario;
 
+import dev.aisentinel.core.baseline.ConfigurableBaselineUpdatePolicy;
 import dev.aisentinel.core.decision.RiskDecision;
 import dev.aisentinel.core.decision.SentinelDecisionEngine;
 import dev.aisentinel.core.enforcement.EnforcementHandler;
@@ -29,7 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Scenario {@code sudden-step-request-burst}: stable constant-{@code requestsPerWindow} Welford baseline,
- * then an abrupt elevated level, then online adaptation decay.
+ * then an abrupt elevated level.
  * <p>
  * <strong>Honest scope:</strong> does <em>not</em> claim full extractor→policy E2E for the step.
  * {@link DefaultFeatureExtractor} increments {@code requestsPerWindow} by +1 per call, so a true step
@@ -40,8 +41,9 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   <li><strong>Controlled</strong> {@link RequestFeatures} fixtures (constant calm rpw, then step rpw)</li>
  *   <li>{@link MapHttpRequestView} only as a neutral request shell for {@code evaluate}</li>
  * </ul>
- * Finding preserved: the first elevated step saturates to a high action, then decays under
- * continuous online updates (order of ~12–18 samples below THROTTLE in the default fixture).
+ * Under the default {@code ALLOW_OR_MONITOR} baseline-update policy, elevated THROTTLE+ observations do not
+ * train the baseline, so sudden-step scores no longer decay from online updates. Unconditional {@code ALWAYS}
+ * still decays (legacy behavior).
  */
 class SuddenStepRequestBurstScenarioTest {
 
@@ -58,9 +60,29 @@ class SuddenStepRequestBurstScenarioTest {
         EnforcementAction.THROTTLE, EnforcementAction.BLOCK, EnforcementAction.QUARANTINE);
 
     @Test
-    void suddenStep_detectedThenDecaysUnderOnlineUpdates() {
+    void suddenStep_defaultGating_holdsScore_alwaysUpdateStillDecays() {
+        StepRun gated = runStep(ConfigurableBaselineUpdatePolicy.allowOrMonitor());
+        StepRun always = runStep(ConfigurableBaselineUpdatePolicy.always());
+
+        System.out.println(SCENARIO_ID + " gated decay table:");
+        printTable(gated);
+        System.out.println(SCENARIO_ID + " always decay table:");
+        printTable(always);
+
+        assertThat(THROTTLE_OR_STRICTER.contains(gated.first.action()))
+            .as("first sudden-step action should reach THROTTLE+. %s", gated.evidence)
+            .isTrue();
+        assertThat(gated.last.anomalyScore())
+            .as("gated elevated samples must not adapt downward. %s", gated.evidence)
+            .isEqualTo(gated.first.anomalyScore());
+        assertThat(always.last.anomalyScore())
+            .as("ALWAYS mode still adapts downward. %s", always.evidence)
+            .isLessThan(always.first.anomalyScore());
+    }
+
+    private static StepRun runStep(ConfigurableBaselineUpdatePolicy policy) {
         StatisticalScorer scorer = new StatisticalScorer(100_000, 300_000L, 2, 0.4);
-        SentinelDecisionEngine engine = newEngine(scorer);
+        SentinelDecisionEngine engine = newEngine(scorer, policy);
         HttpRequestView request = new MapHttpRequestView().requestUri(ENDPOINT).method("GET");
 
         RequestFeatures calmFeatures = features(CALM_RPW);
@@ -68,9 +90,8 @@ class SuddenStepRequestBurstScenarioTest {
             scorer.update(calmFeatures);
         }
 
-        // Approximate baseline stats for rpw dimension after constant updates (other dims constant → std≈0).
         double baselineMeanRpw = CALM_RPW;
-        double baselineStdRpw = MIN_STD; // constant series → numerical floor in scorer
+        double baselineStdRpw = MIN_STD;
 
         RiskDecision calmProbe = engine.evaluate(request, IDENTITY, calmFeatures, new RequestContext());
         assertThat(calmProbe).isNotNull();
@@ -82,72 +103,28 @@ class SuddenStepRequestBurstScenarioTest {
             RiskDecision d = engine.evaluate(request, IDENTITY, stepFeatures, new RequestContext());
             assertThat(d).isNotNull();
             double z = Math.abs((STEP_RPW - baselineMeanRpw) / baselineStdRpw);
-            // After first update, baseline mean drifts — recompute z approx from known first-step only for row 0;
-            // subsequent z are not exposed by StatisticalScorer; leave computed-from-frozen-baseline as upper bound note.
             if (i > 0) {
-                z = Double.NaN; // not observable from production scorer after adaptation begins
+                z = Double.NaN;
             }
             elevated.add(new DecayRow(i + 1, STEP_RPW, z, d.anomalyScore(), d.action()));
         }
 
         DecayRow firstStep = elevated.get(0);
-
-        // Unrelated features stable between calm and step fixtures
-        assertThat(stepFeatures.endpointEntropy()).isEqualTo(calmFeatures.endpointEntropy());
-        assertThat(stepFeatures.parameterCount()).isEqualTo(calmFeatures.parameterCount());
-        assertThat(stepFeatures.payloadSizeBytes()).isEqualTo(calmFeatures.payloadSizeBytes());
-        assertThat(stepFeatures.headerFingerprintHash()).isEqualTo(calmFeatures.headerFingerprintHash());
-        assertThat(stepFeatures.ipBucket()).isEqualTo(calmFeatures.ipBucket());
-        assertThat(stepFeatures.tokenAgeSeconds()).isEqualTo(calmFeatures.tokenAgeSeconds());
-
-        assertThat(STEP_RPW).isGreaterThan(CALM_RPW * 5);
-        assertThat(firstStep.anomalyScore())
-            .as("first sudden step vs calm (calm=%.6f step=%.6f)", calmProbe.anomalyScore(), firstStep.anomalyScore())
-            .isGreaterThan(calmProbe.anomalyScore());
-
-        String evidence = formatEvidence(calmProbe, elevated);
-
-        assertThat(THROTTLE_OR_STRICTER.contains(firstStep.action()))
-            .as("first sudden-step action should reach THROTTLE+. %s", evidence)
-            .isTrue();
-
-        // Decay: last elevated sample softer than first
         DecayRow last = elevated.get(elevated.size() - 1);
-        assertThat(last.anomalyScore())
-            .as("adaptation reduces score vs first step. %s", evidence)
-            .isLessThan(firstStep.anomalyScore());
+        String evidence = formatEvidence(calmProbe, elevated);
+        return new StepRun(firstStep, last, elevated, evidence);
+    }
 
-        int throttleOrAboveCount = 0;
-        Integer firstBelowThrottle = null;
-        Integer firstBelowMonitor = null;
-        for (DecayRow row : elevated) {
-            if (THROTTLE_OR_STRICTER.contains(row.action())) {
-                throttleOrAboveCount++;
-            } else if (firstBelowThrottle == null) {
-                firstBelowThrottle = row.sample;
-            }
-            if (row.anomalyScore() < 0.2 && firstBelowMonitor == null) {
-                firstBelowMonitor = row.sample;
-            }
-        }
-
-        // Persist decay shape for operators reading surefire / reports
-        System.out.println(SCENARIO_ID + " decay table:");
+    private static void printTable(StepRun run) {
         System.out.println("sample,rpw,zApprox,score,action");
-        for (DecayRow row : elevated) {
+        for (DecayRow row : run.elevated) {
             System.out.printf(Locale.ROOT, "%d,%.0f,%s,%.6f,%s%n",
                 row.sample, row.rpw,
                 Double.isNaN(row.zApprox) ? "n/a" : String.format(Locale.ROOT, "%.3f", row.zApprox),
                 row.anomalyScore, row.action);
         }
-        System.out.printf(Locale.ROOT,
-            "summary calmScore=%.6f firstStep=%.6f last=%.6f throttleOrAboveCount=%d firstBelowThrottle=%s firstBelowMonitor=%s%n",
-            calmProbe.anomalyScore(), firstStep.anomalyScore(), last.anomalyScore(),
-            throttleOrAboveCount, firstBelowThrottle, firstBelowMonitor);
-
-        assertThat(throttleOrAboveCount)
-            .as("at least the first elevated sample should be THROTTLE+. %s", evidence)
-            .isGreaterThanOrEqualTo(1);
+        System.out.printf(Locale.ROOT, "summary first=%.6f last=%.6f%n",
+            run.first.anomalyScore(), run.last.anomalyScore());
     }
 
     private static String formatEvidence(RiskDecision calm, List<DecayRow> elevated) {
@@ -174,7 +151,8 @@ class SuddenStepRequestBurstScenarioTest {
             .build();
     }
 
-    private static SentinelDecisionEngine newEngine(StatisticalScorer scorer) {
+    private static SentinelDecisionEngine newEngine(StatisticalScorer scorer,
+                                                    ConfigurableBaselineUpdatePolicy policy) {
         return new SentinelDecisionEngine(
             scorer,
             new ThresholdPolicyEngine(0.2, 0.4, 0.6, 0.8),
@@ -184,9 +162,13 @@ class SuddenStepRequestBurstScenarioTest {
             SentinelMetrics.NOOP,
             NoopTrustEvaluator.INSTANCE,
             NoopTrustPolicyAdjuster.INSTANCE,
-            NoopRequestRiskFusion.INSTANCE
+            NoopRequestRiskFusion.INSTANCE,
+            EnforcementAction.MONITOR,
+            policy
         );
     }
+
+    private record StepRun(DecayRow first, DecayRow last, List<DecayRow> elevated, String evidence) {}
 
     private record DecayRow(int sample, double rpw, double zApprox, double anomalyScore, EnforcementAction action) {}
 

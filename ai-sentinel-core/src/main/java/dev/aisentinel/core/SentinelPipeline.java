@@ -1,5 +1,7 @@
 package dev.aisentinel.core;
 
+import dev.aisentinel.core.baseline.BaselineUpdatePolicy;
+import dev.aisentinel.core.baseline.ConfigurableBaselineUpdatePolicy;
 import dev.aisentinel.core.decision.RiskDecision;
 import dev.aisentinel.core.decision.SentinelDecisionEngine;
 import dev.aisentinel.core.enforcement.EnforcementHandler;
@@ -63,7 +65,8 @@ public final class SentinelPipeline {
         this(featureExtractor, scorer, null, policyEngine, enforcementHandler, telemetry, startupGrace, metrics,
             NoopTrainingCandidatePublisher.INSTANCE, EnforcementScope.IDENTITY_ENDPOINT, "default", "", "ENFORCE",
             NoopIdentityContextResolver.INSTANCE, NoopTrustEvaluator.INSTANCE, NoopTrustPolicyAdjuster.INSTANCE,
-            NoopIdentityResponseHook.INSTANCE, NoopRequestRiskFusion.INSTANCE, EnforcementAction.MONITOR);
+            NoopIdentityResponseHook.INSTANCE, NoopRequestRiskFusion.INSTANCE, EnforcementAction.MONITOR,
+            ConfigurableBaselineUpdatePolicy.allowOrMonitor());
     }
 
     public SentinelPipeline(FeatureExtractor featureExtractor,
@@ -87,7 +90,7 @@ public final class SentinelPipeline {
         this(featureExtractor, scorer, compositeScorerOrNull, policyEngine, enforcementHandler, telemetry, startupGrace,
             metrics, trainingCandidatePublisher, enforcementScope, trainingTenantId, trainingNodeId, sentinelModeName,
             identityContextResolver, trustEvaluator, trustPolicyAdjuster, identityResponseHook, riskFusion,
-            EnforcementAction.MONITOR);
+            EnforcementAction.MONITOR, ConfigurableBaselineUpdatePolicy.allowOrMonitor());
     }
 
     public SentinelPipeline(FeatureExtractor featureExtractor,
@@ -109,12 +112,39 @@ public final class SentinelPipeline {
                             IdentityResponseHook identityResponseHook,
                             RequestRiskFusion riskFusion,
                             EnforcementAction statisticalWarmupAction) {
+        this(featureExtractor, scorer, compositeScorerOrNull, policyEngine, enforcementHandler, telemetry, startupGrace,
+            metrics, trainingCandidatePublisher, enforcementScope, trainingTenantId, trainingNodeId, sentinelModeName,
+            identityContextResolver, trustEvaluator, trustPolicyAdjuster, identityResponseHook, riskFusion,
+            statisticalWarmupAction, ConfigurableBaselineUpdatePolicy.allowOrMonitor());
+    }
+
+    public SentinelPipeline(FeatureExtractor featureExtractor,
+                            AnomalyScorer scorer,
+                            CompositeScorer compositeScorerOrNull,
+                            PolicyEngine policyEngine,
+                            EnforcementHandler enforcementHandler,
+                            TelemetryEmitter telemetry,
+                            StartupGrace startupGrace,
+                            SentinelMetrics metrics,
+                            TrainingCandidatePublisher trainingCandidatePublisher,
+                            EnforcementScope enforcementScope,
+                            String trainingTenantId,
+                            String trainingNodeId,
+                            String sentinelModeName,
+                            IdentityContextResolver identityContextResolver,
+                            TrustEvaluator trustEvaluator,
+                            TrustPolicyAdjuster trustPolicyAdjuster,
+                            IdentityResponseHook identityResponseHook,
+                            RequestRiskFusion riskFusion,
+                            EnforcementAction statisticalWarmupAction,
+                            BaselineUpdatePolicy baselineUpdatePolicy) {
         this.featureExtractor = featureExtractor;
         this.compositeScorerOrNull = compositeScorerOrNull;
         this.enforcementHandler = enforcementHandler;
         this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
         this.decisionEngine = new SentinelDecisionEngine(scorer, policyEngine, enforcementHandler, telemetry,
-            startupGrace, this.metrics, trustEvaluator, trustPolicyAdjuster, riskFusion, statisticalWarmupAction);
+            startupGrace, this.metrics, trustEvaluator, trustPolicyAdjuster, riskFusion, statisticalWarmupAction,
+            baselineUpdatePolicy);
         this.trainingCandidatePublisher = trainingCandidatePublisher != null
             ? trainingCandidatePublisher
             : NoopTrainingCandidatePublisher.INSTANCE;

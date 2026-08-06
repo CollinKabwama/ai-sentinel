@@ -122,7 +122,7 @@ There is no **`FeatureProvider` SPI** in the codebase; extend by supplying your 
 
 ### 5.1 Statistical scorer
 
-**`StatisticalScorer`** maintains Welford mean/variance per key (bounded maps + TTL), converts z-scores to a bounded score, and applies **warmup** (`warmupMinSamples`, `warmupScore`) when data is sparse.
+**`StatisticalScorer`** maintains Welford mean/variance per key (bounded maps + TTL), converts z-scores to a bounded score, and applies **warmup** (`warmupMinSamples`, `warmupScore`) when data is sparse. Online updates are **gated** by `BaselineUpdatePolicy` (default: learn from risk-derived `ALLOW`/`MONITOR` only; always learn during statistical warmup). Flow: score → decide risk → conditionally call `AnomalyScorer.update(...)`. With default composite wiring, an accepted update fans out to statistical state and optional Isolation Forest training-buffer handling (IF retains its own rejection gates).
 
 It consumes the **full** `RequestFeatures.toArray()` (seven dimensions including hash and IP bucket).
 

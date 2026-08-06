@@ -1,11 +1,22 @@
 package dev.aisentinel.core.scenario;
 
+import dev.aisentinel.core.baseline.ConfigurableBaselineUpdatePolicy;
+import dev.aisentinel.core.decision.RiskDecision;
+import dev.aisentinel.core.decision.SentinelDecisionEngine;
+import dev.aisentinel.core.enforcement.EnforcementHandler;
+import dev.aisentinel.core.enforcement.EnforcementResponse;
+import dev.aisentinel.core.fusion.NoopRequestRiskFusion;
+import dev.aisentinel.core.http.HttpRequestView;
 import dev.aisentinel.core.http.MapHttpRequestView;
+import dev.aisentinel.core.identity.spi.NoopTrustEvaluator;
+import dev.aisentinel.core.metrics.SentinelMetrics;
+import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.policy.EnforcementAction;
-import dev.aisentinel.core.scenario.DetectionScenarioRunner.DetectionScenario;
-import dev.aisentinel.core.scenario.DetectionScenarioRunner.DetectionScenarioStep;
-import dev.aisentinel.core.scenario.DetectionScenarioRunner.ScenarioObservation;
+import dev.aisentinel.core.policy.NoopTrustPolicyAdjuster;
+import dev.aisentinel.core.policy.ThresholdPolicyEngine;
+import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.scoring.StatisticalScorer;
+import dev.aisentinel.core.telemetry.TelemetryEmitter;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -15,14 +26,11 @@ import java.util.Locale;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Gradual linear request-rate ramp.
+ * Gradual linear request-rate ramp under production decision flow.
  * <p>
- * Historically this scenario was called a “rapid burst”; the class was renamed because the
- * extractor produces {@code requestsPerWindow = 1,2,3,…,N} (a linear ramp), not a true step.
- * Scenario id {@code rapid-endpoint-request-burst} is retained only for log continuity.
- * <p>
- * Finding preserved: a late linear-ramp request is not scored as riskier than a mid-ramp probe
- * under continuous online {@code score()} then {@code update()}.
+ * Under unconditional always-update, late ramp scores asymptote below THROTTLE.
+ * Under the default {@code ALLOW_OR_MONITOR} baseline-update policy, elevated observations
+ * stop training once risk reaches THROTTLE+, so late-ramp contamination is reduced.
  */
 class GradualEndpointRequestRampScenarioTest {
 
@@ -39,59 +47,82 @@ class GradualEndpointRequestRampScenarioTest {
     private static final double WARMUP_SCORE = 0.4;
 
     @Test
-    void gradualRamp_lateProbeNotRiskierThanMidRamp_underOnlineUpdates() {
-        DetectionScenarioRunner runner = DetectionScenarioRunner.statisticalOnly();
-        assertThat(runner.scorer()).isInstanceOf(StatisticalScorer.class);
+    void gradualRamp_defaultGating_reducesLateAbsorptionVersusAlwaysUpdate() {
+        RampSummary gated = runRamp(ConfigurableBaselineUpdatePolicy.allowOrMonitor());
+        RampSummary always = runRamp(ConfigurableBaselineUpdatePolicy.always());
 
-        List<DetectionScenarioStep> steps = new ArrayList<>(CALM_TOTAL + RAMP_EXTRA);
+        System.out.printf(Locale.ROOT,
+            "%s gated: midScore=%.6f lateScore=%.6f lateAction=%s firstThrottle=%s%n",
+            SCENARIO_ID, gated.midScore, gated.lateScore, gated.lateAction, gated.firstThrottleIndex);
+        System.out.printf(Locale.ROOT,
+            "%s always: midScore=%.6f lateScore=%.6f lateAction=%s firstThrottle=%s%n",
+            SCENARIO_ID, always.midScore, always.lateScore, always.lateAction, always.firstThrottleIndex);
+
+        assertThat(gated.warmup0).isEqualTo(WARMUP_SCORE);
+        assertThat(gated.warmup1).isEqualTo(WARMUP_SCORE);
+        assertThat(gated.warmupAction0).isEqualTo(EnforcementAction.MONITOR);
+
+        // Legacy always-update still absorbs late ramp below THROTTLE.
+        assertThat(always.lateScore).isLessThanOrEqualTo(always.midScore);
+        assertThat(always.lateAction).isIn(EnforcementAction.ALLOW, EnforcementAction.MONITOR);
+
+        // Default gating must not be softer than always-update at the late probe.
+        assertThat(gated.lateScore)
+            .as("gated late score should be at least as elevated as always-update late score")
+            .isGreaterThanOrEqualTo(always.lateScore);
+    }
+
+    private static RampSummary runRamp(ConfigurableBaselineUpdatePolicy policy) {
+        StatisticalScorer scorer = new StatisticalScorer(100_000, 300_000L, 2, 0.4);
+        SentinelDecisionEngine engine = newEngine(scorer, policy);
+        HttpRequestView request = stableRequest();
+
+        List<RiskDecision> decisions = new ArrayList<>(CALM_TOTAL + RAMP_EXTRA);
         for (int i = 0; i < CALM_TOTAL + RAMP_EXTRA; i++) {
-            steps.add(new DetectionScenarioStep(IDENTITY, stableRequest()));
+            // Mirror extractor-driven ramp: rpw = request index + 1 for this identity|endpoint.
+            double rpw = i + 1.0;
+            RiskDecision d = engine.evaluate(request, IDENTITY,
+                ScenarioTestSupport.baseFeatures(IDENTITY, ENDPOINT, rpw), new RequestContext());
+            assertThat(d).isNotNull();
+            decisions.add(d);
         }
 
-        List<ScenarioObservation> obs = runner.run(new DetectionScenario(SCENARIO_ID, List.copyOf(steps)));
-        assertThat(obs).hasSize(CALM_TOTAL + RAMP_EXTRA);
+        RiskDecision mid = decisions.get(CALM_TOTAL - 1);
+        RiskDecision late = decisions.get(decisions.size() - 1);
+        Integer firstThrottle = null;
+        for (int i = 0; i < decisions.size(); i++) {
+            EnforcementAction a = decisions.get(i).action();
+            if (a == EnforcementAction.THROTTLE || a == EnforcementAction.BLOCK || a == EnforcementAction.QUARANTINE) {
+                firstThrottle = i;
+                break;
+            }
+        }
+        return new RampSummary(
+            decisions.get(0).anomalyScore(),
+            decisions.get(1).anomalyScore(),
+            decisions.get(0).action(),
+            mid.anomalyScore(),
+            late.anomalyScore(),
+            late.action(),
+            firstThrottle
+        );
+    }
 
-        assertThat(obs.get(0).anomalyScore()).isEqualTo(WARMUP_SCORE);
-        assertThat(obs.get(1).anomalyScore()).isEqualTo(WARMUP_SCORE);
-        // Warmup action is MONITOR (not THROTTLE from score 0.4 ∩ elevated threshold).
-        assertThat(obs.get(0).action()).isEqualTo(EnforcementAction.MONITOR);
-        assertThat(obs.get(1).action()).isEqualTo(EnforcementAction.MONITOR);
-
-        ScenarioObservation firstLive = obs.get(WARMUP_REQUESTS);
-        ScenarioObservation midRamp = obs.get(CALM_TOTAL - 1);
-        ScenarioObservation lateRamp = obs.get(obs.size() - 1);
-
-        assertThat(firstLive.anomalyScore()).isNotEqualTo(WARMUP_SCORE);
-        assertThat(midRamp.anomalyScore()).isNotEqualTo(WARMUP_SCORE);
-
-        assertThat(lateRamp.features().requestsPerWindow())
-            .isGreaterThan(midRamp.features().requestsPerWindow());
-        assertThat(lateRamp.features().headerFingerprintHash())
-            .isEqualTo(midRamp.features().headerFingerprintHash());
-        assertThat(lateRamp.features().ipBucket()).isEqualTo(midRamp.features().ipBucket());
-        assertThat(lateRamp.policyScore()).isEqualTo(lateRamp.anomalyScore());
-        assertThat(lateRamp.startupGraceActive()).isFalse();
-
-        boolean scoreIncreased = lateRamp.anomalyScore() > midRamp.anomalyScore();
-        boolean throttleOrStricter = lateRamp.action() == EnforcementAction.THROTTLE
-            || lateRamp.action() == EnforcementAction.BLOCK
-            || lateRamp.action() == EnforcementAction.QUARANTINE;
-
-        String evidence = String.format(Locale.ROOT,
-            "scenario=%s midRpw=%.0f midScore=%.6f midAction=%s lateRpw=%.0f lateScore=%.6f lateAction=%s",
-            SCENARIO_ID,
-            midRamp.features().requestsPerWindow(), midRamp.anomalyScore(), midRamp.action(),
-            lateRamp.features().requestsPerWindow(), lateRamp.anomalyScore(), lateRamp.action());
-
-        assertThat(lateRamp.anomalyScore())
-            .as("late linear ramp not riskier than mid-ramp. %s", evidence)
-            .isLessThanOrEqualTo(midRamp.anomalyScore());
-        assertThat(lateRamp.action())
-            .as("late ramp below THROTTLE. %s", evidence)
-            .isIn(EnforcementAction.ALLOW, EnforcementAction.MONITOR);
-        assertThat(scoreIncreased && throttleOrStricter)
-            .as("sudden-burst product claim NOT confirmed for gradual ramp. %s", evidence)
-            .isFalse();
+    private static SentinelDecisionEngine newEngine(StatisticalScorer scorer,
+                                                    ConfigurableBaselineUpdatePolicy policy) {
+        return new SentinelDecisionEngine(
+            scorer,
+            new ThresholdPolicyEngine(0.2, 0.4, 0.6, 0.8),
+            NeverQuarantined.INSTANCE,
+            NoopTel.INSTANCE,
+            StartupGrace.NEVER,
+            SentinelMetrics.NOOP,
+            NoopTrustEvaluator.INSTANCE,
+            NoopTrustPolicyAdjuster.INSTANCE,
+            NoopRequestRiskFusion.INSTANCE,
+            EnforcementAction.MONITOR,
+            policy
+        );
     }
 
     private static MapHttpRequestView stableRequest() {
@@ -100,5 +131,39 @@ class GradualEndpointRequestRampScenarioTest {
             .method("GET")
             .remoteAddr(REMOTE)
             .header("Accept", ACCEPT);
+    }
+
+    private record RampSummary(
+        double warmup0,
+        double warmup1,
+        EnforcementAction warmupAction0,
+        double midScore,
+        double lateScore,
+        EnforcementAction lateAction,
+        Integer firstThrottleIndex
+    ) {
+    }
+
+    private enum NeverQuarantined implements EnforcementHandler {
+        INSTANCE;
+
+        @Override
+        public boolean apply(EnforcementAction action, HttpRequestView request, EnforcementResponse response,
+                             String identityHash, String endpoint) {
+            return true;
+        }
+
+        @Override
+        public boolean isQuarantined(String identityHash, String endpoint) {
+            return false;
+        }
+    }
+
+    private enum NoopTel implements TelemetryEmitter {
+        INSTANCE;
+
+        @Override
+        public void emit(dev.aisentinel.core.telemetry.TelemetryEvent event) {
+        }
     }
 }

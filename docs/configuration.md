@@ -20,6 +20,8 @@ Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer
 | `ai.sentinel.filter-order` | `2147483547` (same as `Ordered.LOWEST_PRECEDENCE - 100`, i.e. `Integer.MAX_VALUE - 100`) | Servlet filter order for Sentinel; adjust when you need Sentinel before/after other app filters or Spring Security chain behavior |
 | `ai.sentinel.threshold-moderate` … `threshold-critical` | `0.2` … `0.8` | Strictly increasing, in `[0,1]` |
 | `ai.sentinel.warmup-min-samples` / `warmup-score` / `warmup-action` | `2` / `0.4` / `MONITOR` | Cold-start: numeric `warmup-score` is telemetry/fusion input; **`warmup-action`** is the enforcement action while `EvaluationStatus.STATISTICAL_WARMUP` is active (`ALLOW` or `MONITOR`). Warmup is **not** treated as confirmed elevated risk. |
+| `ai.sentinel.statistical.baseline-update-policy` | `ALLOW_OR_MONITOR` | When the decision engine may call `AnomalyScorer.update(...)` after the risk decision: `ALWAYS`, `ALLOW_ONLY`, `ALLOW_OR_MONITOR`, `SCORE_BELOW_THRESHOLD`. Mutually exclusive modes. In default composite wiring an accepted update fans out to statistical baseline state and optional Isolation Forest training-buffer handling (IF keeps its own sample-rate / rejection gates). |
+| `ai.sentinel.statistical.baseline-update-score-threshold` | `0.4` | Used only with `SCORE_BELOW_THRESHOLD`: update when fused/policy score is **strictly below** this value (`[0,1]`). Ignored by other modes. |
 | `ai.sentinel.startup-grace-period` | `0` | Duration (e.g. `5m`) enforcing monitor-only after startup |
 | `ai.sentinel.enforcement-scope` | `IDENTITY_ENDPOINT` | Throttle/quarantine key scope |
 | `ai.sentinel.isolation-forest.enabled` | `false` | In-core Isolation Forest |
@@ -71,8 +73,33 @@ Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer
 
 1. New identity|endpoint key → `EvaluationStatus.STATISTICAL_WARMUP` until enough samples (`warmup-min-samples`, with live scoring also requiring `n ≥ 2`).
 2. Scorer still returns `warmup-score` for the numeric anomaly/policy score path (fusion/telemetry).
-3. Decision engine overrides the action to `warmup-action` (default `MONITOR`) so warmup is **not** interpreted as confirmed elevated risk.
-4. After enough updates → `STATISTICAL_LIVE` (+ `COMPLETE` when no model fallback/unavailable).
+3. Decision engine overrides the **enforcement** action to `warmup-action` (default `MONITOR`) so warmup is **not** interpreted as confirmed elevated risk.
+4. Warmup observations **always** update the baseline so cold-start keys can leave warmup under gated policies.
+5. After enough updates → `STATISTICAL_LIVE` (+ `COMPLETE` when no model fallback/unavailable).
+
+### Statistical baseline update policy
+
+Decision flow:
+
+```text
+score → fusion / policy / trust → risk action → baseline-update policy → conditional update
+     → warmup / startup-grace / quarantine (enforcement presentation only)
+```
+
+| Mode | Updates when |
+|------|----------------|
+| `ALLOW_OR_MONITOR` (default) | Risk-derived action is `ALLOW` or `MONITOR` (and always during `STATISTICAL_WARMUP`) |
+| `ALLOW_ONLY` | Risk-derived action is `ALLOW` (and always during warmup) |
+| `ALWAYS` | Every observation (previous unconditional behavior) |
+| `SCORE_BELOW_THRESHOLD` | Policy/fused score &lt; `baseline-update-score-threshold` (and always during warmup) |
+
+Learning uses the **risk-derived** action after policy and trust adjustment. Startup grace forcing `MONITOR` or a quarantine presentation override does **not** decide whether the feature vector trains the scorer. Trust fusion that changes the policy score/action does affect learning.
+
+When an update is skipped, `RiskDecision` may include `EvaluationStatus.BASELINE_UPDATE_SKIPPED`.
+
+The policy gates the decision-engine call to `AnomalyScorer.update(...)`. With the default `CompositeScorer`, an accepted update is forwarded to every child scorer (statistical Welford state and, when enabled, Isolation Forest training-buffer admission). Isolation Forest still applies its own sample-rate and training-rejection logic inside `update`.
+
+A gated baseline can remain frozen during a legitimate sustained behavior shift while observations stay `THROTTLE` or higher (relearn/reset is not included yet).
 
 ### Behavioral trust (`ai.sentinel.identity.trust.*`)
 
