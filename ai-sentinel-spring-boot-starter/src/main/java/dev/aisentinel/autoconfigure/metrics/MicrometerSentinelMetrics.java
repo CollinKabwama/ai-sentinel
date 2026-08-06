@@ -8,6 +8,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -85,6 +86,10 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Counter trustBaselineRedisFailure;
     private final Counter trustBaselineRedisFallback;
 
+    private final Map<String, Counter> baselineUpdateAcceptedByMode = new LinkedHashMap<>();
+    private final Map<String, Counter> baselineUpdateSkippedByMode = new LinkedHashMap<>();
+    private final Counter baselineUpdateAcceptedWarmup;
+
     public MicrometerSentinelMetrics(MeterRegistry registry) {
         this.scoreComposite = DistributionSummary.builder("aisentinel.score.composite")
             .description("Blended anomaly score after composite weighting")
@@ -110,7 +115,7 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
             .publishPercentiles(0.5, 0.99)
             .register(registry);
         this.latencyScoring = Timer.builder("aisentinel.latency.scoring")
-            .description("Scorer score + update latency")
+            .description("AnomalyScorer score latency")
             .publishPercentiles(0.5, 0.99)
             .register(registry);
         this.latencyIf = Timer.builder("aisentinel.latency.if")
@@ -242,6 +247,20 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         this.trustBaselineRedisFallback = Counter.builder("aisentinel.identity.trust.baseline.redis.fallback")
             .description("Behavioral trust baseline used in-memory store after Redis failure")
             .register(registry);
+
+        for (String mode : List.of("ALWAYS", "ALLOW_ONLY", "ALLOW_OR_MONITOR", "SCORE_BELOW_THRESHOLD")) {
+            baselineUpdateAcceptedByMode.put(mode, Counter.builder("aisentinel.baseline.update.accepted")
+                .description("Online scorer update accepted by baseline-update policy")
+                .tag("policy", mode)
+                .register(registry));
+            baselineUpdateSkippedByMode.put(mode, Counter.builder("aisentinel.baseline.update.skipped")
+                .description("Online scorer update skipped by baseline-update policy")
+                .tag("policy", mode)
+                .register(registry));
+        }
+        this.baselineUpdateAcceptedWarmup = Counter.builder("aisentinel.baseline.update.accepted.warmup")
+            .description("Baseline updates accepted while statistical warmup is active")
+            .register(registry);
     }
 
     @Override
@@ -277,6 +296,32 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         if (nanos >= 0) {
             latencyScoring.record(nanos, TimeUnit.NANOSECONDS);
         }
+    }
+
+    @Override
+    public void recordBaselineUpdateAccepted(String policyMode, boolean warmup) {
+        Counter counter = baselineUpdateAcceptedByMode.get(normalizePolicyMode(policyMode));
+        if (counter != null) {
+            counter.increment();
+        }
+        if (warmup) {
+            baselineUpdateAcceptedWarmup.increment();
+        }
+    }
+
+    @Override
+    public void recordBaselineUpdateSkipped(String policyMode) {
+        Counter counter = baselineUpdateSkippedByMode.get(normalizePolicyMode(policyMode));
+        if (counter != null) {
+            counter.increment();
+        }
+    }
+
+    private static String normalizePolicyMode(String policyMode) {
+        if (policyMode == null || policyMode.isBlank()) {
+            return "ALLOW_OR_MONITOR";
+        }
+        return policyMode;
     }
 
     @Override

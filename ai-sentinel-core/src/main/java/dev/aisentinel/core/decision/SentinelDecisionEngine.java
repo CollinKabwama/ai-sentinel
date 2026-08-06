@@ -1,5 +1,9 @@
 package dev.aisentinel.core.decision;
 
+import dev.aisentinel.core.baseline.BaselineUpdateContext;
+import dev.aisentinel.core.baseline.BaselineUpdateMode;
+import dev.aisentinel.core.baseline.BaselineUpdatePolicy;
+import dev.aisentinel.core.baseline.ConfigurableBaselineUpdatePolicy;
 import dev.aisentinel.core.enforcement.EnforcementHandler;
 import dev.aisentinel.core.fusion.FusedRisk;
 import dev.aisentinel.core.fusion.FusionContextKeys;
@@ -26,15 +30,20 @@ import dev.aisentinel.core.telemetry.TelemetryEmitter;
 import dev.aisentinel.core.telemetry.TelemetryEvent;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.EnumSet;
 import java.util.Set;
 
 /**
  * Framework-independent risk decision for one request: trust evaluation, anomaly scoring, optional risk fusion,
- * policy, trust-policy escalation, statistical-warmup action override, and the startup-grace / quarantine overrides.
+ * policy, trust-policy escalation, statistical-warmup action override, conditional baseline update, and the
+ * startup-grace / quarantine overrides.
  * <p>
  * Depends only on {@link HttpRequestView} and core SPIs — no servlet, Spring, or reactive types — so it can be
  * driven directly from tests or from a non-servlet integration. It never writes to the HTTP response; applying the
  * returned {@link RiskDecision#action()} is the caller's responsibility.
+ * <p>
+ * Baseline learning uses the risk-derived action (after policy and trust adjustment), not operational overrides
+ * such as startup grace or quarantine presentation. Statistical warmup always updates so cold-start keys can learn.
  */
 @Slf4j
 public final class SentinelDecisionEngine {
@@ -49,6 +58,8 @@ public final class SentinelDecisionEngine {
     private final TrustPolicyAdjuster trustPolicyAdjuster;
     private final RequestRiskFusion riskFusion;
     private final EnforcementAction statisticalWarmupAction;
+    private final BaselineUpdatePolicy baselineUpdatePolicy;
+    private final BaselineUpdateMode baselineUpdateMode;
 
     /**
      * @param enforcementHandler consulted only for {@link EnforcementHandler#isQuarantined(String, String)}
@@ -63,14 +74,10 @@ public final class SentinelDecisionEngine {
                                   TrustPolicyAdjuster trustPolicyAdjuster,
                                   RequestRiskFusion riskFusion) {
         this(scorer, policyEngine, enforcementHandler, telemetry, startupGrace, metrics,
-            trustEvaluator, trustPolicyAdjuster, riskFusion, EnforcementAction.MONITOR);
+            trustEvaluator, trustPolicyAdjuster, riskFusion, EnforcementAction.MONITOR,
+            ConfigurableBaselineUpdatePolicy.allowOrMonitor());
     }
 
-    /**
-     * @param statisticalWarmupAction action applied when evaluation includes {@link EvaluationStatus#STATISTICAL_WARMUP}
-     *                                (default {@link EnforcementAction#MONITOR}); must be {@link EnforcementAction#ALLOW}
-     *                                or {@link EnforcementAction#MONITOR} (other values are normalized to {@code MONITOR})
-     */
     public SentinelDecisionEngine(AnomalyScorer scorer,
                                   PolicyEngine policyEngine,
                                   EnforcementHandler enforcementHandler,
@@ -81,6 +88,28 @@ public final class SentinelDecisionEngine {
                                   TrustPolicyAdjuster trustPolicyAdjuster,
                                   RequestRiskFusion riskFusion,
                                   EnforcementAction statisticalWarmupAction) {
+        this(scorer, policyEngine, enforcementHandler, telemetry, startupGrace, metrics,
+            trustEvaluator, trustPolicyAdjuster, riskFusion, statisticalWarmupAction,
+            ConfigurableBaselineUpdatePolicy.allowOrMonitor());
+    }
+
+    /**
+     * @param statisticalWarmupAction action applied when evaluation includes {@link EvaluationStatus#STATISTICAL_WARMUP}
+     *                                (default {@link EnforcementAction#MONITOR}); must be {@link EnforcementAction#ALLOW}
+     *                                or {@link EnforcementAction#MONITOR} (other values are normalized to {@code MONITOR})
+     * @param baselineUpdatePolicy    decides whether {@link AnomalyScorer#update} runs after the risk decision
+     */
+    public SentinelDecisionEngine(AnomalyScorer scorer,
+                                  PolicyEngine policyEngine,
+                                  EnforcementHandler enforcementHandler,
+                                  TelemetryEmitter telemetry,
+                                  StartupGrace startupGrace,
+                                  SentinelMetrics metrics,
+                                  TrustEvaluator trustEvaluator,
+                                  TrustPolicyAdjuster trustPolicyAdjuster,
+                                  RequestRiskFusion riskFusion,
+                                  EnforcementAction statisticalWarmupAction,
+                                  BaselineUpdatePolicy baselineUpdatePolicy) {
         this.scorer = scorer;
         this.policyEngine = policyEngine;
         this.enforcementHandler = enforcementHandler;
@@ -91,6 +120,13 @@ public final class SentinelDecisionEngine {
         this.trustPolicyAdjuster = trustPolicyAdjuster != null ? trustPolicyAdjuster : NoopTrustPolicyAdjuster.INSTANCE;
         this.riskFusion = riskFusion != null ? riskFusion : NoopRequestRiskFusion.INSTANCE;
         this.statisticalWarmupAction = normalizeWarmupAction(statisticalWarmupAction);
+        BaselineUpdatePolicy policy = baselineUpdatePolicy != null
+            ? baselineUpdatePolicy
+            : ConfigurableBaselineUpdatePolicy.allowOrMonitor();
+        this.baselineUpdatePolicy = policy;
+        this.baselineUpdateMode = policy instanceof ConfigurableBaselineUpdatePolicy configurable
+            ? configurable.mode()
+            : BaselineUpdateMode.ALLOW_OR_MONITOR;
     }
 
     static EnforcementAction normalizeWarmupAction(EnforcementAction action) {
@@ -109,6 +145,9 @@ public final class SentinelDecisionEngine {
      * <p>
      * Never writes to the HTTP response. Does enrich {@code ctx} in place (trust evaluation, fused risk,
      * trust-policy detail) — same side-effect contract as earlier pipeline evaluation.
+     * <p>
+     * Flow: score → fusion/policy/trust → risk action → baseline-update policy → conditional update →
+     * warmup/grace/quarantine enforcement presentation.
      *
      * @param ctx per-request context; enriched in-place with trust, fusion, and policy detail keys
      * @return the decision, or {@code null} when scoring failed and the caller must fail open
@@ -137,7 +176,6 @@ public final class SentinelDecisionEngine {
             rawScore = scorer.score(features);
             // Collect before update so STATISTICAL_WARMUP matches the score just returned.
             evaluationStatuses = EvaluationStatusCollector.collect(scorer, features);
-            scorer.update(features);
         } catch (Exception e) {
             log.debug("Scoring failed for {}: {}: {}",
                 features.endpoint(), e.getClass().getSimpleName(), e.getMessage());
@@ -175,11 +213,11 @@ public final class SentinelDecisionEngine {
             }
         }
 
-        EnforcementAction action = policyEngine.evaluate(policyScore, features, features.endpoint());
+        EnforcementAction riskAction = policyEngine.evaluate(policyScore, features, features.endpoint());
         try {
-            TrustPolicyAdjustment tp = trustPolicyAdjuster.adjust(action, score, features, features.endpoint(),
+            TrustPolicyAdjustment tp = trustPolicyAdjuster.adjust(riskAction, score, features, features.endpoint(),
                 request, ctx);
-            action = tp.action();
+            riskAction = tp.action();
             if (tp.trustPolicyDetail() != null && !tp.trustPolicyDetail().isBlank()) {
                 ctx.put(TrustPolicyContextKeys.TRUST_POLICY_DETAIL, tp.trustPolicyDetail());
             }
@@ -189,8 +227,38 @@ public final class SentinelDecisionEngine {
             metrics.recordFailOpen();
         }
 
+        boolean warmup = evaluationStatuses.contains(EvaluationStatus.STATISTICAL_WARMUP);
+        BaselineUpdateContext updateContext = new BaselineUpdateContext(
+            score, policyScore, riskAction, evaluationStatuses);
+        boolean shouldUpdate;
+        try {
+            shouldUpdate = baselineUpdatePolicy.shouldUpdate(updateContext);
+        } catch (Exception e) {
+            log.debug("Baseline-update policy evaluation failed for {}: {}: {}",
+                features.endpoint(), e.getClass().getSimpleName(), e.getMessage());
+            metrics.recordFailOpen();
+            shouldUpdate = false;
+        }
+        EnumSet<EvaluationStatus> statuses = EnumSet.copyOf(evaluationStatuses);
+        if (shouldUpdate) {
+            try {
+                scorer.update(features);
+                metrics.recordBaselineUpdateAccepted(baselineUpdateMode.name(), warmup);
+            } catch (Exception e) {
+                log.debug("Baseline update failed for {}: {}: {}",
+                    features.endpoint(), e.getClass().getSimpleName(), e.getMessage());
+                metrics.recordScoringError();
+                metrics.recordFailOpen();
+                return null;
+            }
+        } else {
+            statuses.add(EvaluationStatus.BASELINE_UPDATE_SKIPPED);
+            metrics.recordBaselineUpdateSkipped(baselineUpdateMode.name());
+        }
+
+        EnforcementAction action = riskAction;
         // Warmup is a lifecycle state: do not treat the numeric warmup score as confirmed elevated risk.
-        if (evaluationStatuses.contains(EvaluationStatus.STATISTICAL_WARMUP)) {
+        if (warmup) {
             action = statisticalWarmupAction;
         }
 
@@ -207,7 +275,7 @@ public final class SentinelDecisionEngine {
         }
 
         metrics.recordPolicyAction(action);
-        return new RiskDecision(action, score, policyScore, features, ctx, startupGraceActive, evaluationStatuses);
+        return new RiskDecision(action, score, policyScore, features, ctx, startupGraceActive, Set.copyOf(statuses));
     }
 
     /**

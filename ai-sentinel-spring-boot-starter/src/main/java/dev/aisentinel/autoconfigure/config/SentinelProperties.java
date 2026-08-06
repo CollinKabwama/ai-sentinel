@@ -1,6 +1,7 @@
 package dev.aisentinel.autoconfigure.config;
 
 import dev.aisentinel.core.enforcement.EnforcementScope;
+import dev.aisentinel.core.baseline.BaselineUpdateMode;
 import dev.aisentinel.core.policy.EnforcementAction;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
@@ -68,6 +69,12 @@ public class SentinelProperties {
             || warmupAction == EnforcementAction.MONITOR;
     }
 
+    /**
+     * Statistical baseline learning controls ({@code ai.sentinel.statistical.*}).
+     */
+    @Valid
+    private Statistical statistical = new Statistical();
+
     /** Policy: scores at or above this map to MONITOR (below elevated). Default 0.2. */
     private double thresholdModerate = 0.2;
     /** Policy: scores at or above this map to THROTTLE. Default 0.4. */
@@ -88,6 +95,24 @@ public class SentinelProperties {
     /** Identity resolution and trust hooks: disabled by default; no change to API security behavior when off. */
     @Valid
     private Identity identity = new Identity();
+
+    @Data
+    public static class Statistical {
+        /**
+         * When scored observations may update the statistical baseline / scorer online state.
+         * Default {@link BaselineUpdateMode#ALLOW_OR_MONITOR}. Use {@link BaselineUpdateMode#ALWAYS}
+         * for the previous unconditional update behavior.
+         */
+        private BaselineUpdateMode baselineUpdatePolicy = BaselineUpdateMode.ALLOW_OR_MONITOR;
+
+        /**
+         * Used only when {@link #baselineUpdatePolicy} is {@link BaselineUpdateMode#SCORE_BELOW_THRESHOLD}:
+         * update when fused/policy score is strictly below this value. Default {@code 0.4}.
+         */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double baselineUpdateScoreThreshold = 0.4;
+    }
 
     @Data
     public static class Identity {

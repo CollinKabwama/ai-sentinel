@@ -1,6 +1,7 @@
 package dev.aisentinel.autoconfigure.config;
 
 import dev.aisentinel.core.SentinelPipeline;
+import dev.aisentinel.core.baseline.ConfigurableBaselineUpdatePolicy;
 import dev.aisentinel.core.fusion.DeterministicRequestRiskFusion;
 import dev.aisentinel.core.fusion.NoopRequestRiskFusion;
 import dev.aisentinel.core.fusion.RequestRiskFusion;
@@ -543,7 +544,10 @@ public class SentinelAutoConfiguration {
             trustPolicyAdjuster,
             identityResponseHook,
             requestRiskFusion,
-            props.getWarmupAction()
+            props.getWarmupAction(),
+            new ConfigurableBaselineUpdatePolicy(
+                props.getStatistical().getBaselineUpdatePolicy(),
+                props.getStatistical().getBaselineUpdateScoreThreshold())
         );
     }
 

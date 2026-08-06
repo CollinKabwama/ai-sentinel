@@ -21,9 +21,23 @@ public interface SentinelMetrics {
 
     default void recordPipelineLatencyNanos(long nanos) {}
 
-    /** Time spent in {@link dev.aisentinel.core.scoring.AnomalyScorer#score} + {@code update} for the request. */
+    /** Time spent in {@link dev.aisentinel.core.scoring.AnomalyScorer#score} for the request. */
     default void recordScoringLatencyNanos(long nanos) {}
 
+    /**
+     * Online baseline / scorer update ran for this request.
+     *
+     * @param policyMode low-cardinality {@link dev.aisentinel.core.baseline.BaselineUpdateMode#name()}
+     * @param warmup     {@code true} when update was forced because evaluation was in statistical warmup
+     */
+    default void recordBaselineUpdateAccepted(String policyMode, boolean warmup) {}
+
+    /**
+     * Online baseline / scorer update was skipped by the configured policy.
+     *
+     * @param policyMode low-cardinality {@link dev.aisentinel.core.baseline.BaselineUpdateMode#name()}
+     */
+    default void recordBaselineUpdateSkipped(String policyMode) {}
     /** IF model inference only (hot path inside {@link dev.aisentinel.core.scoring.IsolationForestScorer#score}). */
     default void recordIsolationForestInferenceLatencyNanos(long nanos) {}
 
