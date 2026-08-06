@@ -15,11 +15,11 @@ import java.util.Locale;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Gradual linear request-rate ramp (formerly named “rapid burst”).
+ * Gradual linear request-rate ramp.
  * <p>
- * Scenario id retained as {@code rapid-endpoint-request-burst} for continuity with
- * {@code docs/detection/RAPID_BURST_SCENARIO_REPORT.md}. The sequence is {@code 1,2,3,…,N} via the real
- * extractor — <strong>not</strong> a sudden step.
+ * Historically this scenario was called a “rapid burst”; the class was renamed because the
+ * extractor produces {@code requestsPerWindow = 1,2,3,…,N} (a linear ramp), not a true step.
+ * Scenario id {@code rapid-endpoint-request-burst} is retained only for log continuity.
  * <p>
  * Finding preserved: a late linear-ramp request is not scored as riskier than a mid-ramp probe
  * under continuous online {@code score()} then {@code update()}.

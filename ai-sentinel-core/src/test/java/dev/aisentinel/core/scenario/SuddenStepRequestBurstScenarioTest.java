@@ -40,7 +40,8 @@ import static org.assertj.core.api.Assertions.assertThat;
  *   <li><strong>Controlled</strong> {@link RequestFeatures} fixtures (constant calm rpw, then step rpw)</li>
  *   <li>{@link MapHttpRequestView} only as a neutral request shell for {@code evaluate}</li>
  * </ul>
- * See {@code docs/detection/SUDDEN_STEP_BURST_REPORT.md}.
+ * Finding preserved: the first elevated step saturates to a high action, then decays under
+ * continuous online updates (order of ~12–18 samples below THROTTLE in the default fixture).
  */
 class SuddenStepRequestBurstScenarioTest {
 
