@@ -1,6 +1,7 @@
 package dev.aisentinel.autoconfigure.config;
 
 import dev.aisentinel.core.enforcement.EnforcementScope;
+import dev.aisentinel.core.policy.EnforcementAction;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -50,8 +51,22 @@ public class SentinelProperties {
     private EnforcementScope enforcementScope = EnforcementScope.IDENTITY_ENDPOINT;
     /** Min samples per key before using real score (cold-start); below this return warmup-score. Default 2. */
     private int warmupMinSamples = 2;
-    /** Score returned during warmup (cold-start) to avoid bypass. Default 0.4 (MONITOR). */
+    /**
+     * Numeric score returned during statistical warmup (telemetry / fusion input). Default {@code 0.4}.
+     * Does <strong>not</strong> alone choose enforcement; see {@link #warmupAction}.
+     */
     private double warmupScore = 0.4;
+    /**
+     * Enforcement action while {@code EvaluationStatus.STATISTICAL_WARMUP} is active. Default {@code MONITOR}.
+     * Allowed: {@code ALLOW} or {@code MONITOR}. Other actions are rejected at binding validation.
+     */
+    private EnforcementAction warmupAction = EnforcementAction.MONITOR;
+
+    @jakarta.validation.constraints.AssertTrue(message = "ai.sentinel.warmup-action must be ALLOW or MONITOR")
+    public boolean isWarmupActionAllowed() {
+        return warmupAction == EnforcementAction.ALLOW
+            || warmupAction == EnforcementAction.MONITOR;
+    }
 
     /** Policy: scores at or above this map to MONITOR (below elevated). Default 0.2. */
     private double thresholdModerate = 0.2;

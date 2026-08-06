@@ -542,7 +542,8 @@ public class SentinelAutoConfiguration {
             trustEvaluator,
             trustPolicyAdjuster,
             identityResponseHook,
-            requestRiskFusion
+            requestRiskFusion,
+            props.getWarmupAction()
         );
     }
 

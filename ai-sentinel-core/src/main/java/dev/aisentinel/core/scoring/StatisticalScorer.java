@@ -49,25 +49,40 @@ public final class StatisticalScorer implements AnomalyScorer {
         return stateByKey.size();
     }
 
+    /**
+     * {@code true} when this identity|endpoint key lacks enough samples for live z-score scoring.
+     * Does not mutate state. Used by the decision engine for {@link dev.aisentinel.core.decision.EvaluationStatus}
+     * without expanding the pluggable {@link AnomalyScorer} SPI.
+     */
+    public boolean isWarmup(RequestFeatures features) {
+        String key = features.identityHash() + "|" + features.endpoint();
+        WelfordState state = stateByKey.get(key);
+        if (state == null) {
+            return true;
+        }
+        synchronized (state) {
+            return state.n < Math.max(2, warmupMinSamples);
+        }
+    }
+
+    /** Configured numeric score returned while {@link #isWarmup(RequestFeatures)} is true (telemetry / fusion input). */
+    public double warmupScore() {
+        return warmupScore;
+    }
+
     @Override
     public double score(RequestFeatures features) {
         double[] x = features.toArray();
         String key = features.identityHash() + "|" + features.endpoint();
 
-        WelfordState state = stateByKey.get(key);
-        if (state == null) {
+        if (isWarmup(features)) {
             metrics.recordStatisticalScore(warmupScore);
             return warmupScore;
         }
+        WelfordState state = stateByKey.get(key);
         double[] means;
         double[] stds;
-        int n;
         synchronized (state) {
-            n = state.n;
-            if (n < Math.max(2, warmupMinSamples)) {
-                metrics.recordStatisticalScore(warmupScore);
-                return warmupScore;
-            }
             means = state.getMeansCopy();
             stds = state.getStds();
         }

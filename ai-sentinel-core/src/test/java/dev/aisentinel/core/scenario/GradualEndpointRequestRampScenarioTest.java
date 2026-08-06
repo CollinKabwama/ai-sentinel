@@ -53,7 +53,9 @@ class GradualEndpointRequestRampScenarioTest {
 
         assertThat(obs.get(0).anomalyScore()).isEqualTo(WARMUP_SCORE);
         assertThat(obs.get(1).anomalyScore()).isEqualTo(WARMUP_SCORE);
-        assertThat(obs.get(0).action()).isEqualTo(EnforcementAction.THROTTLE);
+        // Warmup action is MONITOR (not THROTTLE from score 0.4 ∩ elevated threshold).
+        assertThat(obs.get(0).action()).isEqualTo(EnforcementAction.MONITOR);
+        assertThat(obs.get(1).action()).isEqualTo(EnforcementAction.MONITOR);
 
         ScenarioObservation firstLive = obs.get(WARMUP_REQUESTS);
         ScenarioObservation midRamp = obs.get(CALM_TOTAL - 1);

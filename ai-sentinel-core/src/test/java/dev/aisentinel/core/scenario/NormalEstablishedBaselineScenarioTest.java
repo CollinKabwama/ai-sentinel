@@ -32,9 +32,11 @@ class NormalEstablishedBaselineScenarioTest {
         assertThat(first).hasSize(TOTAL);
         assertThat(second).hasSize(TOTAL);
 
-        // Warmup ends after 2 samples (score leaves fixed 0.4).
+        // Warmup ends after 2 samples (score leaves fixed 0.4); warmup action is MONITOR.
         assertThat(first.get(0).anomalyScore()).isEqualTo(ScenarioTestSupport.WARMUP_SCORE);
+        assertThat(first.get(0).action()).isEqualTo(EnforcementAction.MONITOR);
         assertThat(first.get(1).anomalyScore()).isEqualTo(ScenarioTestSupport.WARMUP_SCORE);
+        assertThat(first.get(1).action()).isEqualTo(EnforcementAction.MONITOR);
         assertThat(first.get(2).anomalyScore()).isNotEqualTo(ScenarioTestSupport.WARMUP_SCORE);
 
         ScenarioObservation last = first.get(TOTAL - 1);
