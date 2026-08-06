@@ -26,9 +26,11 @@ import dev.aisentinel.core.telemetry.TelemetryEmitter;
 import dev.aisentinel.core.telemetry.TelemetryEvent;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.Set;
+
 /**
  * Framework-independent risk decision for one request: trust evaluation, anomaly scoring, optional risk fusion,
- * policy, trust-policy escalation, and the startup-grace / quarantine overrides.
+ * policy, trust-policy escalation, statistical-warmup action override, and the startup-grace / quarantine overrides.
  * <p>
  * Depends only on {@link HttpRequestView} and core SPIs — no servlet, Spring, or reactive types — so it can be
  * driven directly from tests or from a non-servlet integration. It never writes to the HTTP response; applying the
@@ -46,6 +48,7 @@ public final class SentinelDecisionEngine {
     private final TrustEvaluator trustEvaluator;
     private final TrustPolicyAdjuster trustPolicyAdjuster;
     private final RequestRiskFusion riskFusion;
+    private final EnforcementAction statisticalWarmupAction;
 
     /**
      * @param enforcementHandler consulted only for {@link EnforcementHandler#isQuarantined(String, String)}
@@ -59,6 +62,25 @@ public final class SentinelDecisionEngine {
                                   TrustEvaluator trustEvaluator,
                                   TrustPolicyAdjuster trustPolicyAdjuster,
                                   RequestRiskFusion riskFusion) {
+        this(scorer, policyEngine, enforcementHandler, telemetry, startupGrace, metrics,
+            trustEvaluator, trustPolicyAdjuster, riskFusion, EnforcementAction.MONITOR);
+    }
+
+    /**
+     * @param statisticalWarmupAction action applied when evaluation includes {@link EvaluationStatus#STATISTICAL_WARMUP}
+     *                                (default {@link EnforcementAction#MONITOR}); must be {@link EnforcementAction#ALLOW},
+     *                                {@link EnforcementAction#MONITOR}, or {@link EnforcementAction#THROTTLE} (legacy)
+     */
+    public SentinelDecisionEngine(AnomalyScorer scorer,
+                                  PolicyEngine policyEngine,
+                                  EnforcementHandler enforcementHandler,
+                                  TelemetryEmitter telemetry,
+                                  StartupGrace startupGrace,
+                                  SentinelMetrics metrics,
+                                  TrustEvaluator trustEvaluator,
+                                  TrustPolicyAdjuster trustPolicyAdjuster,
+                                  RequestRiskFusion riskFusion,
+                                  EnforcementAction statisticalWarmupAction) {
         this.scorer = scorer;
         this.policyEngine = policyEngine;
         this.enforcementHandler = enforcementHandler;
@@ -68,6 +90,17 @@ public final class SentinelDecisionEngine {
         this.trustEvaluator = trustEvaluator != null ? trustEvaluator : NoopTrustEvaluator.INSTANCE;
         this.trustPolicyAdjuster = trustPolicyAdjuster != null ? trustPolicyAdjuster : NoopTrustPolicyAdjuster.INSTANCE;
         this.riskFusion = riskFusion != null ? riskFusion : NoopRequestRiskFusion.INSTANCE;
+        this.statisticalWarmupAction = normalizeWarmupAction(statisticalWarmupAction);
+    }
+
+    static EnforcementAction normalizeWarmupAction(EnforcementAction action) {
+        if (action == null) {
+            return EnforcementAction.MONITOR;
+        }
+        return switch (action) {
+            case ALLOW, MONITOR, THROTTLE -> action;
+            case BLOCK, QUARANTINE -> EnforcementAction.MONITOR;
+        };
     }
 
     /**
@@ -99,8 +132,11 @@ public final class SentinelDecisionEngine {
 
         double rawScore;
         long scoreStart = System.nanoTime();
+        Set<EvaluationStatus> evaluationStatuses;
         try {
             rawScore = scorer.score(features);
+            // Collect before update so STATISTICAL_WARMUP matches the score just returned.
+            evaluationStatuses = EvaluationStatusCollector.collect(scorer, features);
             scorer.update(features);
         } catch (Exception e) {
             log.debug("Scoring failed for {}: {}: {}",
@@ -153,6 +189,11 @@ public final class SentinelDecisionEngine {
             metrics.recordFailOpen();
         }
 
+        // Warmup is a lifecycle state: do not treat the numeric warmup score as confirmed elevated risk.
+        if (evaluationStatuses.contains(EvaluationStatus.STATISTICAL_WARMUP)) {
+            action = statisticalWarmupAction;
+        }
+
         telemetry.emit(TelemetryEvent.threatScored(identityHash, features.endpoint(), policyScore));
         if (score > 0.5) {
             telemetry.emit(TelemetryEvent.anomalyDetected(identityHash, features.endpoint(), score));
@@ -166,7 +207,7 @@ public final class SentinelDecisionEngine {
         }
 
         metrics.recordPolicyAction(action);
-        return new RiskDecision(action, score, policyScore, features, ctx, startupGraceActive);
+        return new RiskDecision(action, score, policyScore, features, ctx, startupGraceActive, evaluationStatuses);
     }
 
     /**

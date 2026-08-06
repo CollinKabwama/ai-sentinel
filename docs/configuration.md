@@ -19,7 +19,7 @@ Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer
 | `ai.sentinel.trusted-proxies` | _(empty)_ | IPs or CIDRs; when remote matches, client IP from forwarded headers (see trusted proxy handling in [`ARCHITECTURE.md`](../ARCHITECTURE.md)) |
 | `ai.sentinel.filter-order` | `2147483547` (same as `Ordered.LOWEST_PRECEDENCE - 100`, i.e. `Integer.MAX_VALUE - 100`) | Servlet filter order for Sentinel; adjust when you need Sentinel before/after other app filters or Spring Security chain behavior |
 | `ai.sentinel.threshold-moderate` … `threshold-critical` | `0.2` … `0.8` | Strictly increasing, in `[0,1]` |
-| `ai.sentinel.warmup-min-samples` / `warmup-score` | `2` / `0.4` | Cold-start statistical behavior |
+| `ai.sentinel.warmup-min-samples` / `warmup-score` / `warmup-action` | `2` / `0.4` / `MONITOR` | Cold-start: numeric `warmup-score` is telemetry/fusion input; **`warmup-action`** is the enforcement action while `EvaluationStatus.STATISTICAL_WARMUP` is active (`ALLOW`, `MONITOR`, or legacy `THROTTLE`). Warmup is **not** treated as confirmed elevated risk. |
 | `ai.sentinel.startup-grace-period` | `0` | Duration (e.g. `5m`) enforcing monitor-only after startup |
 | `ai.sentinel.enforcement-scope` | `IDENTITY_ENDPOINT` | Throttle/quarantine key scope |
 | `ai.sentinel.isolation-forest.enabled` | `false` | In-core Isolation Forest |
@@ -66,6 +66,14 @@ Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer
 | `ai.sentinel.model-registry.refresh-enabled` | `false` | Background poll of filesystem registry for newer IF artifacts (requires IF enabled + non-blank `filesystem-root`) |
 | `ai.sentinel.model-registry.filesystem-root` | _(empty)_ | Registry root shared with `ai-sentinel-trainer` output (`{root}/{tenant}/active.json` + `artifacts/`) |
 | `ai.sentinel.model-registry.poll-interval` | `5m` | Poll interval (validated 10s–24h) |
+
+### Statistical warmup lifecycle
+
+1. New identity|endpoint key → `EvaluationStatus.STATISTICAL_WARMUP` until enough samples (`warmup-min-samples`, with live scoring also requiring `n ≥ 2`).
+2. Scorer still returns `warmup-score` for the numeric anomaly/policy score path (fusion/telemetry).
+3. Decision engine overrides the action to `warmup-action` (default `MONITOR`) so warmup is **not** interpreted as confirmed elevated risk.
+4. After enough updates → `STATISTICAL_LIVE` (+ `COMPLETE` when no model fallback/unavailable).
+5. Legacy reproduction of pre-0.2.0 THROTTLE-on-warmup: `ai.sentinel.warmup-action=THROTTLE`.
 
 ### Behavioral trust (`ai.sentinel.identity.trust.*`)
 
