@@ -1,5 +1,6 @@
 package dev.aisentinel.core.scenario;
 
+import dev.aisentinel.core.decision.SentinelDecisionEngine;
 import dev.aisentinel.core.model.RequestFeatures;
 import dev.aisentinel.core.policy.EnforcementAction;
 import dev.aisentinel.core.policy.PolicyEngine;
@@ -27,7 +28,8 @@ import static dev.aisentinel.core.scenario.ScenarioTestSupport.newStatisticalSco
  * the test runner controls {@code update()} (not {@code SentinelDecisionEngine}, which always updates).
  * <p>
  * Each strategy starts from a <strong>seeded</strong> calm baseline (forced updates) so results are not
- * confounded by warmupScore=0.4 → THROTTLE blocking all gated learning from cold start.
+ * confounded by warmupScore=0.4 mapping to THROTTLE when this harness scores→policy directly
+ * (production {@link SentinelDecisionEngine} now applies configurable warmup action, default MONITOR).
  */
 class BaselineUpdateStrategyComparisonTest {
 
@@ -67,7 +69,8 @@ class BaselineUpdateStrategyComparisonTest {
         assertThat(allowOnly.benignStaysAllow).isTrue();
         assertThat(always.recoveryAllowAt).isGreaterThan(0);
 
-        // Cold-start footnote: without seeding, UPDATE_ON_ALLOW never learns (warmup THROTTLE).
+        // Cold-start footnote: without seeding, UPDATE_ON_ALLOW never learns when this harness
+        // maps warmupScore 0.4 → THROTTLE (score→policy only; not the production warmup-action path).
         assertThat(coldStartAllowOnlyNeverUpdates()).isTrue();
     }
 

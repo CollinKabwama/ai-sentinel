@@ -43,6 +43,14 @@ public final class IsolationForestScorer implements AnomalyScorer {
     private volatile long lastRegistryInstallTimeMillis;
     private final AtomicLong registryInstallFailureCount = new AtomicLong(0);
     private volatile ActiveModelSource activeModelSource = ActiveModelSource.NONE;
+    private volatile LastScoreMode lastScoreMode = LastScoreMode.FALLBACK_NO_MODEL;
+
+    /** How the most recent request-path {@link #score(RequestFeatures)} resolved. */
+    public enum LastScoreMode {
+        MODEL,
+        FALLBACK_NO_MODEL,
+        FALLBACK_INVALID
+    }
 
     public IsolationForestScorer(BoundedTrainingBuffer buffer, IsolationForestConfig config) {
         this(buffer, config, SentinelMetrics.NOOP);
@@ -64,12 +72,18 @@ public final class IsolationForestScorer implements AnomalyScorer {
         return evaluateScore(features, true);
     }
 
+    /** Result mode of the last {@link #score(RequestFeatures)} call on this instance. */
+    public LastScoreMode lastScoreMode() {
+        return lastScoreMode;
+    }
+
     /**
      * @param recordRequestMetrics when true, records IF score histogram and inference latency (request path).
      */
     private double evaluateScore(RequestFeatures features, boolean recordRequestMetrics) {
         IsolationForestModel m = model;
         if (m == null) {
+            lastScoreMode = LastScoreMode.FALLBACK_NO_MODEL;
             double fb = config.getFallbackScore();
             if (recordRequestMetrics) {
                 metrics.recordIsolationForestScore(fb);
@@ -84,12 +98,14 @@ public final class IsolationForestScorer implements AnomalyScorer {
             metrics.recordIsolationForestInferenceLatencyNanos(infNanos);
         }
         if (Double.isNaN(s) || s < 0) {
+            lastScoreMode = LastScoreMode.FALLBACK_INVALID;
             double fb = config.getFallbackScore();
             if (recordRequestMetrics) {
                 metrics.recordIsolationForestScore(fb);
             }
             return fb;
         }
+        lastScoreMode = LastScoreMode.MODEL;
         double out = Math.min(1.0, Math.max(0.0, s));
         if (recordRequestMetrics) {
             metrics.recordIsolationForestScore(out);

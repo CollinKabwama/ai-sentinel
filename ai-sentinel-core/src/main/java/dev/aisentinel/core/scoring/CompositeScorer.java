@@ -36,6 +36,18 @@ public final class CompositeScorer implements AnomalyScorer {
     }
 
     /**
+     * Registered child scorers (evaluation-status collection). Order matches blend registration.
+     * Not a public SPI extension point — package consumers only.
+     */
+    public java.util.List<AnomalyScorer> scorersView() {
+        java.util.List<AnomalyScorer> view = new java.util.ArrayList<>(scorers.size());
+        for (WeightedScorer ws : scorers) {
+            view.add(ws.scorer);
+        }
+        return java.util.List.copyOf(view);
+    }
+
+    /**
      * Snapshot from the last {@link #score(RequestFeatures)} call, or {@code null} if {@link #score} has never run.
      */
     public CompositeScoreSnapshot getLastCompositeScoreSnapshot() {
