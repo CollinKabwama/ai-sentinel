@@ -2,13 +2,16 @@ package dev.aisentinel.core.store;
 
 import java.time.Duration;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.LongSupplier;
 
 /**
  * In-memory store for rolling request counts using time-bucketed counters.
- * Uses 10-second buckets with TTL eviction and max size cap.
+ * Uses 10-second buckets; the returned value is the sum of counts for buckets overlapping the
+ * configured TTL window (a rolling count, not a normalized per-second rate).
  * <p>
  * Idle keys older than TTL are removed on read/write paths so store lifetime aligns with the
  * statistical scorer's baseline TTL when both are configured from {@code ai.sentinel.baseline-ttl}.
@@ -21,13 +24,27 @@ public final class BaselineStore {
 
     private final long ttlMs;
     private final int maxKeys;
+    private final LongSupplier clock;
     private final Map<String, BucketChain> store = new ConcurrentHashMap<>();
     private final AtomicLong nextExpireSweepMs = new AtomicLong(0);
     private final AtomicLong expireSweepCount = new AtomicLong(0);
 
     public BaselineStore(Duration ttl, int maxKeys) {
+        this(ttl, maxKeys, System::currentTimeMillis);
+    }
+
+    /**
+     * @param clock injectable clock (milliseconds since epoch) for deterministic window/TTL tests
+     */
+    public BaselineStore(Duration ttl, int maxKeys, LongSupplier clock) {
         this.ttlMs = Math.max(1L, ttl.toMillis());
         this.maxKeys = Math.max(1, maxKeys);
+        this.clock = Objects.requireNonNull(clock, "clock");
+    }
+
+    /** Fixed bucket width in milliseconds (10 seconds). */
+    public static long bucketMs() {
+        return BUCKET_MS;
     }
 
     /** Configured rolling-window / idle TTL in milliseconds. */
@@ -56,10 +73,10 @@ public final class BaselineStore {
     }
 
     /**
-     * Increment request count for the given key and return current count in the active window.
+     * Increment request count for the given key and return the rolling count within the active TTL window.
      */
     public int incrementAndGet(String key) {
-        long now = System.currentTimeMillis();
+        long now = clock.getAsLong();
         expireIdle(now);
         long bucketId = now / BUCKET_MS;
 
@@ -73,10 +90,10 @@ public final class BaselineStore {
     }
 
     /**
-     * Get current count without incrementing.
+     * Get current rolling count without incrementing.
      */
     public int get(String key) {
-        long now = System.currentTimeMillis();
+        long now = clock.getAsLong();
         expireIdle(now);
         BucketChain chain = store.get(key);
         return chain != null ? chain.countWithinWindow(now, ttlMs) : 0;
@@ -126,7 +143,7 @@ public final class BaselineStore {
 
     private static final class BucketChain {
         private final Map<Long, AtomicInteger> buckets = new ConcurrentHashMap<>();
-        private final AtomicLong lastAccess = new AtomicLong(System.currentTimeMillis());
+        private final AtomicLong lastAccess = new AtomicLong(0);
 
         void add(long bucketId, long now) {
             lastAccess.set(now);
