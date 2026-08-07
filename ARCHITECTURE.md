@@ -106,13 +106,14 @@ RequestFeatures extract(HttpRequestView request, String identityHash, RequestCon
 
 | Field | Role |
 |-------|------|
-| `requestsPerWindow` | Rate signal from `BaselineStore` |
-| `endpointEntropy` | Entropy over recent endpoints for the identity |
+| `requestsPerWindow` | Rolling request count within `BaselineStore` TTL (10s buckets; default window 5m). Primary volume / flood signal. Name is historical — value is a count, not a normalized rate. |
+| `endpointEntropy` | Shannon entropy over recent endpoints (diversity only). Low entropy ≠ flood. |
+| `endpointConcentration` | Max endpoint share in the same histogram. Useful for diverse→mono shifts; invariant under established mono-endpoint traffic (including floods). |
 | `tokenAgeSeconds` | Derived from request metadata where available |
 | `parameterCount` | Query/form parameter count (not values) |
 | `payloadSizeBytes` | Body size |
-| `headerFingerprintHash` | Stable hash of selected header names/presence |
-| `ipBucket` | Coarse IP bucket |
+| `headerFingerprintHash` | Stable hash of selected header names/presence (identity-like) |
+| `ipBucket` | Coarse IP bucket (identity-like) |
 
 There is no **`FeatureProvider` SPI** in the codebase; extend by supplying your own `@Bean` `FeatureExtractor`.
 
@@ -126,7 +127,14 @@ There is no **`FeatureProvider` SPI** in the codebase; extend by supplying your 
 
 Statistical Welford state and the rolling `BaselineStore` request window share **`ai.sentinel.baseline-ttl`** / **`baseline-max-keys`**. Idle keys expire on the score/update (scorer) and get/increment (store) paths via a **throttled** full-map sweep (at most once per second per instance) so statistical history cannot outlive the request-window lifetime without paying O(n) on every request. Controlled reset is opt-in via `BaselineLifecycle` / `ai.sentinel.statistical.relearn-mode` (default `DISABLED`, or `EXPLICIT_ONLY`): reset clears per-key Welford state so the identity re-enters warmup; it does **not** switch learning to unconditional always-update. Automatic skip-triggered relearn is not offered.
 
-It consumes the **full** `RequestFeatures.toArray()` (seven dimensions including hash and IP bucket).
+It consumes `RequestFeatures.toStatisticalArray()` — six behavioral dimensions
+(`requestsPerWindow`, Shannon `endpointEntropy`, `endpointConcentration`,
+`tokenAgeSeconds`, `parameterCount`, `payloadSizeBytes`). Identity-like
+`headerFingerprintHash` / `ipBucket` are excluded (they remain on the feature object
+for behavioral trust and the full `toArray()` export). Near-zero historical variance is
+mitigated with role-aware measurement-resolution floors and per-feature `|z|` caps; the
+global numerical `MIN_STD` is only a divide-by-zero guard. Aggregation remains `max|z|`
+so genuine single-dimension rate bursts still saturate.
 
 ### 5.2 Isolation Forest (optional)
 
