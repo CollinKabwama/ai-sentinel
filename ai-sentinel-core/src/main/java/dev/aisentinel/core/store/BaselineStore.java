@@ -1,10 +1,10 @@
 package dev.aisentinel.core.store;
 
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.LongSupplier;
 
@@ -17,7 +17,8 @@ import java.util.function.LongSupplier;
  * statistical scorer's baseline TTL when both are configured from {@code ai.sentinel.baseline-ttl}.
  * <p>
  * Capacity eviction is serialized so concurrent writers do not each perform a full-map scan when
- * {@code maxKeys} is exceeded.
+ * {@code maxKeys} is exceeded. Per-key {@link BucketChain} state is guarded so rolling-window
+ * prune and count cannot race with increments.
  */
 public final class BaselineStore {
 
@@ -181,22 +182,31 @@ public final class BaselineStore {
         }
     }
 
+    /**
+     * Per-key rolling buckets. Mutations and window counts are synchronized so prune and sum cannot
+     * interleave with {@link #add} on the same chain. Uses a plain {@link HashMap} because the lock
+     * already serializes access for this key.
+     */
     private static final class BucketChain {
-        private final Map<Long, AtomicInteger> buckets = new ConcurrentHashMap<>();
+        private final Map<Long, Integer> buckets = new HashMap<>();
         private final AtomicLong lastAccess = new AtomicLong(0);
 
-        void add(long bucketId, long now) {
+        synchronized void add(long bucketId, long now) {
             lastAccess.set(now);
-            buckets.computeIfAbsent(bucketId, k -> new AtomicInteger(0)).incrementAndGet();
+            buckets.merge(bucketId, 1, Integer::sum);
         }
 
-        int countWithinWindow(long now, long ttlMs) {
-            long cutoff = now - ttlMs;
-            long minBucket = cutoff / BUCKET_MS;
+        synchronized int countWithinWindow(long now, long ttlMs) {
+            long minBucket = (now - ttlMs) / BUCKET_MS;
             int sum = 0;
-            buckets.entrySet().removeIf(e -> e.getKey() < minBucket);
-            for (Map.Entry<Long, AtomicInteger> e : buckets.entrySet()) {
-                sum += e.getValue().get();
+            var it = buckets.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<Long, Integer> e = it.next();
+                if (e.getKey() < minBucket) {
+                    it.remove();
+                } else {
+                    sum += e.getValue();
+                }
             }
             return sum;
         }
@@ -205,7 +215,7 @@ public final class BaselineStore {
             return lastAccess.get();
         }
 
-        boolean isEmpty() {
+        synchronized boolean isEmpty() {
             return buckets.isEmpty();
         }
     }
