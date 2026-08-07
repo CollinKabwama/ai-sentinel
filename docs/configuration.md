@@ -14,14 +14,15 @@ Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer
 | `ai.sentinel.block-status-code` | `429` | HTTP status written on BLOCK / throttle-exhaust / quarantine responses |
 | `ai.sentinel.quarantine-duration-ms` | `300000` | Local quarantine TTL in milliseconds |
 | `ai.sentinel.throttle-requests-per-second` | `5.0` | Local token-bucket style throttle rate |
-| `ai.sentinel.baseline-ttl` / `baseline-max-keys` | `5m` / `100000` | Statistical baseline store bounds |
-| `ai.sentinel.internal-map-max-keys` / `internal-map-ttl` | `100000` / `5m` | Local throttle/quarantine map bounds |
+| `ai.sentinel.baseline-ttl` / `baseline-max-keys` | `5m` / `100000` | Shared lifetime for the rolling `BaselineStore` request window **and** `StatisticalScorer` Welford state (idle keys expire on access paths) |
+| `ai.sentinel.internal-map-max-keys` / `internal-map-ttl` | `100000` / `5m` | Local endpoint-history / throttle / quarantine map bounds (not statistical baseline state) |
 | `ai.sentinel.trusted-proxies` | _(empty)_ | IPs or CIDRs; when remote matches, client IP from forwarded headers (see trusted proxy handling in [`ARCHITECTURE.md`](../ARCHITECTURE.md)) |
 | `ai.sentinel.filter-order` | `2147483547` (same as `Ordered.LOWEST_PRECEDENCE - 100`, i.e. `Integer.MAX_VALUE - 100`) | Servlet filter order for Sentinel; adjust when you need Sentinel before/after other app filters or Spring Security chain behavior |
 | `ai.sentinel.threshold-moderate` … `threshold-critical` | `0.2` … `0.8` | Strictly increasing, in `[0,1]` |
 | `ai.sentinel.warmup-min-samples` / `warmup-score` / `warmup-action` | `2` / `0.4` / `MONITOR` | Cold-start: numeric `warmup-score` is telemetry/fusion input; **`warmup-action`** is the enforcement action while `EvaluationStatus.STATISTICAL_WARMUP` is active (`ALLOW` or `MONITOR`). Warmup is **not** treated as confirmed elevated risk. |
 | `ai.sentinel.statistical.baseline-update-policy` | `ALLOW_OR_MONITOR` | When the decision engine may call `AnomalyScorer.update(...)` after the risk decision: `ALWAYS`, `ALLOW_ONLY`, `ALLOW_OR_MONITOR`, `SCORE_BELOW_THRESHOLD`. Mutually exclusive modes. In default composite wiring an accepted update fans out to statistical baseline state and optional Isolation Forest training-buffer handling (IF keeps its own sample-rate / rejection gates). |
 | `ai.sentinel.statistical.baseline-update-score-threshold` | `0.4` | Used only with `SCORE_BELOW_THRESHOLD`: update when fused/policy score is **strictly below** this value (`[0,1]`). Ignored by other modes. |
+| `ai.sentinel.statistical.relearn-mode` | `DISABLED` | Controlled baseline reset: `DISABLED` (default) or `EXPLICIT_ONLY` (operator `BaselineLifecycle.reset`). Automatic skip-triggered relearn is **not** offered — it allowed elevated traffic to both trigger reset and train warmup. Obsolete value `AFTER_CONSECUTIVE_SKIPS` is rejected at binding. |
 | `ai.sentinel.startup-grace-period` | `0` | Duration (e.g. `5m`) enforcing monitor-only after startup |
 | `ai.sentinel.enforcement-scope` | `IDENTITY_ENDPOINT` | Throttle/quarantine key scope |
 | `ai.sentinel.isolation-forest.enabled` | `false` | In-core Isolation Forest |
@@ -99,7 +100,24 @@ When an update is skipped, `RiskDecision` may include `EvaluationStatus.BASELINE
 
 The policy gates the decision-engine call to `AnomalyScorer.update(...)`. With the default `CompositeScorer`, an accepted update is forwarded to every child scorer (statistical Welford state and, when enabled, Isolation Forest training-buffer admission). Isolation Forest still applies its own sample-rate and training-rejection logic inside `update`.
 
-A gated baseline can remain frozen during a legitimate sustained behavior shift while observations stay `THROTTLE` or higher (relearn/reset is not included yet).
+### Controlled relearn / reset
+
+Gated learning can freeze a baseline during a sustained elevated-risk shift. Relearn is **off by default** (`relearn-mode=DISABLED`) so contamination protection is not weakened silently.
+
+| Mode | Behavior |
+|------|----------|
+| `DISABLED` | No operator reset through `BaselineLifecycle` |
+| `EXPLICIT_ONLY` | Operators may call `BaselineLifecycle.reset(identityHash, endpoint)` (Spring bean) to clear that key’s Welford state |
+
+**Automatic skip-triggered relearn was removed.** An earlier `AFTER_CONSECUTIVE_SKIPS` mode let the same elevated traffic both force a reset and train post-reset warmup, defeating gated-learning contamination protection. Configurations still setting `AFTER_CONSECUTIVE_SKIPS` fail at property binding (unknown enum value). Property `relearn-after-consecutive-skips` is obsolete and ignored if present as an unused key.
+
+Reset clears statistical state for the key so the next observations re-enter `STATISTICAL_WARMUP` (warmup still learns; live gating resumes afterward). Successful explicit resets increment `aisentinel.baseline.relearn{reason=EXPLICIT}`.
+
+**Operational responsibility:** perform an explicit reset only when subsequent traffic is expected to represent legitimate behavior. No unauthenticated HTTP reset endpoint is exposed.
+
+### Baseline lifetime alignment
+
+`BaselineStore` (rolling request counts) and `StatisticalScorer` (Welford state) both use `ai.sentinel.baseline-ttl` / `baseline-max-keys`. Idle keys expire on access paths even when under `max-keys`, so an idle identity does not return to a stale Welford mean after the request window has emptied. In-memory state is process-local: a restart is a cold start (warmup).
 
 ### Behavioral trust (`ai.sentinel.identity.trust.*`)
 
