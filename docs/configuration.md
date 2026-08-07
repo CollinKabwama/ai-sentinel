@@ -117,7 +117,7 @@ Reset clears statistical state for the key so the next observations re-enter `ST
 
 ### Baseline lifetime alignment
 
-`BaselineStore` (rolling request counts) and `StatisticalScorer` (Welford state) both use `ai.sentinel.baseline-ttl` / `baseline-max-keys`. Idle keys expire on access paths even when under `max-keys`, so an idle identity does not return to a stale Welford mean after the request window has emptied. In-memory state is process-local: a restart is a cold start (warmup).
+`BaselineStore` (rolling request counts) and `StatisticalScorer` (Welford state) both use `ai.sentinel.baseline-ttl` / `baseline-max-keys`. Idle keys expire on access paths even when under `max-keys`, so an idle identity does not return to a stale Welford mean after the request window has emptied. In-memory state is process-local: a restart is a cold start (warmup). Capacity eviction is serialized; per-key bucket prune/count is synchronized with increments so rolling-window semantics stay exact under concurrent access.
 
 `BaselineStore` uses fixed **10-second buckets**. `requestsPerWindow` is the **sum of bucket counts overlapping the TTL** (default 5 minutes) — a rolling count, not a normalized per-second rate. Crossing a 10-second bucket boundary does **not** reset the count. Counts decline only as buckets age out of the TTL window. Mono-endpoint flooding is detected by this volume signal under gated baseline updates; Shannon `endpointEntropy` (diversity) and `endpointConcentration` (max share) do not distinguish established mono-endpoint use from mono-endpoint floods (both yield entropy ≈ 0 and concentration ≈ 1).
 

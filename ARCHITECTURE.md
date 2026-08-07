@@ -125,7 +125,7 @@ There is no **`FeatureProvider` SPI** in the codebase; extend by supplying your 
 
 **`StatisticalScorer`** maintains Welford mean/variance per key (bounded maps + TTL), converts z-scores to a bounded score, and applies **warmup** (`warmupMinSamples`, `warmupScore`) when data is sparse. Online updates are **gated** by `BaselineUpdatePolicy` (default: learn from risk-derived `ALLOW`/`MONITOR` only; always learn during statistical warmup). Flow: score → decide risk → conditionally call `AnomalyScorer.update(...)`. With default composite wiring, an accepted update fans out to statistical state and optional Isolation Forest training-buffer handling (IF retains its own rejection gates).
 
-Statistical Welford state and the rolling `BaselineStore` request window share **`ai.sentinel.baseline-ttl`** / **`baseline-max-keys`**. Idle keys expire on the score/update (scorer) and get/increment (store) paths via a **throttled** full-map sweep (at most once per second per instance) so statistical history cannot outlive the request-window lifetime without paying O(n) on every request. Controlled reset is opt-in via `BaselineLifecycle` / `ai.sentinel.statistical.relearn-mode` (default `DISABLED`, or `EXPLICIT_ONLY`): reset clears per-key Welford state so the identity re-enters warmup; it does **not** switch learning to unconditional always-update. Automatic skip-triggered relearn is not offered.
+Statistical Welford state and the rolling `BaselineStore` request window share **`ai.sentinel.baseline-ttl`** / **`baseline-max-keys`**. Idle keys expire on the score/update (scorer) and get/increment (store) paths via a **throttled** full-map sweep (at most once per second per instance) so statistical history cannot outlive the request-window lifetime without paying O(n) on every request. When cardinality exceeds `baseline-max-keys`, capacity eviction is **serialized** and removes oldest-access keys after the newcomer is touched (so the insert is not self-evicted). Per-key bucket chains serialize prune/count with increments. Controlled reset is opt-in via `BaselineLifecycle` / `ai.sentinel.statistical.relearn-mode` (default `DISABLED`, or `EXPLICIT_ONLY`): reset clears per-key Welford state so the identity re-enters warmup; it does **not** switch learning to unconditional always-update. Automatic skip-triggered relearn is not offered.
 
 It consumes `RequestFeatures.toStatisticalArray()` — six behavioral dimensions
 (`requestsPerWindow`, Shannon `endpointEntropy`, `endpointConcentration`,
@@ -147,7 +147,7 @@ so genuine single-dimension rate bursts still saturate.
 
 ### 5.3 Composite scorer
 
-**`CompositeScorer`** weights the statistical scorer (weight `1.0`) and optionally the IF scorer (`isolation-forest.score-weight`). NaN/negative scores are clamped toward high risk before policy.
+**`CompositeScorer`** weights the statistical scorer (weight `1.0`) and optionally the IF scorer (`isolation-forest.score-weight`). NaN/negative scores are clamped toward high risk before policy. Child scorers are held in a copy-on-write list so scoring always observes a stable registration snapshot if `addScorer` runs concurrently.
 
 ---
 
