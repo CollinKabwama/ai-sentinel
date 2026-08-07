@@ -14,13 +14,46 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>
  * Idle keys older than the configured TTL are expired on score/update paths so statistical history
  * does not outlive the rolling request-window baseline lifetime.
+ * <p>
+ * Consumes {@link RequestFeatures#toStatisticalArray()} (behavioral dims only). Identity-like
+ * hash/IP features are excluded; near-zero variance is mitigated with role-aware resolution floors
+ * and per-feature {@code |z|} caps rather than raising the global numerical {@code MIN_STD}.
  */
 public final class StatisticalScorer implements AnomalyScorer {
 
+    /** Numerical floor only — prevents divide-by-zero; not the anti-FP mitigation. */
     private static final double MIN_STD = 1e-6;
     private static final double SIGMOID_SCALE = 3.0;
     /** Throttles the O(n) idle-expiry scan; bounds worst-case staleness of expiry to about this long past TTL. */
     private static final long EXPIRE_SWEEP_INTERVAL_MS = 1000L;
+
+    /**
+     * Per-dimension measurement resolution for {@link RequestFeatures#toStatisticalArray()} order.
+     * Integer-valued / naturally quantized features cannot have a meaningful sample std below one
+     * unit of measure; using that quantum as a floor is role-evidence, not an arbitrary MIN_STD hike.
+     */
+    private static final double[] STD_RESOLUTION = {
+        1.0,  // requestsPerWindow
+        0.05, // endpointEntropy (nats)
+        0.05, // endpointConcentration (share)
+        1.0,  // tokenAgeSeconds
+        1.0,  // parameterCount
+        1.0   // payloadSizeBytes
+    };
+
+    /**
+     * Per-dimension {@code |z|} caps (same order). Rate stays nearly uncapped so genuine bursts
+     * still saturate; ordinal/magnitude dims are capped so a constant-history unit flip cannot
+     * alone force {@code max|z|} → score 1.0 / QUARANTINE.
+     */
+    private static final double[] Z_CAP = {
+        20.0, // requestsPerWindow — high enough that sigmoid saturates to 1.0 in double
+        6.0,  // endpointEntropy
+        6.0,  // endpointConcentration
+        6.0,  // tokenAgeSeconds
+        2.0,  // parameterCount — unit/large flips alone cannot exceed THROTTLE band
+        2.0   // payloadSizeBytes
+    };
 
     private final Map<String, WelfordState> stateByKey = new ConcurrentHashMap<>();
     private final int maxKeys;
@@ -110,7 +143,7 @@ public final class StatisticalScorer implements AnomalyScorer {
 
     @Override
     public double score(RequestFeatures features) {
-        double[] x = features.toArray();
+        double[] x = features.toStatisticalArray();
         String key = features.identityHash() + "|" + features.endpoint();
         long now = System.currentTimeMillis();
         expireIdle(now);
@@ -136,12 +169,20 @@ public final class StatisticalScorer implements AnomalyScorer {
             means = state.getMeansCopy();
             stds = state.getStds();
         }
+        int dim = Math.min(x.length, means.length);
         double maxZ = 0;
-        for (int i = 0; i < x.length; i++) {
+        for (int i = 0; i < dim; i++) {
             double mean = means[i];
-            double std = Math.max(stds[i], MIN_STD);
+            double resolution = i < STD_RESOLUTION.length ? STD_RESOLUTION[i] : MIN_STD;
+            double std = Math.max(stds[i], Math.max(MIN_STD, resolution));
             double z = Math.abs((x[i] - mean) / std);
-            if (Double.isNaN(z) || Double.isInfinite(z)) z = 2.0;
+            if (Double.isNaN(z) || Double.isInfinite(z)) {
+                z = 2.0;
+            }
+            double cap = i < Z_CAP.length ? Z_CAP[i] : 6.0;
+            if (z > cap) {
+                z = cap;
+            }
             maxZ = Math.max(maxZ, z);
         }
         double s = sigmoid(maxZ);
@@ -152,7 +193,7 @@ public final class StatisticalScorer implements AnomalyScorer {
 
     @Override
     public void update(RequestFeatures features) {
-        double[] x = features.toArray();
+        double[] x = features.toStatisticalArray();
         String key = features.identityHash() + "|" + features.endpoint();
         long now = System.currentTimeMillis();
         expireIdle(now);

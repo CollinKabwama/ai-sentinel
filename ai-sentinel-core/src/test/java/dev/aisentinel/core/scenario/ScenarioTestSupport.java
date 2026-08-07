@@ -62,12 +62,19 @@ final class ScenarioTestSupport {
     static RequestFeatures features(String identity, String endpoint, double rpw,
                                     double entropy, double tokenAge, int params, long payload,
                                     long headerFp, int ipBucket) {
+        return features(identity, endpoint, rpw, entropy, 0.0, tokenAge, params, payload, headerFp, ipBucket);
+    }
+
+    static RequestFeatures features(String identity, String endpoint, double rpw,
+                                    double entropy, double concentration, double tokenAge, int params, long payload,
+                                    long headerFp, int ipBucket) {
         return RequestFeatures.builder()
             .identityHash(identity)
             .endpoint(endpoint)
             .timestampMillis(1_700_000_000_000L)
             .requestsPerWindow(rpw)
             .endpointEntropy(entropy)
+            .endpointConcentration(concentration)
             .tokenAgeSeconds(tokenAge)
             .parameterCount(params)
             .payloadSizeBytes(payload)

@@ -5,6 +5,20 @@ import java.util.Objects;
 /**
  * Privacy-aware feature vector extracted from an incoming request.
  * All values are numeric; no raw PII is stored.
+ * <p>
+ * Feature roles for statistical scoring (see {@link #toStatisticalArray()}):
+ * <ul>
+ *   <li>{@code requestsPerWindow} — rolling request count within the BaselineStore TTL window
+ *       (not a normalized per-second rate); primary flood / volume signal</li>
+ *   <li>{@code endpointEntropy} — continuous diversity (Shannon)</li>
+ *   <li>{@code endpointConcentration} — continuous concentration (max share); distribution-shift only,
+ *       not a mono-endpoint flood discriminator</li>
+ *   <li>{@code tokenAgeSeconds} — continuous</li>
+ *   <li>{@code parameterCount} — ordinal / count</li>
+ *   <li>{@code payloadSizeBytes} — continuous magnitude</li>
+ *   <li>{@code headerFingerprintHash}, {@code ipBucket} — identity-like; exported in
+ *       {@link #toArray()} and used by behavioral trust, but excluded from statistical z-scoring</li>
+ * </ul>
  */
 public final class RequestFeatures {
 
@@ -13,6 +27,7 @@ public final class RequestFeatures {
     private final long timestampMillis;
     private final double requestsPerWindow;
     private final double endpointEntropy;
+    private final double endpointConcentration;
     private final double tokenAgeSeconds;
     private final int parameterCount;
     private final long payloadSizeBytes;
@@ -25,6 +40,7 @@ public final class RequestFeatures {
         this.timestampMillis = b.timestampMillis;
         this.requestsPerWindow = b.requestsPerWindow;
         this.endpointEntropy = b.endpointEntropy;
+        this.endpointConcentration = b.endpointConcentration;
         this.tokenAgeSeconds = b.tokenAgeSeconds;
         this.parameterCount = b.parameterCount;
         this.payloadSizeBytes = b.payloadSizeBytes;
@@ -41,6 +57,16 @@ public final class RequestFeatures {
     public long timestampMillis() { return timestampMillis; }
     public double requestsPerWindow() { return requestsPerWindow; }
     public double endpointEntropy() { return endpointEntropy; }
+
+    /**
+     * Max endpoint-share in the recent per-identity histogram, in {@code [0, 1]}.
+     * Complements Shannon {@link #endpointEntropy()} (diversity) without overloading it.
+     * Detects diverse→mono distribution shifts. Does <strong>not</strong> distinguish established
+     * mono-endpoint use from mono-endpoint flooding (both yield concentration ≈ 1); volume floods
+     * are carried by {@link #requestsPerWindow()}.
+     */
+    public double endpointConcentration() { return endpointConcentration; }
+
     public double tokenAgeSeconds() { return tokenAgeSeconds; }
     public int parameterCount() { return parameterCount; }
     public long payloadSizeBytes() { return payloadSizeBytes; }
@@ -48,8 +74,12 @@ public final class RequestFeatures {
     public int ipBucket() { return ipBucket; }
 
     /**
-     * Full feature vector for statistical scoring (Welford / z-score path).
-     * Order: requestsPerWindow, endpointEntropy, tokenAgeSeconds, parameterCount, payloadSizeBytes, headerFingerprintHash, ipBucket
+     * Full export vector (training snapshots / diagnostics).
+     * Order: requestsPerWindow, endpointEntropy, tokenAgeSeconds, parameterCount,
+     * payloadSizeBytes, headerFingerprintHash, ipBucket.
+     * <p>
+     * Identity-like hash/IP dimensions are included for export compatibility; the online
+     * statistical scorer uses {@link #toStatisticalArray()} instead.
      */
     public double[] toArray() {
         return new double[] {
@@ -60,6 +90,25 @@ public final class RequestFeatures {
             payloadSizeBytes,
             headerFingerprintHash,
             ipBucket
+        };
+    }
+
+    /**
+     * Behavioral / magnitude features for statistical z-scoring.
+     * Excludes identity-like {@code headerFingerprintHash} and {@code ipBucket}.
+     * Includes {@link #endpointConcentration()} as a separate concentration signal alongside
+     * Shannon {@link #endpointEntropy()}.
+     * Order: requestsPerWindow, endpointEntropy, endpointConcentration, tokenAgeSeconds,
+     * parameterCount, payloadSizeBytes
+     */
+    public double[] toStatisticalArray() {
+        return new double[] {
+            requestsPerWindow,
+            endpointEntropy,
+            endpointConcentration,
+            tokenAgeSeconds,
+            parameterCount,
+            payloadSizeBytes
         };
     }
 
@@ -83,6 +132,7 @@ public final class RequestFeatures {
         private long timestampMillis;
         private double requestsPerWindow;
         private double endpointEntropy;
+        private double endpointConcentration;
         private double tokenAgeSeconds = -1;
         private int parameterCount;
         private long payloadSizeBytes;
@@ -94,6 +144,7 @@ public final class RequestFeatures {
         public Builder timestampMillis(long v) { timestampMillis = v; return this; }
         public Builder requestsPerWindow(double v) { requestsPerWindow = v; return this; }
         public Builder endpointEntropy(double v) { endpointEntropy = v; return this; }
+        public Builder endpointConcentration(double v) { endpointConcentration = v; return this; }
         public Builder tokenAgeSeconds(double v) { tokenAgeSeconds = v; return this; }
         public Builder parameterCount(int v) { parameterCount = v; return this; }
         public Builder payloadSizeBytes(long v) { payloadSizeBytes = v; return this; }
