@@ -120,6 +120,13 @@ public final class StatisticalScorer implements AnomalyScorer {
             return warmupScore;
         }
         WelfordState state = stateByKey.get(key);
+        if (state == null) {
+            // Concurrently removed between the warmup check above and this lookup (idle-expiry,
+            // capacity eviction, or a BaselineLifecycle reset on another thread) — no baseline
+            // exists at this instant, which is exactly the warmup condition.
+            metrics.recordStatisticalScore(warmupScore);
+            return warmupScore;
+        }
         double[] means;
         double[] stds;
         synchronized (state) {
