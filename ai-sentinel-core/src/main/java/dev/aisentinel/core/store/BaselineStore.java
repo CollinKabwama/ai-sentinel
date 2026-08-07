@@ -9,18 +9,35 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * In-memory store for rolling request counts using time-bucketed counters.
  * Uses 10-second buckets with TTL eviction and max size cap.
+ * <p>
+ * Idle keys older than TTL are removed on read/write paths so store lifetime aligns with the
+ * statistical scorer's baseline TTL when both are configured from {@code ai.sentinel.baseline-ttl}.
  */
 public final class BaselineStore {
 
     private static final long BUCKET_MS = 10_000L;
-
     private final long ttlMs;
     private final int maxKeys;
     private final Map<String, BucketChain> store = new ConcurrentHashMap<>();
 
     public BaselineStore(Duration ttl, int maxKeys) {
-        this.ttlMs = ttl.toMillis();
+        this.ttlMs = Math.max(1L, ttl.toMillis());
         this.maxKeys = Math.max(1, maxKeys);
+    }
+
+    /** Configured rolling-window / idle TTL in milliseconds. */
+    public long ttlMs() {
+        return ttlMs;
+    }
+
+    /** Configured max retained keys. */
+    public int maxKeys() {
+        return maxKeys;
+    }
+
+    /** Current key cardinality (tests / ops). */
+    public int size() {
+        return store.size();
     }
 
     /**
@@ -28,11 +45,12 @@ public final class BaselineStore {
      */
     public int incrementAndGet(String key) {
         long now = System.currentTimeMillis();
+        expireIdle(now);
         long bucketId = now / BUCKET_MS;
 
         BucketChain chain = store.computeIfAbsent(key, k -> new BucketChain());
         if (store.size() > maxKeys) {
-            evictOldest();
+            evictOldest(now);
         }
 
         chain.add(bucketId, now);
@@ -44,12 +62,22 @@ public final class BaselineStore {
      */
     public int get(String key) {
         long now = System.currentTimeMillis();
+        expireIdle(now);
         BucketChain chain = store.get(key);
         return chain != null ? chain.countWithinWindow(now, ttlMs) : 0;
     }
 
-    private void evictOldest() {
-        long cutoff = System.currentTimeMillis() - ttlMs;
+    /** Drops keys with no access within TTL (runs even under maxKeys). */
+    void expireIdle(long now) {
+        long cutoff = now - ttlMs;
+        store.entrySet().removeIf(e -> {
+            BucketChain c = e.getValue();
+            return c.lastAccessMs() < cutoff || c.isEmpty();
+        });
+    }
+
+    private void evictOldest(long now) {
+        long cutoff = now - ttlMs;
         store.entrySet().removeIf(e -> {
             BucketChain c = e.getValue();
             return c.lastAccessMs() < cutoff || c.isEmpty();

@@ -5,17 +5,18 @@ import dev.aisentinel.core.model.RequestFeatures;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-
 /**
  * Statistical anomaly scorer using Welford's online algorithm for rolling mean/std.
  * Score is z-score based, normalized to [0.0, 1.0].
  * State updates and reads are synchronized for happens-before; internal maps are bounded with TTL.
+ * <p>
+ * Idle keys older than the configured TTL are expired on score/update paths so statistical history
+ * does not outlive the rolling request-window baseline lifetime.
  */
 public final class StatisticalScorer implements AnomalyScorer {
 
     private static final double MIN_STD = 1e-6;
     private static final double SIGMOID_SCALE = 3.0;
-
     private final Map<String, WelfordState> stateByKey = new ConcurrentHashMap<>();
     private final int maxKeys;
     private final long ttlMs;
@@ -42,6 +43,16 @@ public final class StatisticalScorer implements AnomalyScorer {
         this.warmupMinSamples = Math.max(0, warmupMinSamples);
         this.warmupScore = warmupScore < 0 ? 0 : Math.min(1.0, warmupScore);
         this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
+    }
+
+    /** Configured idle TTL in milliseconds (minimum 1000). */
+    public long ttlMs() {
+        return ttlMs;
+    }
+
+    /** Configured max retained identity|endpoint keys. */
+    public int maxKeys() {
+        return maxKeys;
     }
 
     /** Welford state map size (for cache gauges). */
@@ -71,13 +82,8 @@ public final class StatisticalScorer implements AnomalyScorer {
      */
     public boolean isWarmup(RequestFeatures features) {
         String key = features.identityHash() + "|" + features.endpoint();
-        WelfordState state = stateByKey.get(key);
-        if (state == null) {
-            return true;
-        }
-        synchronized (state) {
-            return state.n < Math.max(2, warmupMinSamples);
-        }
+        expireIdle(System.currentTimeMillis());
+        return isWarmupWithoutExpire(key);
     }
 
     /** Configured numeric score returned while {@link #isWarmup(RequestFeatures)} is true (telemetry / fusion input). */
@@ -89,8 +95,10 @@ public final class StatisticalScorer implements AnomalyScorer {
     public double score(RequestFeatures features) {
         double[] x = features.toArray();
         String key = features.identityHash() + "|" + features.endpoint();
+        long now = System.currentTimeMillis();
+        expireIdle(now);
 
-        if (isWarmup(features)) {
+        if (isWarmupWithoutExpire(key)) {
             metrics.recordStatisticalScore(warmupScore);
             return warmupScore;
         }
@@ -98,6 +106,9 @@ public final class StatisticalScorer implements AnomalyScorer {
         double[] means;
         double[] stds;
         synchronized (state) {
+            // Touch on score so active traffic (including gated-skip traffic) keeps the key alive;
+            // idle means no requests for ttlMs, not merely no accepted updates.
+            state.touch(now);
             means = state.getMeansCopy();
             stds = state.getStds();
         }
@@ -120,6 +131,7 @@ public final class StatisticalScorer implements AnomalyScorer {
         double[] x = features.toArray();
         String key = features.identityHash() + "|" + features.endpoint();
         long now = System.currentTimeMillis();
+        expireIdle(now);
 
         stateByKey.compute(key, (k, s) -> {
             WelfordState st = s != null ? s : new WelfordState(x.length);
@@ -127,11 +139,32 @@ public final class StatisticalScorer implements AnomalyScorer {
             return st;
         });
 
-        evictIfNeeded(now);
+        evictIfOverCapacity(now);
     }
 
-    private void evictIfNeeded(long now) {
-        if (stateByKey.size() <= maxKeys) return;
+    /**
+     * Drops keys whose last access is older than TTL. Runs on score/update paths so idle statistical
+     * history cannot survive after the aligned baseline lifetime.
+     */
+    void expireIdle(long now) {
+        long cutoff = now - ttlMs;
+        stateByKey.entrySet().removeIf(e -> e.getValue().lastAccessMs() < cutoff);
+    }
+
+    private boolean isWarmupWithoutExpire(String key) {
+        WelfordState state = stateByKey.get(key);
+        if (state == null) {
+            return true;
+        }
+        synchronized (state) {
+            return state.n < Math.max(2, warmupMinSamples);
+        }
+    }
+
+    private void evictIfOverCapacity(long now) {
+        if (stateByKey.size() <= maxKeys) {
+            return;
+        }
         long cutoff = now - ttlMs;
         stateByKey.entrySet().removeIf(e -> e.getValue().lastAccessMs() < cutoff);
         while (stateByKey.size() > maxKeys) {
@@ -144,7 +177,9 @@ public final class StatisticalScorer implements AnomalyScorer {
                     victim = e.getKey();
                 }
             }
-            if (victim == null) break;
+            if (victim == null) {
+                break;
+            }
             stateByKey.remove(victim);
         }
     }
@@ -175,6 +210,10 @@ public final class StatisticalScorer implements AnomalyScorer {
                 double delta2 = x[i] - means[i];
                 m2[i] += delta * delta2;
             }
+            lastAccessMs = nowMs;
+        }
+
+        synchronized void touch(long nowMs) {
             lastAccessMs = nowMs;
         }
 

@@ -118,8 +118,9 @@ public class SentinelAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public StatisticalScorer statisticalScorer(SentinelProperties props, SentinelMetrics sentinelMetrics) {
-        int maxKeys = props.getInternalMapMaxKeys() > 0 ? props.getInternalMapMaxKeys() : 100_000;
-        long ttlMs = props.getInternalMapTtl() != null ? props.getInternalMapTtl().toMillis() : 300_000L;
+        // Align statistical Welford lifetime with BaselineStore (ai.sentinel.baseline-ttl / baseline-max-keys).
+        int maxKeys = props.getBaselineMaxKeys() > 0 ? props.getBaselineMaxKeys() : 100_000;
+        long ttlMs = props.getBaselineTtl() != null ? props.getBaselineTtl().toMillis() : 300_000L;
         int warmupMin = props.getWarmupMinSamples() >= 0 ? props.getWarmupMinSamples() : 2;
         double warmupScore = props.getWarmupScore() < 0 ? 0.4 : Math.min(1.0, props.getWarmupScore());
         return new StatisticalScorer(maxKeys, ttlMs, warmupMin, warmupScore, sentinelMetrics);
@@ -489,7 +490,19 @@ public class SentinelAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public RequestRiskFusion requestRiskFusion(SentinelProperties props) {
-        var@Bean
+        var fusion = props.getIdentity().getFusion();
+        if (fusion.isEnabled() && !props.getIdentity().isEnabled()) {
+            log.warn(
+                "ai.sentinel.identity.fusion.enabled=true but ai.sentinel.identity.enabled=false; "
+                    + "fusion has no effect until identity is enabled (no IdentityContext on requests).");
+        }
+        if (!fusion.isEnabled()) {
+            return NoopRequestRiskFusion.INSTANCE;
+        }
+        return new DeterministicRequestRiskFusion(fusion.getStrength());
+    }
+
+    @Bean
     @ConditionalOnMissingBean
     public SentinelPipeline sentinelPipeline(FeatureExtractor featureExtractor,
                                              CompositeScorer compositeScorer,
@@ -551,20 +564,6 @@ public class SentinelAutoConfiguration {
                 props.getStatistical().getBaselineUpdatePolicy(),
                 props.getStatistical().getBaselineUpdateScoreThreshold()),
             baselineLifecycle
-        );
-    }EnforcementScope(),
-            props.getDistributed().getTenantId(),
-            nodeId,
-            props.getMode().name(),
-            identityContextResolver,
-            trustEvaluator,
-            trustPolicyAdjuster,
-            identityResponseHook,
-            requestRiskFusion,
-            props.getWarmupAction(),
-            new ConfigurableBaselineUpdatePolicy(
-                props.getStatistical().getBaselineUpdatePolicy(),
-                props.getStatistical().getBaselineUpdateScoreThreshold())
         );
     }
 
