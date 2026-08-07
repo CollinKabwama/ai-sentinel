@@ -16,9 +16,14 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class BaselineStore {
 
     private static final long BUCKET_MS = 10_000L;
+    /** Throttles the O(n) idle-expiry scan; bounds worst-case staleness of expiry to about this long past TTL. */
+    private static final long EXPIRE_SWEEP_INTERVAL_MS = 1000L;
+
     private final long ttlMs;
     private final int maxKeys;
     private final Map<String, BucketChain> store = new ConcurrentHashMap<>();
+    private final AtomicLong nextExpireSweepMs = new AtomicLong(0);
+    private final AtomicLong expireSweepCount = new AtomicLong(0);
 
     public BaselineStore(Duration ttl, int maxKeys) {
         this.ttlMs = Math.max(1L, ttl.toMillis());
@@ -38,6 +43,16 @@ public final class BaselineStore {
     /** Current key cardinality (tests / ops). */
     public int size() {
         return store.size();
+    }
+
+    /** Number of idle-expiry sweeps actually performed (tests / ops). */
+    public long expireSweepCount() {
+        return expireSweepCount.get();
+    }
+
+    /** Configured idle-expiry sweep interval in milliseconds. */
+    public long expireSweepIntervalMs() {
+        return EXPIRE_SWEEP_INTERVAL_MS;
     }
 
     /**
@@ -67,8 +82,20 @@ public final class BaselineStore {
         return chain != null ? chain.countWithinWindow(now, ttlMs) : 0;
     }
 
-    /** Drops keys with no access within TTL (runs even under maxKeys). */
+    /**
+     * Drops keys with no access within TTL (runs even under maxKeys), throttled to at most one
+     * full-map scan per {@link #EXPIRE_SWEEP_INTERVAL_MS} regardless of request volume — see
+     * {@link dev.aisentinel.core.scoring.StatisticalScorer#expireIdle} for the matching rationale.
+     */
     void expireIdle(long now) {
+        long next = nextExpireSweepMs.get();
+        if (now < next) {
+            return;
+        }
+        if (!nextExpireSweepMs.compareAndSet(next, now + EXPIRE_SWEEP_INTERVAL_MS)) {
+            return;
+        }
+        expireSweepCount.incrementAndGet();
         long cutoff = now - ttlMs;
         store.entrySet().removeIf(e -> {
             BucketChain c = e.getValue();

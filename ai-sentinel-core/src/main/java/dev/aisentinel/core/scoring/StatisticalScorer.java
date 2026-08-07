@@ -5,6 +5,8 @@ import dev.aisentinel.core.model.RequestFeatures;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
+
 /**
  * Statistical anomaly scorer using Welford's online algorithm for rolling mean/std.
  * Score is z-score based, normalized to [0.0, 1.0].
@@ -17,12 +19,17 @@ public final class StatisticalScorer implements AnomalyScorer {
 
     private static final double MIN_STD = 1e-6;
     private static final double SIGMOID_SCALE = 3.0;
+    /** Throttles the O(n) idle-expiry scan; bounds worst-case staleness of expiry to about this long past TTL. */
+    private static final long EXPIRE_SWEEP_INTERVAL_MS = 1000L;
+
     private final Map<String, WelfordState> stateByKey = new ConcurrentHashMap<>();
     private final int maxKeys;
     private final long ttlMs;
     private final int warmupMinSamples;
     private final double warmupScore;
     private final SentinelMetrics metrics;
+    private final AtomicLong nextExpireSweepMs = new AtomicLong(0);
+    private final AtomicLong expireSweepCount = new AtomicLong(0);
 
     public StatisticalScorer() {
         this(100_000, 300_000L, 2, 0.4);
@@ -58,6 +65,16 @@ public final class StatisticalScorer implements AnomalyScorer {
     /** Welford state map size (for cache gauges). */
     public int metricsStateEntryCount() {
         return stateByKey.size();
+    }
+
+    /** Number of idle-expiry sweeps actually performed (tests / ops). */
+    public long expireSweepCount() {
+        return expireSweepCount.get();
+    }
+
+    /** Configured idle-expiry sweep interval in milliseconds. */
+    public long expireSweepIntervalMs() {
+        return EXPIRE_SWEEP_INTERVAL_MS;
     }
 
     /**
@@ -143,10 +160,21 @@ public final class StatisticalScorer implements AnomalyScorer {
     }
 
     /**
-     * Drops keys whose last access is older than TTL. Runs on score/update paths so idle statistical
-     * history cannot survive after the aligned baseline lifetime.
+     * Drops keys whose last access is older than TTL, throttled to at most one full-map scan per
+     * {@link #EXPIRE_SWEEP_INTERVAL_MS} regardless of request volume. An unconditional per-call scan
+     * is O(n) in tracked-key count on every score/update; at realistic production cardinality this
+     * measurably regressed request latency, so the sweep itself is rate-limited rather than the
+     * expiry guarantee (idle keys are still guaranteed to expire, within one sweep interval of TTL).
      */
     void expireIdle(long now) {
+        long next = nextExpireSweepMs.get();
+        if (now < next) {
+            return;
+        }
+        if (!nextExpireSweepMs.compareAndSet(next, now + EXPIRE_SWEEP_INTERVAL_MS)) {
+            return;
+        }
+        expireSweepCount.incrementAndGet();
         long cutoff = now - ttlMs;
         stateByKey.entrySet().removeIf(e -> e.getValue().lastAccessMs() < cutoff);
     }
