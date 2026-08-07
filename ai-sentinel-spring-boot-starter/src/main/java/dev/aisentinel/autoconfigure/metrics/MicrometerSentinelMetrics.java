@@ -89,6 +89,7 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Map<String, Counter> baselineUpdateAcceptedByMode = new LinkedHashMap<>();
     private final Map<String, Counter> baselineUpdateSkippedByMode = new LinkedHashMap<>();
     private final Counter baselineUpdateAcceptedWarmup;
+    private final Map<String, Counter> baselineRelearnByReason = new LinkedHashMap<>();
 
     public MicrometerSentinelMetrics(MeterRegistry registry) {
         this.scoreComposite = DistributionSummary.builder("aisentinel.score.composite")
@@ -261,6 +262,12 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         this.baselineUpdateAcceptedWarmup = Counter.builder("aisentinel.baseline.update.accepted.warmup")
             .description("Baseline updates accepted while statistical warmup is active")
             .register(registry);
+        for (String reason : List.of("EXPLICIT")) {
+            baselineRelearnByReason.put(reason, Counter.builder("aisentinel.baseline.relearn")
+                .description("Statistical baseline key reset (controlled explicit relearn)")
+                .tag("reason", reason)
+                .register(registry));
+        }
     }
 
     @Override
@@ -312,6 +319,15 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     @Override
     public void recordBaselineUpdateSkipped(String policyMode) {
         Counter counter = baselineUpdateSkippedByMode.get(normalizePolicyMode(policyMode));
+        if (counter != null) {
+            counter.increment();
+        }
+    }
+
+    @Override
+    public void recordBaselineRelearn(String reason) {
+        String normalized = reason == null || reason.isBlank() ? "EXPLICIT" : reason;
+        Counter counter = baselineRelearnByReason.get(normalized);
         if (counter != null) {
             counter.increment();
         }

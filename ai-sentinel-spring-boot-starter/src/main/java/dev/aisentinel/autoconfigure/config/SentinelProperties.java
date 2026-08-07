@@ -2,6 +2,7 @@ package dev.aisentinel.autoconfigure.config;
 
 import dev.aisentinel.core.enforcement.EnforcementScope;
 import dev.aisentinel.core.baseline.BaselineUpdateMode;
+import dev.aisentinel.core.baseline.BaselineRelearnMode;
 import dev.aisentinel.core.policy.EnforcementAction;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
@@ -38,9 +39,9 @@ public class SentinelProperties {
     private double throttleRequestsPerSecond = 5.0;
     private Duration baselineTtl = Duration.ofMinutes(5);
     private int baselineMaxKeys = 100_000;
-    /** Max keys for internal maps (stateByKey, endpointHistory, throttle, quarantine). Default 100_000. */
+    /** Max keys for internal maps (endpointHistory, throttle, quarantine). Default 100_000. */
     private int internalMapMaxKeys = 100_000;
-    /** TTL for internal map entries (evict after this period of no access). Default 5 minutes. */
+    /** TTL for internal map entries (endpointHistory, throttle, quarantine). Default 5 minutes. */
     private Duration internalMapTtl = Duration.ofMinutes(5);
     /** Trusted proxy IPs/CIDRs; if empty, forwarded headers are not used. When remote is trusted, client IP is taken from X-Forwarded-For (rightmost-untrusted), Forwarded, or X-Real-IP. */
     private List<String> trustedProxies = List.of();
@@ -112,6 +113,13 @@ public class SentinelProperties {
         @DecimalMin("0.0")
         @DecimalMax("1.0")
         private double baselineUpdateScoreThreshold = 0.4;
+
+        /**
+         * Controlled baseline reset. Default {@link BaselineRelearnMode#DISABLED}.
+         * {@link BaselineRelearnMode#EXPLICIT_ONLY} enables operator {@code BaselineLifecycle.reset}.
+         * Automatic skip-triggered relearn is not offered (removed after security review).
+         */
+        private BaselineRelearnMode relearnMode = BaselineRelearnMode.DISABLED;
     }
 
     @Data

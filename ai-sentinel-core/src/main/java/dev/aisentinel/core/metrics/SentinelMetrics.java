@@ -38,6 +38,14 @@ public interface SentinelMetrics {
      * @param policyMode low-cardinality {@link dev.aisentinel.core.baseline.BaselineUpdateMode#name()}
      */
     default void recordBaselineUpdateSkipped(String policyMode) {}
+
+    /**
+     * Statistical baseline key was reset (controlled relearn).
+     *
+     * @param reason low-cardinality reason such as {@code EXPLICIT}
+     */
+    default void recordBaselineRelearn(String reason) {}
+
     /** IF model inference only (hot path inside {@link dev.aisentinel.core.scoring.IsolationForestScorer#score}). */
     default void recordIsolationForestInferenceLatencyNanos(long nanos) {}
 

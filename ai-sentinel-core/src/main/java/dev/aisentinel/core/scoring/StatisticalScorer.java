@@ -50,6 +50,21 @@ public final class StatisticalScorer implements AnomalyScorer {
     }
 
     /**
+     * Removes Welford state for an identity|endpoint key so the next observation re-enters warmup.
+     *
+     * @return {@code true} when a key was present and removed
+     */
+    public boolean reset(String identityHash, String endpoint) {
+        String key = identityHash + "|" + endpoint;
+        return stateByKey.remove(key) != null;
+    }
+
+    /** Removes all Welford state (tests / full restart simulation). */
+    public void resetAll() {
+        stateByKey.clear();
+    }
+
+    /**
      * {@code true} when this identity|endpoint key lacks enough samples for live z-score scoring.
      * Does not mutate state. Used by the decision engine for {@link dev.aisentinel.core.decision.EvaluationStatus}
      * without expanding the pluggable {@link AnomalyScorer} SPI.

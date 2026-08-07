@@ -1,6 +1,7 @@
 package dev.aisentinel.autoconfigure.config;
 
 import dev.aisentinel.core.SentinelPipeline;
+import dev.aisentinel.core.baseline.BaselineLifecycle;
 import dev.aisentinel.core.baseline.ConfigurableBaselineUpdatePolicy;
 import dev.aisentinel.core.fusion.DeterministicRequestRiskFusion;
 import dev.aisentinel.core.fusion.NoopRequestRiskFusion;
@@ -122,6 +123,18 @@ public class SentinelAutoConfiguration {
         int warmupMin = props.getWarmupMinSamples() >= 0 ? props.getWarmupMinSamples() : 2;
         double warmupScore = props.getWarmupScore() < 0 ? 0.4 : Math.min(1.0, props.getWarmupScore());
         return new StatisticalScorer(maxKeys, ttlMs, warmupMin, warmupScore, sentinelMetrics);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public BaselineLifecycle baselineLifecycle(StatisticalScorer statisticalScorer,
+                                               SentinelProperties props,
+                                               SentinelMetrics sentinelMetrics) {
+        var statistical = props.getStatistical();
+        return new BaselineLifecycle(
+            statisticalScorer,
+            statistical.getRelearnMode(),
+            sentinelMetrics);
     }
 
     @Bean
@@ -476,19 +489,7 @@ public class SentinelAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public RequestRiskFusion requestRiskFusion(SentinelProperties props) {
-        var fusion = props.getIdentity().getFusion();
-        if (fusion.isEnabled() && !props.getIdentity().isEnabled()) {
-            log.warn(
-                "ai.sentinel.identity.fusion.enabled=true but ai.sentinel.identity.enabled=false; "
-                    + "fusion has no effect until identity is enabled (no IdentityContext on requests).");
-        }
-        if (!fusion.isEnabled()) {
-            return NoopRequestRiskFusion.INSTANCE;
-        }
-        return new DeterministicRequestRiskFusion(fusion.getStrength());
-    }
-
-    @Bean
+        var@Bean
     @ConditionalOnMissingBean
     public SentinelPipeline sentinelPipeline(FeatureExtractor featureExtractor,
                                              CompositeScorer compositeScorer,
@@ -499,6 +500,7 @@ public class SentinelAutoConfiguration {
                                              SentinelMetrics sentinelMetrics,
                                              TrainingCandidatePublisher trainingCandidatePublisher,
                                              SentinelProperties props,
+                                             BaselineLifecycle baselineLifecycle,
                                              ObjectProvider<IdentityContextResolver> identityContextResolverProvider,
                                              ObjectProvider<TrustEvaluator> trustEvaluatorProvider,
                                              ObjectProvider<TrustPolicyAdjuster> trustPolicyAdjusterProvider,
@@ -536,6 +538,21 @@ public class SentinelAutoConfiguration {
             sentinelMetrics,
             trainingCandidatePublisher,
             props.getEnforcementScope(),
+            props.getDistributed().getTenantId(),
+            nodeId,
+            props.getMode().name(),
+            identityContextResolver,
+            trustEvaluator,
+            trustPolicyAdjuster,
+            identityResponseHook,
+            requestRiskFusion,
+            props.getWarmupAction(),
+            new ConfigurableBaselineUpdatePolicy(
+                props.getStatistical().getBaselineUpdatePolicy(),
+                props.getStatistical().getBaselineUpdateScoreThreshold()),
+            baselineLifecycle
+        );
+    }EnforcementScope(),
             props.getDistributed().getTenantId(),
             nodeId,
             props.getMode().name(),

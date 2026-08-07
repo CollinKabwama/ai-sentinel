@@ -1,5 +1,6 @@
 package dev.aisentinel.core;
 
+import dev.aisentinel.core.baseline.BaselineLifecycle;
 import dev.aisentinel.core.baseline.BaselineUpdatePolicy;
 import dev.aisentinel.core.baseline.ConfigurableBaselineUpdatePolicy;
 import dev.aisentinel.core.decision.RiskDecision;
@@ -138,13 +139,40 @@ public final class SentinelPipeline {
                             RequestRiskFusion riskFusion,
                             EnforcementAction statisticalWarmupAction,
                             BaselineUpdatePolicy baselineUpdatePolicy) {
+        this(featureExtractor, scorer, compositeScorerOrNull, policyEngine, enforcementHandler, telemetry, startupGrace,
+            metrics, trainingCandidatePublisher, enforcementScope, trainingTenantId, trainingNodeId, sentinelModeName,
+            identityContextResolver, trustEvaluator, trustPolicyAdjuster, identityResponseHook, riskFusion,
+            statisticalWarmupAction, baselineUpdatePolicy, BaselineLifecycle.disabled());
+    }
+
+    public SentinelPipeline(FeatureExtractor featureExtractor,
+                            AnomalyScorer scorer,
+                            CompositeScorer compositeScorerOrNull,
+                            PolicyEngine policyEngine,
+                            EnforcementHandler enforcementHandler,
+                            TelemetryEmitter telemetry,
+                            StartupGrace startupGrace,
+                            SentinelMetrics metrics,
+                            TrainingCandidatePublisher trainingCandidatePublisher,
+                            EnforcementScope enforcementScope,
+                            String trainingTenantId,
+                            String trainingNodeId,
+                            String sentinelModeName,
+                            IdentityContextResolver identityContextResolver,
+                            TrustEvaluator trustEvaluator,
+                            TrustPolicyAdjuster trustPolicyAdjuster,
+                            IdentityResponseHook identityResponseHook,
+                            RequestRiskFusion riskFusion,
+                            EnforcementAction statisticalWarmupAction,
+                            BaselineUpdatePolicy baselineUpdatePolicy,
+                            BaselineLifecycle baselineLifecycle) {
         this.featureExtractor = featureExtractor;
         this.compositeScorerOrNull = compositeScorerOrNull;
         this.enforcementHandler = enforcementHandler;
         this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
         this.decisionEngine = new SentinelDecisionEngine(scorer, policyEngine, enforcementHandler, telemetry,
             startupGrace, this.metrics, trustEvaluator, trustPolicyAdjuster, riskFusion, statisticalWarmupAction,
-            baselineUpdatePolicy);
+            baselineUpdatePolicy, baselineLifecycle);
         this.trainingCandidatePublisher = trainingCandidatePublisher != null
             ? trainingCandidatePublisher
             : NoopTrainingCandidatePublisher.INSTANCE;
