@@ -3,8 +3,8 @@ package dev.aisentinel.core.scoring;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.model.RequestFeatures;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Weighted combination of anomaly scorers.
@@ -12,10 +12,14 @@ import java.util.List;
  * <p>
  * After each {@link #score(RequestFeatures)} call, exposes a snapshot of component scores for
  * operations and A/B-style comparison (statistical vs Isolation Forest vs blended composite).
+ * <p>
+ * Child scorers are held in a {@link CopyOnWriteArrayList} so {@link #score}/{@link #update}
+ * always iterate a stable snapshot even if {@link #addScorer} runs concurrently (for example
+ * during late configuration). Registration remains rare relative to scoring.
  */
 public final class CompositeScorer implements AnomalyScorer {
 
-    private final List<WeightedScorer> scorers = new ArrayList<>();
+    private final List<WeightedScorer> scorers = new CopyOnWriteArrayList<>();
     private final SentinelMetrics metrics;
 
     /** Most recent per-scorer values from the last {@link #score} invocation (volatile publish). */
@@ -44,7 +48,7 @@ public final class CompositeScorer implements AnomalyScorer {
         for (WeightedScorer ws : scorers) {
             view.add(ws.scorer);
         }
-        return java.util.List.copyOf(view);
+        return List.copyOf(view);
     }
 
     /**
@@ -56,6 +60,7 @@ public final class CompositeScorer implements AnomalyScorer {
 
     @Override
     public double score(RequestFeatures features) {
+        // CopyOnWriteArrayList iterator is a stable snapshot for this traversal.
         if (scorers.isEmpty()) {
             metrics.recordCompositeScore(0.0);
             lastSnapshot = null;
