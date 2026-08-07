@@ -15,9 +15,13 @@ import java.util.regex.Pattern;
 
 /**
  * Default feature extractor using privacy-safe features:
- * requestsPerWindow, endpointEntropy, tokenAgeSeconds, parameterCount,
+ * requestsPerWindow, endpointEntropy, endpointConcentration, tokenAgeSeconds, parameterCount,
  * payloadSizeBytes, headerFingerprintHash, ipBucket.
  * Endpoint history uses atomic increments, safe indexing (no Math.abs(Integer.MIN_VALUE)), and bounded map with TTL.
+ * <p>
+ * Shannon entropy remains a diversity-only signal. Endpoint concentration (max histogram share) is
+ * computed separately for diverse→mono distribution shifts. Neither signal distinguishes established
+ * mono-endpoint use from mono-endpoint flooding; volume floods use {@code requestsPerWindow}.
  */
 public final class DefaultFeatureExtractor implements FeatureExtractor {
 
@@ -49,7 +53,7 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
         String endpoint = normalizeEndpoint(request.getRequestURI());
 
         int requestsPerWindow = requestCountStore.incrementAndGet(identityHash + "|" + endpoint);
-        double endpointEntropy = computeEndpointEntropy(identityHash, endpoint, now);
+        EndpointDiversity diversity = computeEndpointDiversity(identityHash, endpoint, now);
         double tokenAgeSeconds = extractTokenAgeSeconds(request);
         int parameterCount = request.getParameterMap().size();
         long payloadSizeBytes = extractPayloadSize(request);
@@ -61,7 +65,8 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
             .endpoint(endpoint)
             .timestampMillis(now)
             .requestsPerWindow(requestsPerWindow)
-            .endpointEntropy(endpointEntropy)
+            .endpointEntropy(diversity.entropy())
+            .endpointConcentration(diversity.concentration())
             .tokenAgeSeconds(tokenAgeSeconds)
             .parameterCount(parameterCount)
             .payloadSizeBytes(payloadSizeBytes)
@@ -99,7 +104,7 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
         return mod;
     }
 
-    private double computeEndpointEntropy(String identityHash, String endpoint, long nowMs) {
+    private EndpointDiversity computeEndpointDiversity(String identityHash, String endpoint, long nowMs) {
         EndpointHistoryEntry entry = endpointHistory.computeIfAbsent(identityHash, k -> new EndpointHistoryEntry());
         entry.lastAccessMs = nowMs;
 
@@ -111,21 +116,32 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
         }
 
         int total = 0;
+        int maxCount = 0;
         for (int i = 0; i < HISTORY_SIZE; i++) {
-            total += arr.get(i);
+            int c = arr.get(i);
+            total += c;
+            if (c > maxCount) {
+                maxCount = c;
+            }
         }
-        if (total == 0) return 0;
+        if (total == 0) {
+            evictEndpointHistoryIfNeeded(nowMs);
+            return new EndpointDiversity(0.0, 0.0);
+        }
         double entropy = 0;
         for (int i = 0; i < HISTORY_SIZE; i++) {
             int c = arr.get(i);
             if (c > 0) {
                 double p = (double) c / total;
-                entropy -= p * Math.log(p + 1e-10);
+                entropy -= p * Math.log(p);
             }
         }
+        double concentration = (double) maxCount / total;
         evictEndpointHistoryIfNeeded(nowMs);
-        return entropy;
+        return new EndpointDiversity(entropy, concentration);
     }
+
+    private record EndpointDiversity(double entropy, double concentration) {}
 
     private void evictEndpointHistoryIfNeeded(long now) {
         if (endpointHistory.size() <= maxKeys) return;
