@@ -237,7 +237,7 @@ class BaselineUpdateDecisionFlowTest {
     }
 
     @Test
-    void sustainedThrottle_freezesBaseline_documentsRelearnGap() {
+    void sustainedThrottle_freezesBaseline_whenRelearnDisabled() {
         StatisticalScorer scorer = new StatisticalScorer(1000, 60_000L, 2, 0.4);
         seedLive(scorer, 10.0);
         SentinelDecisionEngine engine = engine(scorer, ConfigurableBaselineUpdatePolicy.allowOrMonitor(),

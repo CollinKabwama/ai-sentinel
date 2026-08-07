@@ -59,6 +59,15 @@ class SentinelPropertiesValidationTest {
         assertThat(p.getStatistical().getBaselineUpdatePolicy())
             .isEqualTo(dev.aisentinel.core.baseline.BaselineUpdateMode.ALLOW_OR_MONITOR);
         assertThat(p.getStatistical().getBaselineUpdateScoreThreshold()).isEqualTo(0.4);
+        assertThat(p.getStatistical().getRelearnMode())
+            .isEqualTo(dev.aisentinel.core.baseline.BaselineRelearnMode.DISABLED);
+        assertThat(validator.validate(p)).isEmpty();
+    }
+
+    @Test
+    void acceptsExplicitOnlyRelearnMode() {
+        SentinelProperties p = new SentinelProperties();
+        p.getStatistical().setRelearnMode(dev.aisentinel.core.baseline.BaselineRelearnMode.EXPLICIT_ONLY);
         assertThat(validator.validate(p)).isEmpty();
     }
 

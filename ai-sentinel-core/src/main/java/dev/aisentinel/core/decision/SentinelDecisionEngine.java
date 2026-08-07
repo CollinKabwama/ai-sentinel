@@ -1,5 +1,6 @@
 package dev.aisentinel.core.decision;
 
+import dev.aisentinel.core.baseline.BaselineLifecycle;
 import dev.aisentinel.core.baseline.BaselineUpdateContext;
 import dev.aisentinel.core.baseline.BaselineUpdateMode;
 import dev.aisentinel.core.baseline.BaselineUpdatePolicy;
@@ -35,8 +36,8 @@ import java.util.Set;
 
 /**
  * Framework-independent risk decision for one request: trust evaluation, anomaly scoring, optional risk fusion,
- * policy, trust-policy escalation, statistical-warmup action override, conditional baseline update, and the
- * startup-grace / quarantine overrides.
+ * policy, trust-policy escalation, statistical-warmup action override, conditional baseline update, optional
+ * controlled relearn, and the startup-grace / quarantine overrides.
  * <p>
  * Depends only on {@link HttpRequestView} and core SPIs — no servlet, Spring, or reactive types — so it can be
  * driven directly from tests or from a non-servlet integration. It never writes to the HTTP response; applying the
@@ -60,6 +61,7 @@ public final class SentinelDecisionEngine {
     private final EnforcementAction statisticalWarmupAction;
     private final BaselineUpdatePolicy baselineUpdatePolicy;
     private final BaselineUpdateMode baselineUpdateMode;
+    private final BaselineLifecycle baselineLifecycle;
 
     /**
      * @param enforcementHandler consulted only for {@link EnforcementHandler#isQuarantined(String, String)}
@@ -75,7 +77,7 @@ public final class SentinelDecisionEngine {
                                   RequestRiskFusion riskFusion) {
         this(scorer, policyEngine, enforcementHandler, telemetry, startupGrace, metrics,
             trustEvaluator, trustPolicyAdjuster, riskFusion, EnforcementAction.MONITOR,
-            ConfigurableBaselineUpdatePolicy.allowOrMonitor());
+            ConfigurableBaselineUpdatePolicy.allowOrMonitor(), BaselineLifecycle.disabled());
     }
 
     public SentinelDecisionEngine(AnomalyScorer scorer,
@@ -90,15 +92,9 @@ public final class SentinelDecisionEngine {
                                   EnforcementAction statisticalWarmupAction) {
         this(scorer, policyEngine, enforcementHandler, telemetry, startupGrace, metrics,
             trustEvaluator, trustPolicyAdjuster, riskFusion, statisticalWarmupAction,
-            ConfigurableBaselineUpdatePolicy.allowOrMonitor());
+            ConfigurableBaselineUpdatePolicy.allowOrMonitor(), BaselineLifecycle.disabled());
     }
 
-    /**
-     * @param statisticalWarmupAction action applied when evaluation includes {@link EvaluationStatus#STATISTICAL_WARMUP}
-     *                                (default {@link EnforcementAction#MONITOR}); must be {@link EnforcementAction#ALLOW}
-     *                                or {@link EnforcementAction#MONITOR} (other values are normalized to {@code MONITOR})
-     * @param baselineUpdatePolicy    decides whether {@link AnomalyScorer#update} runs after the risk decision
-     */
     public SentinelDecisionEngine(AnomalyScorer scorer,
                                   PolicyEngine policyEngine,
                                   EnforcementHandler enforcementHandler,
@@ -110,6 +106,30 @@ public final class SentinelDecisionEngine {
                                   RequestRiskFusion riskFusion,
                                   EnforcementAction statisticalWarmupAction,
                                   BaselineUpdatePolicy baselineUpdatePolicy) {
+        this(scorer, policyEngine, enforcementHandler, telemetry, startupGrace, metrics,
+            trustEvaluator, trustPolicyAdjuster, riskFusion, statisticalWarmupAction,
+            baselineUpdatePolicy, BaselineLifecycle.disabled());
+    }
+
+    /**
+     * @param statisticalWarmupAction action applied when evaluation includes {@link EvaluationStatus#STATISTICAL_WARMUP}
+     *                                (default {@link EnforcementAction#MONITOR}); must be {@link EnforcementAction#ALLOW}
+     *                                or {@link EnforcementAction#MONITOR} (other values are normalized to {@code MONITOR})
+     * @param baselineUpdatePolicy    decides whether {@link AnomalyScorer#update} runs after the risk decision
+     * @param baselineLifecycle       controlled relearn / reset (default disabled)
+     */
+    public SentinelDecisionEngine(AnomalyScorer scorer,
+                                  PolicyEngine policyEngine,
+                                  EnforcementHandler enforcementHandler,
+                                  TelemetryEmitter telemetry,
+                                  StartupGrace startupGrace,
+                                  SentinelMetrics metrics,
+                                  TrustEvaluator trustEvaluator,
+                                  TrustPolicyAdjuster trustPolicyAdjuster,
+                                  RequestRiskFusion riskFusion,
+                                  EnforcementAction statisticalWarmupAction,
+                                  BaselineUpdatePolicy baselineUpdatePolicy,
+                                  BaselineLifecycle baselineLifecycle) {
         this.scorer = scorer;
         this.policyEngine = policyEngine;
         this.enforcementHandler = enforcementHandler;
@@ -127,6 +147,7 @@ public final class SentinelDecisionEngine {
         this.baselineUpdateMode = policy instanceof ConfigurableBaselineUpdatePolicy configurable
             ? configurable.mode()
             : BaselineUpdateMode.ALLOW_OR_MONITOR;
+        this.baselineLifecycle = baselineLifecycle != null ? baselineLifecycle : BaselineLifecycle.disabled();
     }
 
     static EnforcementAction normalizeWarmupAction(EnforcementAction action) {
@@ -147,7 +168,7 @@ public final class SentinelDecisionEngine {
      * trust-policy detail) — same side-effect contract as earlier pipeline evaluation.
      * <p>
      * Flow: score → fusion/policy/trust → risk action → baseline-update policy → conditional update →
-     * warmup/grace/quarantine enforcement presentation.
+     * optional controlled relearn → warmup/grace/quarantine enforcement presentation.
      *
      * @param ctx per-request context; enriched in-place with trust, fusion, and policy detail keys
      * @return the decision, or {@code null} when scoring failed and the caller must fail open
@@ -243,6 +264,7 @@ public final class SentinelDecisionEngine {
         if (shouldUpdate) {
             try {
                 scorer.update(features);
+                baselineLifecycle.onUpdateAccepted(features);
                 metrics.recordBaselineUpdateAccepted(baselineUpdateMode.name(), warmup);
             } catch (Exception e) {
                 log.debug("Baseline update failed for {}: {}: {}",
@@ -254,6 +276,9 @@ public final class SentinelDecisionEngine {
         } else {
             statuses.add(EvaluationStatus.BASELINE_UPDATE_SKIPPED);
             metrics.recordBaselineUpdateSkipped(baselineUpdateMode.name());
+            if (baselineLifecycle.onUpdateSkipped(features)) {
+                statuses.add(EvaluationStatus.BASELINE_RELEARNED);
+            }
         }
 
         EnforcementAction action = riskAction;

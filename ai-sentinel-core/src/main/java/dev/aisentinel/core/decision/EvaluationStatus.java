@@ -29,5 +29,11 @@ public enum EvaluationStatus {
      * Online baseline / scorer {@code update} was skipped by the configured
      * {@link dev.aisentinel.core.baseline.BaselineUpdatePolicy}.
      */
-    BASELINE_UPDATE_SKIPPED
+    BASELINE_UPDATE_SKIPPED,
+
+    /**
+     * Statistical Welford state for this identity|endpoint was reset on this request
+     * (explicit operator relearn). The next observations re-enter {@link #STATISTICAL_WARMUP}.
+     */
+    BASELINE_RELEARNED
 }
