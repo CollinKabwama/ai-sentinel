@@ -197,7 +197,7 @@ public final class RedisFailOpenBehavioralBaselineStore implements BehavioralBas
         if (e instanceof InterruptedException) {
             Thread.currentThread().interrupt();
         }
-        log.debug("Trust baseline Redis failed for key {}: {}", logicalKey, e.getMessage());
+        log.debug("Trust baseline Redis failed for encoded identity key: {}", e.toString());
         metrics.recordTrustBaselineRedisFailure();
         metrics.recordTrustBaselineRedisFallback();
         return fallback.updateAndGetPrevious(logicalKey, endpoint, headerFingerprintHash, ipBucket, nowMillis);
