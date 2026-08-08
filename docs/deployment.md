@@ -195,16 +195,81 @@ These are different controls:
 
 ---
 
-## Failure and degraded behavior
+## Failure mode profile (availability-first)
 
-Distinguish:
+**Canonical reference** for how AI-Sentinel behaves when optional or request-path components fail.
+Behavior is **availability-first (fail-open)**: optional and many request-path errors **allow** the client request rather than deny it.
+This document describes **current** behavior only — it does **not** invent fail-closed modes.
 
-1. **Normal low-risk ALLOW** — scored decision.
-2. **MONITOR mode / warmup / grace presentation** — decision computed; client not denied by Sentinel.
-3. **Degraded evaluation** — full `RiskDecision` with `EvaluationStatus.DEGRADED` after optional-path failure (trust/fusion/trust-policy); request continues with partial context.
-4. **Whole-request fail-open** — no complete decision (e.g. scorer failure, feature extraction failure) or filter catch-all; request allowed; `FailOpenReason` + `FailOpen` telemetry / `aisentinel.failopen.reason`.
+### How to read outcomes
+
+| Outcome class | Meaning |
+|---------------|---------|
+| **Scored ALLOW / policy action** | Complete `RiskDecision`; client outcome follows mode (`MONITOR` never denies; `ENFORCE` may deny). |
+| **Degraded decision** | Complete `RiskDecision` with `EvaluationStatus.DEGRADED`; request continues with partial context. |
+| **Whole-request fail-open** | No complete decision (or filter catch-all); request **allowed**; `FailOpenReason` metrics incremented. |
+| **Side-path fail-open** | Request outcome unchanged; a side effect (training publish, Redis write, lifecycle hook) was dropped. |
 
 An allowed request is **not** proof of low risk.
+
+### Visibility: metrics vs structured `FailOpen` telemetry
+
+All request-path `FailOpenReason` values increment:
+
+* `aisentinel.failopen.count`
+* `aisentinel.failopen.reason{reason=...}`
+
+Structured `FailOpen` telemetry (`TelemetryEvent.failOpen`) is emitted for **decision-engine** reasons only
+(`SCORER_FAILURE`, `BASELINE_UPDATE_FAILURE`, `TRUST_*`, `RISK_FUSION_FAILURE`, `BASELINE_UPDATE_POLICY_FAILURE`).
+
+Pipeline / filter reasons record **metrics + logs** but **do not** emit structured `FailOpen` telemetry today:
+
+| Reason | Where recorded | Structured `FailOpen` telemetry? |
+|--------|----------------|----------------------------------|
+| `SCORER_FAILURE` | Decision engine | Yes |
+| `BASELINE_UPDATE_FAILURE` | Decision engine | Yes |
+| `TRUST_EVALUATION_FAILURE` | Decision engine | Yes |
+| `RISK_FUSION_FAILURE` | Decision engine | Yes |
+| `TRUST_POLICY_FAILURE` | Decision engine | Yes |
+| `BASELINE_UPDATE_POLICY_FAILURE` | Decision engine | Yes |
+| `IDENTITY_RESOLUTION_FAILURE` | Pipeline | No (metrics + debug log) |
+| `FEATURE_EXTRACTION_FAILURE` | Pipeline | No (metrics + debug log) |
+| `FILTER_FAILURE` | Servlet filter catch-all | No (metrics + warn log) |
+| `BASELINE_LIFECYCLE_FAILURE` | Baseline lifecycle (off request path) | No (metrics + debug log) |
+
+Redis quarantine / throttle / trust fail-open uses **dedicated** meters
+(`aisentinel.distributed.*`, `aisentinel.identity.trust.baseline.redis.*`) and is **not** double-counted as `FailOpenReason`.
+
+### Failure matrix (request outcome)
+
+| Failure | Request outcome | Operator signal | Notes |
+|---------|-----------------|-----------------|-------|
+| **Detector / scorer throw** (`AnomalyScorer#score`) | **Allowed** (no `RiskDecision`) | `SCORER_FAILURE` metrics + `FailOpen` telemetry | Pipeline returns proceed |
+| **Baseline / scorer `update` throw** | **Allowed** (no `RiskDecision`) | `BASELINE_UPDATE_FAILURE` metrics + `FailOpen` telemetry | Score succeeded; learning aborted for this observation |
+| **Feature extraction throw** | **Allowed** (no scoring) | `FEATURE_EXTRACTION_FAILURE` metrics | Early return from pipeline |
+| **Identity context resolver throw** | Scoring **continues** without identity context | `IDENTITY_RESOLUTION_FAILURE` metrics | Trust/fusion may be absent for that request |
+| **Trust lookup / evaluation throw** | Decision continues **without** trust enrichment (`DEGRADED`) | `TRUST_EVALUATION_FAILURE` metrics + `FailOpen` telemetry | Availability over trust completeness |
+| **Risk fusion throw** | Decision continues with **anomaly score only** (`DEGRADED`) | `RISK_FUSION_FAILURE` metrics + `FailOpen` telemetry | |
+| **Trust-policy adjuster throw** | Decision continues with **pre-adjust** action (`DEGRADED`) | `TRUST_POLICY_FAILURE` metrics + `FailOpen` telemetry | |
+| **Baseline-update policy throw** | Decision completes; **update skipped** (`DEGRADED`) | `BASELINE_UPDATE_POLICY_FAILURE` metrics + `FailOpen` telemetry | |
+| **Filter catch-all** (any uncaught exception around pipeline) | **Allowed** via `filterChain.doFilter` | `FILTER_FAILURE` metrics + warn log | Includes unexpected enforcement-path throws that escape the pipeline |
+| **Enforcement HTTP write failure / committed response** | Denial **write skipped**; local quarantine/throttle state may still apply | Debug log; decision telemetry may still record intent | Not a `FailOpenReason`; client may still receive an upstream response |
+| **Cluster quarantine Redis read failure** | Treated as **not** cluster-quarantined (local quarantine still authoritative) | `aisentinel.distributed.*` meters / degraded gauges | Fail-open |
+| **Cluster quarantine Redis write failure** | Local quarantine **retained**; cluster publish dropped | Distributed meters / debug | Does not roll back local state |
+| **Cluster throttle Redis failure** | Throttle check **allows**; local per-node throttle still runs | Distributed throttle meters | Fail-open |
+| **Distributed trust Redis failure** | Falls back to **in-memory** trust store | Trust Redis meters | In-memory path is `baseline-max-keys`-bounded |
+| **Training publish / trainer-side failure** | Request outcome **unchanged** | Training publish failure meters / trainer logs | Async, bounded, fail-open drop |
+| **Identity response hook throw** | Request outcome **unchanged** | Debug log only | After pipeline |
+| **IF local retrain / model registry refresh failure** | Serving continues on last good model or IF fallback mode | Retrain/registry logs and IF score-mode meters | Off request path for registry; does not deny clients |
+
+### Operator expectations
+
+* Prefer **`MONITOR`** until fail-open rates, `DEGRADED`, and Redis degradation gauges are understood for your traffic.
+* Alert on sustained `aisentinel.failopen.reason` and distributed degraded gauges — not only on denial counts.
+* Do **not** treat “request allowed” as “scored low risk.”
+* There is **no** library fail-closed profile today; changing that would be a future product decision, not current behavior.
+
+Related property detail: [`configuration.md`](configuration.md) (fail-open reporting, Redis matrix). Architecture overview: [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
 ---
 
