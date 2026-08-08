@@ -30,6 +30,7 @@ import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.scoring.AnomalyScorer;
 import dev.aisentinel.core.scoring.CompositeScorer;
 import dev.aisentinel.core.scoring.IsolationForestScorer;
+import dev.aisentinel.core.scoring.StatisticalScorer;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
 import dev.aisentinel.core.telemetry.TelemetryEvent;
 import lombok.extern.slf4j.Slf4j;
@@ -199,10 +200,42 @@ public final class SentinelDecisionEngine {
         double rawScore;
         long scoreStart = System.nanoTime();
         Set<EvaluationStatus> evaluationStatuses;
+        IsolationForestScorer.LastScoreMode ifModeForStatuses = null;
         try {
-            rawScore = scorer.score(features);
+            if (scorer instanceof CompositeScorer compositeScorer) {
+                CompositeScorer.CompositeScoreOutcome outcome = compositeScorer.scoreWithExplanation(features);
+                rawScore = outcome.score();
+                DecisionExplanationEvidence evidence = DecisionExplanationEvidence.fromComposite(outcome);
+                if (evidence != null) {
+                    ctx.put(ExplanationContextKeys.DECISION_EXPLANATION, evidence);
+                }
+                if (outcome.compositeSnapshot() != null && outcome.compositeSnapshot().isolationForestScoreMode() != null) {
+                    ifModeForStatuses = IsolationForestScorer.LastScoreMode.valueOf(
+                        outcome.compositeSnapshot().isolationForestScoreMode());
+                }
+            } else if (scorer instanceof StatisticalScorer statisticalScorer) {
+                StatisticalScorer.StatisticalScoreOutcome outcome = statisticalScorer.scoreWithExplanation(features);
+                rawScore = outcome.score();
+                ctx.put(ExplanationContextKeys.DECISION_EXPLANATION,
+                    DecisionExplanationEvidence.fromStatistical(outcome.score(), outcome.snapshot()));
+            } else if (scorer instanceof IsolationForestScorer isolationForestScorer) {
+                IsolationForestScorer.IsolationForestScoreOutcome outcome =
+                    isolationForestScorer.scoreWithMode(features);
+                rawScore = outcome.score();
+                ifModeForStatuses = outcome.mode();
+                ctx.put(ExplanationContextKeys.DECISION_EXPLANATION, new DecisionExplanationEvidence(
+                    null,
+                    outcome.score(),
+                    outcome.mode() == IsolationForestScorer.LastScoreMode.MODEL,
+                    outcome.mode().name(),
+                    null,
+                    System.currentTimeMillis()
+                ));
+            } else {
+                rawScore = scorer.score(features);
+            }
             // Collect before update so STATISTICAL_WARMUP matches the score just returned.
-            evaluationStatuses = EvaluationStatusCollector.collect(scorer, features);
+            evaluationStatuses = EvaluationStatusCollector.collect(scorer, features, ifModeForStatuses);
         } catch (Exception e) {
             log.debug("Scoring failed for {} (fail-open reason={}): {}: {}",
                 features.endpoint(), FailOpenReason.SCORER_FAILURE,
@@ -308,7 +341,8 @@ public final class SentinelDecisionEngine {
         Set<EvaluationStatus> finalStatuses = Set.copyOf(statuses);
         metrics.recordEvaluationStatuses(finalStatuses);
         telemetry.emit(TelemetryEvent.threatScored(
-            identityHash, features.endpoint(), policyScore, finalStatuses, isolationForestScoreMode()));
+            identityHash, features.endpoint(), policyScore, finalStatuses,
+            isolationForestScoreModeForTelemetry(ifModeForStatuses)));
         if (score > 0.5) {
             telemetry.emit(TelemetryEvent.anomalyDetected(identityHash, features.endpoint(), score));
         }
@@ -329,7 +363,17 @@ public final class SentinelDecisionEngine {
         telemetry.emit(TelemetryEvent.failOpen(reason, endpoint));
     }
 
-    private String isolationForestScoreMode() {
+    /**
+     * Prefers the request-owned IF mode from this evaluation's own scoring invocation; only falls back
+     * to the shared, diagnostic-only {@link IsolationForestScorer#lastScoreMode()} when this evaluation
+     * did not go through a recognized {@link CompositeScorer}/{@link IsolationForestScorer} path (custom
+     * {@link AnomalyScorer} wiring) and therefore never computed a request-scoped mode. Never overrides
+     * an already-known request-scoped value with shared state.
+     */
+    private String isolationForestScoreModeForTelemetry(IsolationForestScorer.LastScoreMode requestScopedModeOrNull) {
+        if (requestScopedModeOrNull != null) {
+            return requestScopedModeOrNull.name();
+        }
         IsolationForestScorer ifScorer = findIsolationForestScorer(scorer);
         return ifScorer != null ? ifScorer.lastScoreMode().name() : null;
     }
