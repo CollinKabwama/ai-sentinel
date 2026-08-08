@@ -1,10 +1,11 @@
-# Internal docs layout
+# Docs layout
 
-| Folder | Purpose |
-|--------|---------|
-| *(root)* | Tracked partner docs: `configuration.md`, `deployment.md`, `DOCUMENTATION_CLEANUP_REPORT.md` |
-| `planning/` | Governing plan, audits, regression/refactor reports |
-| `detection/` | Characterization evidence and known detection limitations |
-| `archive/` | Historical / superseded stage notes |
+| Folder / file | Purpose |
+|---------------|---------|
+| `configuration.md` | Tracked property reference |
+| `deployment.md` | Tracked deployment modes, adoption, and failure-mode profile |
+| `planning/` | Local engineering notes (gitignored) |
+| `detection/` | Local characterization evidence (gitignored) |
+| `archive/` | Local historical notes (gitignored) |
 
 Most of this tree is gitignored (`docs/*`). Only allowlisted root files are published.
