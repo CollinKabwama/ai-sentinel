@@ -283,11 +283,7 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
 
     private boolean applyThrottle(EnforcementResponse response, String identityHash, String endpoint) {
         if (!tryAcquireThrottlePermit(identityHash, endpoint)) {
-            try {
-                response.setStatus(429);
-                response.setContentType("text/plain;charset=UTF-8");
-                response.writeBody("Too Many Requests");
-            } catch (Exception ignored) { }
+            writeDenialResponse(response, 429, "Too Many Requests");
             telemetry.emit(TelemetryEvent.policyActionApplied(identityHash, endpoint, "THROTTLE_APPLIED", "429"));
             return false;
         }
@@ -297,11 +293,8 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
 
     private void applyBlock(EnforcementResponse response, String identityHash, String endpoint) {
         log.debug("Blocking request for endpoint={} identityHash={}", endpoint, maskHash(identityHash));
-        try {
-            response.setStatus(blockStatusCode);
-            response.setContentType("text/plain;charset=UTF-8");
-            response.writeBody(blockStatusCode == 403 ? "Forbidden" : "Too Many Requests");
-        } catch (Exception ignored) { }
+        String body = blockStatusCode == 403 ? "Forbidden" : "Too Many Requests";
+        writeDenialResponse(response, blockStatusCode, body);
         telemetry.emit(TelemetryEvent.policyActionApplied(identityHash, endpoint, "BLOCK", String.valueOf(blockStatusCode)));
     }
 
@@ -316,12 +309,26 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
         } catch (RuntimeException e) {
             log.debug("Cluster quarantine publish failed after local quarantine applied; ignoring", e);
         }
-        try {
-            response.setStatus(blockStatusCode);
-            response.setContentType("text/plain;charset=UTF-8");
-            response.writeBody("Quarantined");
-        } catch (Exception ignored) { }
+        writeDenialResponse(response, blockStatusCode, "Quarantined");
         telemetry.emit(TelemetryEvent.quarantineStarted(identityHash, endpoint, quarantineDurationMs));
+    }
+
+    /**
+     * Best-effort client denial write. Skips mutation when the response is already committed
+     * (local quarantine/throttle state and telemetry still apply). Does not introduce servlet types.
+     */
+    private void writeDenialResponse(EnforcementResponse response, int status, String body) {
+        if (response.isCommitted()) {
+            log.debug("Skipping enforcement HTTP write; response already committed (status would have been {})", status);
+            return;
+        }
+        try {
+            response.setStatus(status);
+            response.setContentType("text/plain;charset=UTF-8");
+            response.writeBody(body);
+        } catch (Exception e) {
+            log.debug("Enforcement HTTP write failed (response may have become committed): {}", e.toString());
+        }
     }
 
     private static String maskHash(String h) {

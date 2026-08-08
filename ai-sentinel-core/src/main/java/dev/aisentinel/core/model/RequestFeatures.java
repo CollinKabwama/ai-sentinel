@@ -13,8 +13,10 @@ import java.util.Objects;
  *   <li>{@code endpointEntropy} — continuous diversity (Shannon)</li>
  *   <li>{@code endpointConcentration} — continuous concentration (max share); distribution-shift only,
  *       not a mono-endpoint flood discriminator</li>
- *   <li>{@code tokenAgeSeconds} — continuous</li>
- *   <li>{@code parameterCount} — ordinal / count</li>
+ *   <li>{@code tokenAgeSeconds} — seconds since {@code X-Token-Issued-At} when {@code Authorization}
+ *       is present; {@code -1} means missing/invalid/overflow or a materially future issued-at;
+ *       future issued-at within tolerated clock skew is clamped to {@code 0}</li>
+ *   <li>{@code parameterCount} — query/form parameter map size (not JSON body field count)</li>
  *   <li>{@code payloadSizeBytes} — continuous magnitude</li>
  *   <li>{@code headerFingerprintHash}, {@code ipBucket} — identity-like; exported in
  *       {@link #toArray()} and used by behavioral trust, but excluded from statistical z-scoring</li>

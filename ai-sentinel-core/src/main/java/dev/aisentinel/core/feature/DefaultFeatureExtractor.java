@@ -169,16 +169,52 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
 
     private double extractTokenAgeSeconds(HttpRequestView request) {
         String auth = request.getHeader("Authorization");
-        if (auth == null) return -1;
+        if (auth == null || auth.isBlank()) {
+            return TOKEN_AGE_MISSING_OR_INVALID;
+        }
         String issuedStr = request.getHeader("X-Token-Issued-At");
-        if (issuedStr == null) return -1;
+        if (issuedStr == null || issuedStr.isBlank()) {
+            return TOKEN_AGE_MISSING_OR_INVALID;
+        }
         try {
-            long issued = Long.parseLong(issuedStr.trim()) * 1000L;
-            return (System.currentTimeMillis() - issued) / 1000.0;
+            long issuedEpochSeconds = Long.parseLong(issuedStr.trim());
+            // Avoid overflow when converting seconds → millis for extreme inputs.
+            if (issuedEpochSeconds > Long.MAX_VALUE / 1000L || issuedEpochSeconds < Long.MIN_VALUE / 1000L) {
+                return TOKEN_AGE_MISSING_OR_INVALID;
+            }
+            long issuedMs = issuedEpochSeconds * 1000L;
+            double ageSeconds = (System.currentTimeMillis() - issuedMs) / 1000.0;
+            if (ageSeconds < 0) {
+                // Small future offsets are ordinary issuer/application clock skew: treat as
+                // freshly issued (0) rather than conflating with missing/invalid (-1).
+                // Materially future timestamps are not clock skew — an unbounded clamp to 0
+                // lets a client fully neutralize this feature (verified: against an established
+                // near-zero-token-age baseline, an arbitrarily-future timestamp collapsed a score
+                // that would otherwise saturate to ~1.0 down to ~0.05, an ALLOW-band result, using
+                // only a spoofed header). Beyond the tolerated skew window, treat the same as
+                // missing/invalid so the value cannot be steered to look artificially fresh.
+                if (ageSeconds >= -MAX_TOLERATED_FUTURE_SKEW_SECONDS) {
+                    return TOKEN_AGE_FUTURE_CLAMPED;
+                }
+                return TOKEN_AGE_MISSING_OR_INVALID;
+            }
+            return ageSeconds;
         } catch (NumberFormatException e) {
-            return -1;
+            return TOKEN_AGE_MISSING_OR_INVALID;
         }
     }
+
+    /** Missing Authorization / issued-at, blank, unparsable, overflow, or future beyond tolerated skew. */
+    static final double TOKEN_AGE_MISSING_OR_INVALID = -1.0;
+    /** Future {@code X-Token-Issued-At} within tolerated clock skew, clamped so it is distinguishable
+     *  from missing/invalid. */
+    static final double TOKEN_AGE_FUTURE_CLAMPED = 0.0;
+    /**
+     * Ordinary issuer/application clock skew tolerance. Matches common JWT-library leeway defaults
+     * (tens of seconds to a few minutes); not configurable to avoid a footgun that reintroduces the
+     * unbounded-clamp manipulability this constant closes.
+     */
+    static final long MAX_TOLERATED_FUTURE_SKEW_SECONDS = 300L;
 
     private long extractPayloadSize(HttpRequestView request) {
         String cl = request.getHeader("Content-Length");

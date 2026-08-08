@@ -17,14 +17,14 @@ Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer
 | `ai.sentinel.baseline-ttl` / `baseline-max-keys` | `5m` / `100000` | Shared lifetime for the rolling `BaselineStore` request window **and** `StatisticalScorer` Welford state (idle keys expire on access paths) |
 | `ai.sentinel.internal-map-max-keys` / `internal-map-ttl` | `100000` / `5m` | Local endpoint-history / throttle / quarantine map bounds (not statistical baseline state) |
 | `ai.sentinel.trusted-proxies` | _(empty)_ | IPs or CIDRs; when remote matches, client IP from forwarded headers (see trusted proxy handling in [`ARCHITECTURE.md`](../ARCHITECTURE.md)) |
-| `ai.sentinel.filter-order` | `2147483547` (same as `Ordered.LOWEST_PRECEDENCE - 100`, i.e. `Integer.MAX_VALUE - 100`) | Servlet filter order for Sentinel; adjust when you need Sentinel before/after other app filters or Spring Security chain behavior |
+| `ai.sentinel.filter-order` | `2147483547` (same as `Ordered.LOWEST_PRECEDENCE - 100`, i.e. `Integer.MAX_VALUE - 100`) | Servlet filter order. **Default is intentionally late** so Spring Security (when present) typically populates `SecurityContextHolder` before Sentinel resolves identity (principal preferred over client IP). Running earlier improves early deny but usually forces IP-only identity. Absolute order vs every custom filter is not guaranteed — set this explicitly when your chain needs a different placement. Late order can also mean another filter commits the response first; see committed-response behavior below. |
 | `ai.sentinel.threshold-moderate` … `threshold-critical` | `0.2` … `0.8` | Strictly increasing, in `[0,1]` |
 | `ai.sentinel.warmup-min-samples` / `warmup-score` / `warmup-action` | `2` / `0.4` / `MONITOR` | Cold-start: numeric `warmup-score` is telemetry/fusion input; **`warmup-action`** is the enforcement action while `EvaluationStatus.STATISTICAL_WARMUP` is active (`ALLOW` or `MONITOR`). Warmup is **not** treated as confirmed elevated risk. |
 | `ai.sentinel.statistical.baseline-update-policy` | `ALLOW_OR_MONITOR` | When the decision engine may call `AnomalyScorer.update(...)` after the risk decision: `ALWAYS`, `ALLOW_ONLY`, `ALLOW_OR_MONITOR`, `SCORE_BELOW_THRESHOLD`. Mutually exclusive modes. In default composite wiring an accepted update fans out to statistical baseline state and optional Isolation Forest training-buffer handling (IF keeps its own sample-rate / rejection gates). |
 | `ai.sentinel.statistical.baseline-update-score-threshold` | `0.4` | Used only with `SCORE_BELOW_THRESHOLD`: update when fused/policy score is **strictly below** this value (`[0,1]`). Ignored by other modes. |
 | `ai.sentinel.statistical.relearn-mode` | `DISABLED` | Controlled baseline reset: `DISABLED` (default) or `EXPLICIT_ONLY` (operator `BaselineLifecycle.reset`). Automatic skip-triggered relearn is **not** offered — it allowed elevated traffic to both trigger reset and train warmup. Obsolete value `AFTER_CONSECUTIVE_SKIPS` is rejected at binding. |
 | `ai.sentinel.startup-grace-period` | `0` | Duration (e.g. `5m`) enforcing monitor-only after startup |
-| `ai.sentinel.enforcement-scope` | `IDENTITY_ENDPOINT` | Throttle/quarantine key scope |
+| `ai.sentinel.enforcement-scope` | `IDENTITY_ENDPOINT` | Throttle/quarantine key scope only (`IDENTITY_ENDPOINT` or `IDENTITY_GLOBAL`). **Does not** change statistical baseline / `BaselineStore` keys (always `identity\|endpoint`) or trust baseline keys. `IDENTITY_GLOBAL` quarantines/throttles the identity across **all** endpoints — wide blast radius; use only when that is intended. |
 | `ai.sentinel.isolation-forest.enabled` | `false` | In-core Isolation Forest |
 | `ai.sentinel.isolation-forest.local-retrain-enabled` | `true` | Allow in-process IF retrain when IF is enabled (independent of registry refresh) |
 | `ai.sentinel.isolation-forest.score-weight` | `0.5` | Weight of IF vs statistical score in the default composite blend |
@@ -150,6 +150,16 @@ Escalates (never relaxes) the anomaly `PolicyEngine` action using identity trust
 | `ai.sentinel.identity.trust-aware-policy.deny-on-critical-trust-enabled` | `false` | Allow critical-trust deny path |
 | `ai.sentinel.identity.trust-aware-policy.require-min-risk-for-trust-deny` | `true` | Require anomaly score ≥ min when denying |
 | `ai.sentinel.identity.trust-aware-policy.min-risk-score-for-trust-deny` | `0.40` | Minimum anomaly score gate for trust deny |
+
+### Request-path feature and enforcement semantics
+
+**Token age (`tokenAgeSeconds`):** Requires both `Authorization` (non-blank) and `X-Token-Issued-At` (epoch seconds). Missing/blank/unparsable/overflow → `-1`. Valid past issued-at → non-negative age in seconds. **Future** issued-at within a tolerated clock-skew window (≤300 seconds, matching common JWT-library leeway) is clamped to `0` so ordinary issuer/application clock skew is not conflated with missing/invalid (`-1`). Future issued-at **beyond** that window is treated the same as missing/invalid (`-1`), not silently `0` — an unbounded clamp would let a client fully neutralize this feature's contribution to anomaly scoring by spoofing an arbitrarily-future timestamp (verified: against an established near-zero-token-age baseline, this dropped a would-be-QUARANTINE score to ALLOW using nothing but the header). The skew window is not configurable, to avoid reintroducing that gap. Headers are client-influenced; treat as weak signals under gated learning and z-caps.
+
+**Parameter count:** `HttpRequestView.getParameterMap().size()` — query/form parameters only. JSON request bodies are **not** parsed on the hot path; a JSON API with an empty parameter map yields `parameterCount = 0` even when the body is large (body size still appears in `payloadSizeBytes` via `Content-Length` when present).
+
+**Committed responses:** When another filter has already committed the servlet response before Sentinel denial writes, `EnforcementResponse.isCommitted()` is true (servlet adapter). AI-Sentinel **skips** status/body mutation, still applies local quarantine/throttle state, and still emits telemetry for the decision intent. Telemetry does **not** currently distinguish “HTTP body written” from “decision recorded but write skipped.” Prefer filter ordering so Sentinel can write denials when early blocking is required.
+
+**Enforcement scope vs detection scope:** Scoring/baselines use `identity|endpoint`. Throttle/quarantine use `ai.sentinel.enforcement-scope`. Mismatch is intentional and configurable — document blast radius when selecting `IDENTITY_GLOBAL`.
 
 ### Redis and request-path budget
 
