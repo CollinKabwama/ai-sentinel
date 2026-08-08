@@ -2,7 +2,7 @@
 
 | Folder | Purpose |
 |--------|---------|
-| *(root)* | Tracked partner docs: `configuration.md`, `DOCUMENTATION_CLEANUP_REPORT.md` |
+| *(root)* | Tracked partner docs: `configuration.md`, `deployment.md`, `DOCUMENTATION_CLEANUP_REPORT.md` |
 | `planning/` | Governing plan, audits, regression/refactor reports |
 | `detection/` | Characterization evidence and known detection limitations |
 | `archive/` | Historical / superseded stage notes |
