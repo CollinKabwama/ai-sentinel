@@ -2,6 +2,8 @@ package dev.aisentinel.core.metrics;
 
 import dev.aisentinel.core.policy.EnforcementAction;
 
+import java.util.Collection;
+
 /**
  * Optional observability hooks for Sentinel (no Micrometer/Spring dependency in core).
  * Default methods are no-ops; production wiring is provided by the Spring Boot starter.
@@ -18,6 +20,12 @@ public interface SentinelMetrics {
 
     /** Isolation Forest sub-score (or fallback when no model). */
     default void recordIsolationForestScore(double score) {}
+
+    /**
+     * Isolation Forest request-path resolution mode ({@code MODEL}, {@code FALLBACK_NO_MODEL},
+     * {@code FALLBACK_INVALID}). Call in addition to {@link #recordIsolationForestScore(double)}.
+     */
+    default void recordIsolationForestScoreMode(String mode) {}
 
     default void recordPipelineLatencyNanos(long nanos) {}
 
@@ -52,8 +60,25 @@ public interface SentinelMetrics {
     /** Policy outcome applied (after grace / quarantine overrides). */
     default void recordPolicyAction(EnforcementAction action) {}
 
-    /** Request allowed despite pipeline error (fail-open). */
+    /**
+     * Request allowed despite pipeline error (fail-open). Aggregate counter for back-compat;
+     * prefer {@link #recordFailOpen(FailOpenReason)} so operators can split by cause.
+     */
     default void recordFailOpen() {}
+
+    /**
+     * Fail-open with a structured reason. Default implementation delegates to {@link #recordFailOpen()}
+     * so existing {@link SentinelMetrics} implementations remain source-compatible.
+     */
+    default void recordFailOpen(FailOpenReason reason) {
+        recordFailOpen();
+    }
+
+    /**
+     * Records each {@link dev.aisentinel.core.decision.EvaluationStatus} observed on a completed decision.
+     * Default no-op; Micrometer tags by status name (low cardinality enum).
+     */
+    default void recordEvaluationStatuses(Collection<? extends Enum<?>> statuses) {}
 
     /** Illegal raw score corrected before policy (NaN or negative). */
     default void recordNanOrNegativeScoreClamped() {}
