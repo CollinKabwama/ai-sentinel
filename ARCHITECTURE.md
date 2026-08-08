@@ -225,10 +225,32 @@ Local enforcement stays authoritative; Redis and transport failures are fail-ope
 ## 11. Observability
 
 - **`DefaultTelemetryEmitter`** — JSON logs + Micrometer counters for events (verbosity and sampling configurable).
-- **`MicrometerSentinelMetrics`** — registers meters such as `aisentinel.score.composite`, `aisentinel.score.statistical`, `aisentinel.score.if`, `aisentinel.latency.pipeline`, `aisentinel.latency.scoring`, `aisentinel.latency.if`, per-action counters, retrain timers/counters, `aisentinel.failopen.count`, etc., with percentiles where applicable.
-- **`/actuator/sentinel`** aggregates config flags, quarantine/throttle counts, IF training state, **score/latency summaries** when the Micrometer adapter is present, and **`lastScoreComponents`** (statistical vs optional IF vs blended composite from the **most recent** `CompositeScorer` evaluation—useful for quick A/B-style checks alongside `aisentinel.score.*` meters).
+- **`MicrometerSentinelMetrics`** — registers meters such as `aisentinel.score.composite`, `aisentinel.score.statistical`, `aisentinel.score.if`, `aisentinel.latency.pipeline`, `aisentinel.latency.scoring`, `aisentinel.latency.if`, per-action counters, retrain timers/counters, `aisentinel.failopen.count`, `aisentinel.failopen.reason{reason=...}`, `aisentinel.evaluation.status{status=...}`, `aisentinel.isolationforest.score.mode{mode=...}`, etc., with percentiles where applicable.
+- **`/actuator/sentinel`** aggregates config flags, quarantine/throttle counts, IF training state (including `isolationForestLastScoreMode` / `isolationForestActiveModelSource`), **score/latency summaries** when the Micrometer adapter is present, **`evaluationStatusModel`** (operator-phase → `EvaluationStatus` mapping), and **`lastScoreComponents`** (statistical vs optional IF vs blended composite from the **most recent** `CompositeScorer` evaluation—useful for quick A/B-style checks alongside `aisentinel.score.*` meters).
 
----
+### EvaluationStatus lifecycle (operator model)
+
+| Operator phase | `EvaluationStatus` values | Meaning |
+|----------------|---------------------------|---------|
+| `WARMUP` | `STATISTICAL_WARMUP` | Cold-start; enforcement uses `warmup-action` |
+| `LIVE` | `STATISTICAL_LIVE` and/or `COMPLETE` | Live statistical path; `COMPLETE` only when no model fallback/degradation |
+| `MODEL_FALLBACK` | `MODEL_FALLBACK_USED` (+ `MODEL_UNAVAILABLE` when no model) | IF used configured fallback score — **not** silent statistical-only detection |
+| `DEGRADED` | `DEGRADED` | Optional path failed (trust / fusion / trust-policy) but a full `RiskDecision` was still produced |
+| `FAIL_OPEN` | *(not on `RiskDecision`)* | Request allowed without a complete decision, or after catch-all errors — see `FailOpenReason` |
+
+Helper: `OperatorEvaluationPhase.fromStatuses(...)`. Telemetry `ThreatScored` payloads may include `evaluationStatuses`, `operatorPhases`, and `isolationForestScoreMode`. `FailOpen` events carry `reason` + `operatorPhase=FAIL_OPEN`.
+
+### Fail-open semantics (visibility only — decisions unchanged)
+
+Request-path failures that **allow** the request still allow it. Operators distinguish causes via:
+
+* `aisentinel.failopen.count` (aggregate) and `aisentinel.failopen.reason{reason=...}`
+* Structured `FailOpen` telemetry / debug logs including the reason code
+* `EvaluationStatus.DEGRADED` when the decision continues after an optional-subsystem failure
+
+Dedicated distributed meters (`aisentinel.distributed.*`, `aisentinel.identity.trust.baseline.redis.*`) remain the source of truth for Redis quarantine/throttle/trust fail-open; they are not double-counted as `FailOpenReason`.
+
+**Do not** treat MONITOR mode or fail-open availability as ENFORCE readiness.
 
 ## 12. Extension points (beans)
 

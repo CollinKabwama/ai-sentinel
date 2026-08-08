@@ -87,6 +87,7 @@ public final class IsolationForestScorer implements AnomalyScorer {
             double fb = config.getFallbackScore();
             if (recordRequestMetrics) {
                 metrics.recordIsolationForestScore(fb);
+                metrics.recordIsolationForestScoreMode(LastScoreMode.FALLBACK_NO_MODEL.name());
             }
             return fb;
         }
@@ -102,6 +103,7 @@ public final class IsolationForestScorer implements AnomalyScorer {
             double fb = config.getFallbackScore();
             if (recordRequestMetrics) {
                 metrics.recordIsolationForestScore(fb);
+                metrics.recordIsolationForestScoreMode(LastScoreMode.FALLBACK_INVALID.name());
             }
             return fb;
         }
@@ -109,6 +111,7 @@ public final class IsolationForestScorer implements AnomalyScorer {
         double out = Math.min(1.0, Math.max(0.0, s));
         if (recordRequestMetrics) {
             metrics.recordIsolationForestScore(out);
+            metrics.recordIsolationForestScoreMode(LastScoreMode.MODEL.name());
         }
         return out;
     }

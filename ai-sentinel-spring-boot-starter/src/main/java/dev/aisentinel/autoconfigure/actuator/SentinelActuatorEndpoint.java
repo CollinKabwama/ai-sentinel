@@ -90,6 +90,8 @@ public class SentinelActuatorEndpoint {
         map.put("quarantineCount", enforcementHandlerImpl.getQuarantineCount());
         if (props.getIsolationForest().isEnabled() && isolationForestScorer != null) {
             map.put("isolationForestModelLoaded", isolationForestScorer.isModelLoaded());
+            map.put("isolationForestLastScoreMode", isolationForestScorer.lastScoreMode().name());
+            map.put("isolationForestActiveModelSource", isolationForestScorer.getActiveModelSource().name());
             map.put("isolationForestBufferedSampleCount", isolationForestScorer.getBufferedSampleCount());
             map.put("isolationForestModelVersion", isolationForestScorer.getModelVersion());
             map.put("isolationForestLastRetrainTimeMillis", isolationForestScorer.getLastRetrainTimeMillis());
@@ -105,6 +107,13 @@ public class SentinelActuatorEndpoint {
             map.put("acceptedTrainingSampleCount", 0L);
             map.put("rejectedTrainingSampleCount", 0L);
         }
+        map.put("evaluationStatusModel", Map.of(
+            "WARMUP", "STATISTICAL_WARMUP",
+            "LIVE", "STATISTICAL_LIVE|COMPLETE",
+            "MODEL_FALLBACK", "MODEL_FALLBACK_USED(+MODEL_UNAVAILABLE)",
+            "DEGRADED", "DEGRADED",
+            "FAIL_OPEN", "FailOpenReason metrics/telemetry (not EvaluationStatus)"
+        ));
         if (micrometerSentinelMetrics != null) {
             map.put("scoreSummary", micrometerSentinelMetrics.scoreSummaryForActuator());
             map.put("latencySummary", micrometerSentinelMetrics.latencySummaryForActuator());

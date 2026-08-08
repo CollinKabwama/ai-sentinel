@@ -1,5 +1,6 @@
 package dev.aisentinel.core.baseline;
 
+import dev.aisentinel.core.metrics.FailOpenReason;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.model.RequestFeatures;
 import dev.aisentinel.core.scoring.AnomalyScorer;
@@ -75,8 +76,9 @@ public final class BaselineLifecycle {
             }
             return removed;
         } catch (Exception e) {
-            log.debug("Baseline reset failed: {}: {}", e.getClass().getSimpleName(), e.getMessage());
-            metrics.recordFailOpen();
+            log.debug("Baseline reset failed (fail-open reason={}): {}: {}",
+                FailOpenReason.BASELINE_LIFECYCLE_FAILURE, e.getClass().getSimpleName(), e.getMessage());
+            metrics.recordFailOpen(FailOpenReason.BASELINE_LIFECYCLE_FAILURE);
             return false;
         }
     }

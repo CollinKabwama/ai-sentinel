@@ -22,7 +22,8 @@ final class EvaluationStatusCollector {
         contribute(scorer, features, out);
         boolean degraded = out.contains(EvaluationStatus.STATISTICAL_WARMUP)
             || out.contains(EvaluationStatus.MODEL_UNAVAILABLE)
-            || out.contains(EvaluationStatus.MODEL_FALLBACK_USED);
+            || out.contains(EvaluationStatus.MODEL_FALLBACK_USED)
+            || out.contains(EvaluationStatus.DEGRADED);
         if (!degraded) {
             out.add(EvaluationStatus.COMPLETE);
         }

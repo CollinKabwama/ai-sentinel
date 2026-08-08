@@ -4,6 +4,7 @@ import dev.aisentinel.autoconfigure.config.SentinelProperties;
 import dev.aisentinel.core.SentinelPipeline;
 import dev.aisentinel.core.enforcement.DiscardingEnforcementResponse;
 import dev.aisentinel.core.enforcement.EnforcementResponse;
+import dev.aisentinel.core.metrics.FailOpenReason;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -67,9 +68,10 @@ public class SentinelFilter extends OncePerRequestFilter {
             }
             filterChain.doFilter(request, response);
         } catch (Exception e) {
-            log.warn("Sentinel pipeline error for path={}, allowing request (fail-open): {}: {}",
-                request.getRequestURI(), e.getClass().getSimpleName(), e.getMessage());
-            metrics.recordFailOpen();
+            log.warn("Sentinel pipeline error for path={}, allowing request (fail-open reason={}): {}: {}",
+                request.getRequestURI(), FailOpenReason.FILTER_FAILURE,
+                e.getClass().getSimpleName(), e.getMessage());
+            metrics.recordFailOpen(FailOpenReason.FILTER_FAILURE);
             filterChain.doFilter(request, response);
         }
     }

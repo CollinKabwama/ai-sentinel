@@ -71,4 +71,29 @@ class TelemetryEventTest {
         assertThat(q.type()).isEqualTo("QuarantineStarted");
         assertThat(q.payload().get("durationMs")).isEqualTo(60_000L);
     }
+
+    @Test
+    void threatScoredIncludesEvaluationStatusesAndIfModeWhenProvided() {
+        TelemetryEvent e = TelemetryEvent.threatScored(
+            "12345678",
+            "/api",
+            0.4,
+            java.util.Set.of(
+                dev.aisentinel.core.decision.EvaluationStatus.MODEL_FALLBACK_USED,
+                dev.aisentinel.core.decision.EvaluationStatus.MODEL_UNAVAILABLE),
+            "FALLBACK_NO_MODEL");
+        assertThat(e.payload().get("isolationForestScoreMode")).isEqualTo("FALLBACK_NO_MODEL");
+        assertThat(e.payload()).containsKey("evaluationStatuses");
+        assertThat(e.payload()).containsKey("operatorPhases");
+    }
+
+    @Test
+    void failOpenEventCarriesReasonAndOperatorPhase() {
+        TelemetryEvent e = TelemetryEvent.failOpen(
+            dev.aisentinel.core.metrics.FailOpenReason.FEATURE_EXTRACTION_FAILURE, "/api");
+        assertThat(e.type()).isEqualTo("FailOpen");
+        assertThat(e.payload().get("reason")).isEqualTo("FEATURE_EXTRACTION_FAILURE");
+        assertThat(e.payload().get("operatorPhase")).isEqualTo("FAIL_OPEN");
+        assertThat(e.payload().get("endpoint")).isEqualTo("/api");
+    }
 }
