@@ -76,7 +76,23 @@ Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer
 2. Scorer still returns `warmup-score` for the numeric anomaly/policy score path (fusion/telemetry).
 3. Decision engine overrides the **enforcement** action to `warmup-action` (default `MONITOR`) so warmup is **not** interpreted as confirmed elevated risk.
 4. Warmup observations **always** update the baseline so cold-start keys can leave warmup under gated policies.
-5. After enough updates → `STATISTICAL_LIVE` (+ `COMPLETE` when no model fallback/unavailable).
+5. After enough updates → `STATISTICAL_LIVE` (+ `COMPLETE` when no model fallback/unavailable and no `DEGRADED`).
+
+Operator-facing aliases (`OperatorEvaluationPhase`): `WARMUP` ← `STATISTICAL_WARMUP`; `LIVE` ← `STATISTICAL_LIVE`/`COMPLETE`; `MODEL_FALLBACK` ← `MODEL_FALLBACK_USED` (+ `MODEL_UNAVAILABLE`); `DEGRADED` ← optional-path failure with a completed decision; `FAIL_OPEN` ← `FailOpenReason` metrics/telemetry (not an `EvaluationStatus` on `RiskDecision`).
+
+### Fail-open and degradation reporting
+
+Fail-open **behavior** (allow on error) is unchanged. Visibility:
+
+| Signal | Where |
+|--------|--------|
+| Aggregate fail-open | `aisentinel.failopen.count` |
+| Reasoned fail-open | `aisentinel.failopen.reason{reason=SCORER_FAILURE\|TRUST_EVALUATION_FAILURE\|…}` + `FailOpen` telemetry |
+| IF fallback vs model | `aisentinel.isolationforest.score.mode{mode=MODEL\|FALLBACK_NO_MODEL\|FALLBACK_INVALID}` + `ThreatScored.isolationForestScoreMode` |
+| Status on decisions | `aisentinel.evaluation.status{status=…}` + `RiskDecision.evaluationStatuses` |
+| Feature-extractor failure | Allows request; increments `FEATURE_EXTRACTION_FAILURE` — operators must treat this as availability bias, not a scored allow |
+
+Redis quarantine/throttle/trust fail-open keeps dedicated meters and degraded gauges; see distributed section below. Prefer **MONITOR** until fail-open rates and IF fallback modes are understood in your traffic.
 
 ### Statistical baseline update policy
 
