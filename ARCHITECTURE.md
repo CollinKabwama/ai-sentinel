@@ -245,13 +245,17 @@ Helper: `OperatorEvaluationPhase.fromStatuses(...)`. Telemetry `ThreatScored` pa
 
 ### Fail-open semantics (visibility only — decisions unchanged)
 
-Request-path failures that **allow** the request still allow it. Operators distinguish causes via:
+Request-path failures that **allow** the request still allow it. This product is **availability-first**; there is no fail-closed profile today.
 
-* `aisentinel.failopen.count` (aggregate) and `aisentinel.failopen.reason{reason=...}`
-* Structured `FailOpen` telemetry / debug logs including the reason code
+Operators distinguish causes via:
+
+* `aisentinel.failopen.count` (aggregate) and `aisentinel.failopen.reason{reason=...}` for every `FailOpenReason`
+* Structured `FailOpen` telemetry for **decision-engine** reasons (scorer, trust, fusion, trust-policy, baseline-update policy/update). Pipeline identity/feature failures and the servlet filter catch-all increment the same metrics and log, but do **not** emit `FailOpen` events today
 * `EvaluationStatus.DEGRADED` when the decision continues after an optional-subsystem failure
 
 Dedicated distributed meters (`aisentinel.distributed.*`, `aisentinel.identity.trust.baseline.redis.*`) remain the source of truth for Redis quarantine/throttle/trust fail-open; they are not double-counted as `FailOpenReason`.
+
+**Canonical failure-mode matrix** (detector, Redis, trust, enforcement write, feature extraction, trainer): [`docs/deployment.md`](docs/deployment.md#failure-mode-profile-availability-first).
 
 **Do not** treat MONITOR mode or fail-open availability as ENFORCE readiness. Operating-mode semantics, adoption sequence, and restart behavior: [`docs/deployment.md`](docs/deployment.md).
 

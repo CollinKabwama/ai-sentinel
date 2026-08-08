@@ -39,7 +39,13 @@ public class SentinelProperties {
     private double throttleRequestsPerSecond = 5.0;
     private Duration baselineTtl = Duration.ofMinutes(5);
     private int baselineMaxKeys = 100_000;
-    /** Max keys for internal maps (endpointHistory, throttle, quarantine). Default 100_000. */
+    /**
+     * Max keys for internal maps (endpointHistory, throttle, quarantine). Default 100_000.
+     * Binding rejects zero, negative, and absurdly small values ({@code < 1000}) as well as
+     * values above {@code 2_000_000}. Defaults are unchanged when the property is unset.
+     */
+    @Min(1_000)
+    @Max(2_000_000)
     private int internalMapMaxKeys = 100_000;
     /** TTL for internal map entries (endpointHistory, throttle, quarantine). Default 5 minutes. */
     private Duration internalMapTtl = Duration.ofMinutes(5);

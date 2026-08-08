@@ -12,6 +12,9 @@ package dev.aisentinel.core.metrics;
  *   <li>{@code FAIL_OPEN} — request allowed without a complete {@link dev.aisentinel.core.decision.RiskDecision}
  *       (scorer/update abort, feature extraction failure, filter catch-all), or after an optional
  *       subsystem exception that continues with a degraded decision</li>
+ *   <li>Every reason increments {@code aisentinel.failopen.reason}. Structured {@code FailOpen}
+ *       telemetry is emitted for decision-engine reasons; pipeline/filter/lifecycle reasons are
+ *       metrics + logs only — see {@code docs/deployment.md} failure-mode profile</li>
  *   <li>Distributed Redis quarantine/throttle/trust fail-open uses dedicated meters
  *       ({@code aisentinel.distributed.*}, {@code aisentinel.identity.trust.baseline.redis.*});
  *       those paths are not duplicated here</li>

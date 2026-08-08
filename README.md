@@ -169,7 +169,7 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 ## Current limitations
 
 - **Early release (0.1.0)** — suitable for evaluation and integration; treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)).
-- **MONITOR recommended** — Prefer `ai.sentinel.mode=MONITOR` during adoption. Library default is `ENFORCE`; do not treat that default as a readiness claim. Full mode matrix, ENFORCE preconditions, and restart behavior: [`docs/deployment.md`](docs/deployment.md). Statistical warmup is a lifecycle state (`EvaluationStatus.STATISTICAL_WARMUP`), not evidence of abuse; default warmup action is `MONITOR`. Default baseline learning skips `THROTTLE`/`BLOCK`/`QUARANTINE` risk (`ALLOW_OR_MONITOR`).
+- **MONITOR recommended** — Prefer `ai.sentinel.mode=MONITOR` during adoption. Library default is `ENFORCE`; do not treat that default as a readiness claim. Full mode matrix, ENFORCE preconditions, restart behavior, and the availability-first **failure-mode profile**: [`docs/deployment.md`](docs/deployment.md). Statistical warmup is a lifecycle state (`EvaluationStatus.STATISTICAL_WARMUP`), not evidence of abuse; default warmup action is `MONITOR`. Default baseline learning skips `THROTTLE`/`BLOCK`/`QUARANTINE` risk (`ALLOW_OR_MONITOR`).
 - **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository).
 - **Trainer `eventId` dedup** is JVM-local; multiple trainer instances are not coordinated without external design.
 - **Multi-JVM / Docker validation** for cluster quarantine and throttle is not run in default CI when Docker is unavailable; those Testcontainers tests are skipped.
@@ -191,8 +191,6 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 
 Development uses the **`dev`** branch — see **[`CONTRIBUTING.md`](CONTRIBUTING.md)** for workflow, layout, tests, and PR expectations.
 Please also follow the **[`CODE_OF_CONDUCT.md`](CODE_OF_CONDUCT.md)**.
-
-Documentation cleanup notes for this release line: **[`docs/DOCUMENTATION_CLEANUP_REPORT.md`](docs/DOCUMENTATION_CLEANUP_REPORT.md)**.
 
 - Match existing style and module boundaries.
 - Run **`mvn test`** before submitting.

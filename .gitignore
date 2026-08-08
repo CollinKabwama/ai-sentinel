@@ -3,7 +3,6 @@ design_info.txt
 docs/*
 !docs/configuration.md
 !docs/deployment.md
-!docs/DOCUMENTATION_CLEANUP_REPORT.md
 !docs/README.md
 
 # Local artifacts

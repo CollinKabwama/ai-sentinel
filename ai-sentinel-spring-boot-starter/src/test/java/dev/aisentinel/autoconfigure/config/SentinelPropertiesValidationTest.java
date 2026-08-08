@@ -84,4 +84,46 @@ class SentinelPropertiesValidationTest {
         p.getStatistical().setBaselineUpdatePolicy(dev.aisentinel.core.baseline.BaselineUpdateMode.ALWAYS);
         assertThat(validator.validate(p)).isEmpty();
     }
+
+    @Test
+    void defaultInternalMapMaxKeysIsAccepted() {
+        SentinelProperties p = new SentinelProperties();
+        assertThat(p.getInternalMapMaxKeys()).isEqualTo(100_000);
+        assertThat(validator.validate(p)).isEmpty();
+    }
+
+    @Test
+    void rejectsInternalMapMaxKeysZero() {
+        SentinelProperties p = new SentinelProperties();
+        p.setInternalMapMaxKeys(0);
+        assertThat(validator.validate(p)).isNotEmpty();
+    }
+
+    @Test
+    void rejectsInternalMapMaxKeysNegative() {
+        SentinelProperties p = new SentinelProperties();
+        p.setInternalMapMaxKeys(-1);
+        assertThat(validator.validate(p)).isNotEmpty();
+    }
+
+    @Test
+    void rejectsInternalMapMaxKeysAbsurdlySmall() {
+        SentinelProperties p = new SentinelProperties();
+        p.setInternalMapMaxKeys(999);
+        assertThat(validator.validate(p)).isNotEmpty();
+    }
+
+    @Test
+    void acceptsInternalMapMaxKeysAtMinimumBound() {
+        SentinelProperties p = new SentinelProperties();
+        p.setInternalMapMaxKeys(1_000);
+        assertThat(validator.validate(p)).isEmpty();
+    }
+
+    @Test
+    void rejectsInternalMapMaxKeysAboveMaximum() {
+        SentinelProperties p = new SentinelProperties();
+        p.setInternalMapMaxKeys(2_000_001);
+        assertThat(validator.validate(p)).isNotEmpty();
+    }
 }
