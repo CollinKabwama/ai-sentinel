@@ -124,7 +124,7 @@ Legend: **Required?** = needed for a working filter once `enabled=true`. **Advan
 | Property | Default | Category | Required? | Advanced? |
 |----------|---------|----------|-----------|-----------|
 | `ai.sentinel.baseline-ttl` / `baseline-max-keys` | `5m` / `100000` | baseline | No | Yes — sizing |
-| `ai.sentinel.internal-map-max-keys` / `internal-map-ttl` | `100000` / `5m` | baseline | No | Yes — sizing |
+| `ai.sentinel.internal-map-max-keys` / `internal-map-ttl` | `100000` / `5m` | baseline | No | Yes — sizing; max-keys validated `[1000, 2e6]` |
 | `ai.sentinel.warmup-min-samples` / `warmup-score` / `warmup-action` | `2` / `0.4` / `MONITOR` | scoring | No | No |
 | `ai.sentinel.statistical.baseline-update-policy` | `ALLOW_OR_MONITOR` | baseline | No | No |
 | `ai.sentinel.statistical.baseline-update-score-threshold` | `0.4` | baseline | No | Yes |
@@ -181,7 +181,7 @@ Legend: **Required?** = needed for a working filter once `enabled=true`. **Advan
 | `ai.sentinel.quarantine-duration-ms` | `300000` | Local quarantine TTL in milliseconds |
 | `ai.sentinel.throttle-requests-per-second` | `5.0` | Local token-bucket style throttle rate |
 | `ai.sentinel.baseline-ttl` / `baseline-max-keys` | `5m` / `100000` | Shared lifetime for the rolling `BaselineStore` request window **and** `StatisticalScorer` Welford state (idle keys expire on access paths) |
-| `ai.sentinel.internal-map-max-keys` / `internal-map-ttl` | `100000` / `5m` | Local endpoint-history / throttle / quarantine map bounds (not statistical baseline state) |
+| `ai.sentinel.internal-map-max-keys` / `internal-map-ttl` | `100000` / `5m` | Local endpoint-history / throttle / quarantine map bounds (not statistical baseline state). `internal-map-max-keys` is Bean-validated: **`[1000, 2_000_000]`** (rejects 0, negative, and absurdly small values). Unset keeps the default `100000`. |
 | `ai.sentinel.trusted-proxies` | _(empty)_ | IPs or CIDRs; when remote matches, client IP from forwarded headers (see trusted proxy handling in [`ARCHITECTURE.md`](../ARCHITECTURE.md)) |
 | `ai.sentinel.filter-order` | `2147483547` (same as `Ordered.LOWEST_PRECEDENCE - 100`, i.e. `Integer.MAX_VALUE - 100`) | Servlet filter order. **Default is intentionally late** so Spring Security (when present) typically populates `SecurityContextHolder` before Sentinel resolves identity (principal preferred over client IP). Running earlier improves early deny but usually forces IP-only identity. Absolute order vs every custom filter is not guaranteed — set this explicitly when your chain needs a different placement. Late order can also mean another filter commits the response first; see committed-response behavior below. |
 | `ai.sentinel.threshold-moderate` … `threshold-critical` | `0.2` … `0.8` | Strictly increasing, in `[0,1]` |
@@ -248,15 +248,18 @@ Operator-facing aliases (`OperatorEvaluationPhase`): `WARMUP` ← `STATISTICAL_W
 
 ### Fail-open and degradation reporting
 
-Fail-open **behavior** (allow on error) is unchanged. Visibility:
+Fail-open **behavior** (allow on error) is availability-first. The **canonical failure-mode profile** (request outcomes, per-reason telemetry vs metrics-only paths, Redis/trainer side paths) lives in [`deployment.md`](deployment.md#failure-mode-profile-availability-first).
+
+Visibility summary:
 
 | Signal | Where |
 |--------|--------|
 | Aggregate fail-open | `aisentinel.failopen.count` |
-| Reasoned fail-open | `aisentinel.failopen.reason{reason=SCORER_FAILURE\|TRUST_EVALUATION_FAILURE\|…}` + `FailOpen` telemetry |
+| Reasoned fail-open metrics | `aisentinel.failopen.reason{reason=…}` for every `FailOpenReason` |
+| Structured `FailOpen` telemetry | Decision-engine reasons only (`SCORER_FAILURE`, trust/fusion/policy/update failures). Pipeline/filter reasons (`IDENTITY_RESOLUTION_FAILURE`, `FEATURE_EXTRACTION_FAILURE`, `FILTER_FAILURE`) are **metrics + logs**, not `FailOpen` events |
 | IF fallback vs model | `aisentinel.isolationforest.score.mode{mode=MODEL\|FALLBACK_NO_MODEL\|FALLBACK_INVALID}` + `ThreatScored.isolationForestScoreMode` |
 | Status on decisions | `aisentinel.evaluation.status{status=…}` + `RiskDecision.evaluationStatuses` |
-| Feature-extractor failure | Allows request; increments `FEATURE_EXTRACTION_FAILURE` — operators must treat this as availability bias, not a scored allow |
+| Feature-extractor failure | Allows request; increments `FEATURE_EXTRACTION_FAILURE` — availability bias, not a scored allow |
 
 Redis quarantine/throttle/trust fail-open keeps dedicated meters and degraded gauges; see distributed section below. Prefer **MONITOR** until fail-open rates and IF fallback modes are understood in your traffic.
 
@@ -372,6 +375,25 @@ Align `spring.data.redis.timeout` with these budgets. Future timeouts return con
 | `{trust-prefix}{sha256(logical)}` | Unique principals / sessions / IP hashes within trust TTL | **No** — TTL only; in-memory fallback is capped |
 
 Identity churn (especially unauthenticated IP identity) and `IDENTITY_GLOBAL` scope increase key pressure. The framework does **not** bound Redis memory. If Redis is shared with other workloads, `maxmemory` / eviction policy decisions belong to the deployment and may evict non-Sentinel keys — do not assume a universal eviction policy.
+
+### Unauthenticated identity (IP hash) and state growth
+
+When Spring Security is absent, the principal is anonymous, or no authenticated principal name is available, `SentinelFilter` derives the enforcement/baseline identity as **SHA-256 of the resolved client IP** (after trusted-proxy handling). That hash keys:
+
+* statistical baseline / `BaselineStore` entries (`identity|endpoint`);
+* local endpoint-history, throttle, and quarantine maps (`internal-map-max-keys`);
+* trust logical key `i:{identityHash}` when identity trust is enabled (sessionless).
+
+**Operational effects**
+
+| Topic | Guidance |
+|-------|----------|
+| **State growth** | Unique client IPs within TTL/max-keys inflate in-memory maps. Redis quarantine/throttle/trust keys (when enabled) grow with unique IP hashes and are **TTL-bounded only** — see Redis cardinality above. |
+| **NAT / shared egress** | Many users behind one public IP share one identity hash → shared baselines and shared throttle/quarantine blast radius. Expect noisier baselines and higher false correlation across users on that IP. |
+| **Attack considerations** | Attackers who can rotate source IPs (botnets, proxy pools) create many short-lived keys (cardinality / memory pressure) and avoid accumulating a single-identity reputation. This is an inherent limit of IP-as-identity, not a detector bug. Spoofed `X-Forwarded-For` only matters when `trusted-proxies` trusts the connecting hop — keep that list tight. |
+| **Recommendations** | Prefer authenticated principals (or stable session identity) for production scoring/enforcement keys. Size `baseline-max-keys` / `internal-map-max-keys` and Redis memory for peak **unique IP** cardinality if unauthenticated traffic is expected. Prefer `MONITOR` until IP churn and NAT effects are visible in metrics. Do not treat IP identity as equivalent to user identity. |
+
+This section documents current identity fallback behavior only — it does not change resolver design.
 
 ### Local in-memory state sizing
 
