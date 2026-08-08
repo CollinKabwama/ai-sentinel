@@ -214,6 +214,9 @@ An allowed request is **not** proof of low risk.
 * Redis quarantine/throttle/trust and Kafka training publish are **optional**, fail-open, and validated with Testcontainers where Docker is available.
 * Testcontainers / single-JVM suites are **not** a substitute for production multi-process proof.
 * Prefer MONITOR until distributed degraded gauges, timeouts, and cardinality are understood in your environment.
+* Redis round-trips on quarantine read, throttle (THROTTLE path), and distributed trust are part of the request-path latency budget — see the matrix in [`configuration.md`](configuration.md).
+* Redis key cardinality for quarantine/throttle/trust is **TTL-only**; the library does not hard-cap Redis memory. Shared Redis `maxmemory` / eviction policy is a deployment decision.
+* Local map defaults (`baseline-max-keys` / `internal-map-max-keys` = 100 000) can be memory-heavy at full occupancy — size to active cardinality with headroom.
 
 ---
 

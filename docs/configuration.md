@@ -4,9 +4,173 @@ Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer
 
 **Operator deployment modes, MONITOR-first adoption, ENFORCE preconditions, and restart/cold-start:** [`deployment.md`](deployment.md).
 
+This page is organized as:
+
+1. **Basic configuration** — what most adopters set first  
+2. **Common profiles** — copy-paste starting points  
+3. **Property catalog** — full `ai.sentinel.*` table (grouped)  
+4. **Advanced detection / lifecycle** — warmup, gating, relearn, features  
+5. **Distributed Redis** — cardinality, latency, timeouts  
+6. **Local state sizing** — in-memory capacity guidance  
+
 ---
 
-## Core (`ai.sentinel.*`)
+## Basic configuration
+
+| Concern | Properties to set first |
+|---------|-------------------------|
+| On/off and mode | `enabled`, `mode` (prefer **`MONITOR`** for adoption) |
+| Paths | `exclude-paths` |
+| Policy bands | `threshold-moderate` … `threshold-critical` |
+| Warmup safety | `warmup-action` (default `MONITOR`) |
+| Learning | leave `statistical.baseline-update-policy` at `ALLOW_OR_MONITOR` unless you need `ALWAYS` |
+
+Everything else is optional or advanced until you enable Isolation Forest, identity/trust, or Redis-backed distributed features.
+
+---
+
+## Common profiles
+
+### Minimal MONITOR
+
+```yaml
+ai:
+  sentinel:
+    enabled: true
+    mode: MONITOR
+```
+
+Uses in-process statistical scoring only. No Redis, Kafka, or Isolation Forest.
+
+### Statistical only (ENFORCE trial)
+
+```yaml
+ai:
+  sentinel:
+    enabled: true
+    mode: ENFORCE          # only after MONITOR evaluation — see deployment.md
+    warmup-action: MONITOR
+    statistical:
+      baseline-update-policy: ALLOW_OR_MONITOR
+```
+
+### Statistical + Isolation Forest
+
+```yaml
+ai:
+  sentinel:
+    mode: MONITOR
+    isolation-forest:
+      enabled: true
+      # local-retrain-enabled defaults true; registry refresh stays off until shared FS is ready
+```
+
+### Distributed Redis state
+
+```yaml
+ai:
+  sentinel:
+    mode: MONITOR
+    distributed:
+      enabled: true
+      redis:
+        enabled: true
+        lookup-timeout: 50ms
+      cluster-quarantine-read-enabled: true
+      cluster-quarantine-write-enabled: true   # optional; async after local quarantine
+      # cluster-throttle-enabled: true        # optional; THROTTLE path only
+    identity:
+      trust:
+        distributed:
+          enabled: false   # enable only when identity trust + Redis continuity are required
+spring:
+  data:
+    redis:
+      # host/port/...
+      timeout: 50ms        # align with lookup-timeout / trust command-timeout
+```
+
+Requires `spring-boot-starter-data-redis` and a `StringRedisTemplate` bean.
+
+---
+
+## Property catalog (grouped)
+
+Legend: **Required?** = needed for a working filter once `enabled=true`. **Advanced?** = leave default until you have a specific need.
+
+### Core operation
+
+| Property | Default | Category | Required? | Advanced? |
+|----------|---------|----------|-----------|-----------|
+| `ai.sentinel.enabled` | `true` | core | Yes | No |
+| `ai.sentinel.mode` | `ENFORCE` | core | Yes | No — prefer `MONITOR` for adoption |
+| `ai.sentinel.exclude-paths` | actuator/health/static/favicon | HTTP adapter | No | No |
+| `ai.sentinel.filter-order` | late (`MAX-100`) | HTTP adapter | No | Yes |
+| `ai.sentinel.trusted-proxies` | empty | HTTP adapter | No | Yes |
+| `ai.sentinel.startup-grace-period` | `0` | core | No | Yes |
+
+### Enforcement
+
+| Property | Default | Category | Required? | Advanced? |
+|----------|---------|----------|-----------|-----------|
+| `ai.sentinel.block-status-code` | `429` | enforcement | No | No |
+| `ai.sentinel.quarantine-duration-ms` | `300000` | enforcement | No | No |
+| `ai.sentinel.throttle-requests-per-second` | `5.0` | enforcement | No | No |
+| `ai.sentinel.enforcement-scope` | `IDENTITY_ENDPOINT` | enforcement | No | Yes — blast radius |
+| `ai.sentinel.threshold-*` | `0.2`…`0.8` | scoring/policy | No | No |
+
+### Baseline learning / scoring
+
+| Property | Default | Category | Required? | Advanced? |
+|----------|---------|----------|-----------|-----------|
+| `ai.sentinel.baseline-ttl` / `baseline-max-keys` | `5m` / `100000` | baseline | No | Yes — sizing |
+| `ai.sentinel.internal-map-max-keys` / `internal-map-ttl` | `100000` / `5m` | baseline | No | Yes — sizing |
+| `ai.sentinel.warmup-min-samples` / `warmup-score` / `warmup-action` | `2` / `0.4` / `MONITOR` | scoring | No | No |
+| `ai.sentinel.statistical.baseline-update-policy` | `ALLOW_OR_MONITOR` | baseline | No | No |
+| `ai.sentinel.statistical.baseline-update-score-threshold` | `0.4` | baseline | No | Yes |
+| `ai.sentinel.statistical.relearn-mode` | `DISABLED` | baseline | No | Yes |
+
+### Isolation Forest
+
+| Property | Default | Category | Required? | Advanced? |
+|----------|---------|----------|-----------|-----------|
+| `ai.sentinel.isolation-forest.enabled` | `false` | IF | No | No when enabling IF |
+| `ai.sentinel.isolation-forest.*` (weight, buffer, sample-rate, …) | see table below | IF | No | Yes |
+| `ai.sentinel.model-registry.*` | refresh off | IF / training | No | Yes |
+
+### Trust / identity
+
+| Property | Default | Category | Required? | Advanced? |
+|----------|---------|----------|-----------|-----------|
+| `ai.sentinel.identity.enabled` | `false` | trust | No | No when enabling identity |
+| `ai.sentinel.identity.fusion.*` | off | trust | No | Yes |
+| `ai.sentinel.identity.trust.*` | see trust table | trust | No | Yes |
+| `ai.sentinel.identity.trust-aware-policy.*` | off | trust | No | Yes |
+
+### Redis / distributed
+
+| Property | Default | Category | Required? | Advanced? |
+|----------|---------|----------|-----------|-----------|
+| `ai.sentinel.distributed.enabled` | `false` | Redis | No | No when enabling cluster features |
+| `ai.sentinel.distributed.redis.*` | off / `50ms` | Redis | No | Yes — timeouts |
+| `ai.sentinel.distributed.cluster-quarantine-*` | false | Redis | No | Yes |
+| `ai.sentinel.distributed.cluster-throttle-*` | false | Redis | No | Yes |
+| `ai.sentinel.distributed.training-publish-*` | false | training | No | Yes |
+| `ai.sentinel.distributed.cache.*` | on / `2s` / `10000` | Redis | No | Yes |
+
+### Observability
+
+| Property | Default | Category | Required? | Advanced? |
+|----------|---------|----------|-----------|-----------|
+| `ai.sentinel.telemetry.*` | `ANOMALY_ONLY` | observability | No | Yes |
+
+**Obsolete / rejected:** `relearn-mode=AFTER_CONSECUTIVE_SKIPS` fails binding; `relearn-after-consecutive-skips` is ignored if present as an unused key.
+
+**Surprising default:** `mode=ENFORCE` while adoption docs recommend `MONITOR` — intentional compatibility; override for adoption.
+
+---
+
+## Full property notes (`ai.sentinel.*`)
 
 | Property | Default | Notes |
 |----------|---------|--------|
@@ -150,7 +314,9 @@ Reset clears statistical state for the key so the next observations re-enter `ST
 | `ai.sentinel.identity.trust.distributed.key-prefix` | `aisentinel:trust:bl:` | Redis key prefix; logical keys are hashed to a fixed-width suffix |
 | `ai.sentinel.identity.trust.distributed.command-timeout` | `50ms` | Max wait on the Redis **EVAL** (Lua) round-trip for behavioral baselines; binds to `SentinelProperties.TrustDistributed#commandTimeout`. Timeout or error falls back to in-memory (does not cancel in-flight I/O—align `spring.data.redis.timeout`) |
 
-**Redis trust cardinality (ops):** Distributed trust baselines are bounded by **TTL only** — there is no application-side Redis `maxKeys` and no request-path `SCAN`/`KEYS`. Physical keys are `{key-prefix}{sha256(logicalKey)}` with logical keys `p:{principal}`, `s:{sessionIdHash}`, or `i:{identityHash}` (unauthenticated sessionless traffic uses the client IP hash). Every successful write refreshes TTL (`SET … PX`). Operators must size Redis memory for peak unique identities/sessions within `baseline-ttl`, monitor key count for the trust prefix, and configure Redis `maxmemory` / eviction policy as an infrastructure control. Prefer authenticating or sessioning clients when enabling distributed trust so unauthenticated IP churn cannot inflate cardinality. Fail-open on Redis error uses the local in-memory store (which **is** `baseline-max-keys`-bounded); after Redis recovers, subsequent writes go to Redis again without an application restart.
+**Redis trust cardinality (ops):** Distributed trust baselines are bounded by **TTL only** — there is no application-side Redis `maxKeys` and no request-path `SCAN`/`KEYS`. Physical keys are `{key-prefix}{sha256(logicalKey)}` with logical keys `p:{principal}`, `s:{sessionIdHash}`, or `i:{identityHash}` (unauthenticated sessionless traffic uses the client IP hash). Every successful write refreshes TTL (`SET … PX`). Operators must size Redis memory for peak unique identities/sessions within `baseline-ttl`, monitor key count for the trust prefix, and configure Redis `maxmemory` / eviction policy as an **infrastructure** control (shared Redis eviction can affect other applications on the same instance — choose policy deliberately). Prefer authenticating or sessioning clients when enabling distributed trust so unauthenticated IP churn cannot inflate cardinality. Fail-open on Redis error uses the local in-memory store (which **is** `baseline-max-keys`-bounded); after Redis recovers, subsequent writes go to Redis again without an application restart.
+
+DEBUG logs for Redis trust / quarantine / throttle failures do **not** include Redis key material or logical identity keys (exception type/message only).
 
 ### Trust-aware policy (`ai.sentinel.identity.trust-aware-policy.*`)
 
@@ -182,6 +348,53 @@ Escalates (never relaxes) the anomaly `PolicyEngine` action using identity trust
 ### Redis and request-path budget
 
 Add `spring-boot-starter-data-redis` and `spring.data.redis.*` when using cluster quarantine read/write and/or cluster throttle. Quarantine write propagation runs **asynchronously** after local quarantine is applied; Redis failures do not roll back local quarantine. Cluster throttle uses a short-budget async Redis **INCR** + **EXPIRE** script; on timeout or error the check **allows** the request (fail-open) and local per-node throttling still applies afterward. The **filter thread** waits up to the configured throttle/quarantine timeout for the Redis future, so **Redis round-trip latency is part of the request-path budget** for that check.
+
+#### Request-path Redis matrix (verified)
+
+| Component | Redis operation | On request path? | TTL | Failure semantics |
+|-----------|-----------------|------------------|-----|-------------------|
+| Cluster quarantine **read** | `GET` (async future; optional local cache) | **Yes** — when read enabled and cache miss | Value TTL set by writer (`until - now`) | Fail-open empty → not quarantined from cluster |
+| Cluster quarantine **write** | `SET` + TTL (async executor) | **No** — after local quarantine; does not block caller beyond enqueue | Remaining quarantine duration | Drop / warn; local quarantine retained |
+| Cluster throttle | Lua `INCR` + `EXPIRE` (async future) | **Yes** — only on `THROTTLE` action path | Window-based (~window+1s) | Fail-open allow; local throttle still runs |
+| Distributed trust baseline | Lua `GET`/`SET` via `EVAL` (async future) | **Yes** — when identity trust + distributed trust enabled | `identity.trust.baseline-ttl` (default 15m) refreshed on write | Fail-open to in-memory store |
+| Training publish | Kafka / log transport | **No** — async after pipeline | n/a | Fail-open drop |
+
+**Worst-case synchronous waits per request** (when all relevant flags are on): up to one quarantine GET budget (`lookup-timeout`, default 50ms) on cache miss during quarantine checks, plus one trust EVAL budget (`command-timeout`, default 50ms) when distributed trust is on, plus one throttle EVAL budget on the THROTTLE path. These are **upper waits**, not measured network latency. Disable unused distributed flags to avoid the dependency entirely.
+
+Align `spring.data.redis.timeout` with these budgets. Future timeouts return control to the filter thread; they do not reliably cancel in-flight Lettuce I/O.
+
+#### Redis cardinality (quarantine / throttle / trust)
+
+| Key family | Drivers | App hard cap? |
+|------------|---------|---------------|
+| `{prefix}:{tenant}:q:{enforcementKey}` | Quarantined identities × scope (endpoint vs global) | **No** — TTL only |
+| `{prefix}:{tenant}:th:{bucket}:{enforcementKey}` | Throttled keys × time buckets | **No** — short window TTL |
+| `{trust-prefix}{sha256(logical)}` | Unique principals / sessions / IP hashes within trust TTL | **No** — TTL only; in-memory fallback is capped |
+
+Identity churn (especially unauthenticated IP identity) and `IDENTITY_GLOBAL` scope increase key pressure. The framework does **not** bound Redis memory. If Redis is shared with other workloads, `maxmemory` / eviction policy decisions belong to the deployment and may evict non-Sentinel keys — do not assume a universal eviction policy.
+
+### Local in-memory state sizing
+
+Defaults can approach **full occupancy** under high unique-identity cardinality. Structural (not measured heap) estimate when every map is simultaneously near its configured maximum:
+
+| Structure | Default max keys | Approx. objects per key (order-of-magnitude) |
+|-----------|------------------|-----------------------------------------------|
+| `BaselineStore` (`baseline-max-keys`) | 100 000 | map entry + bucket chain for rolling counts |
+| `StatisticalScorer` Welford map (same `baseline-max-keys`) | 100 000 | map entry + Welford state (~feature dims) |
+| Endpoint history (`internal-map-max-keys`) | 100 000 | map entry + per-identity endpoint histogram |
+| Local quarantine map (`internal-map-max-keys`) | 100 000 | map entry + until timestamp |
+| Local throttle map (`internal-map-max-keys`) | 100 000 | map entry + token counter |
+| Trust in-memory (`identity.trust.baseline-max-keys`) | 50 000 | map entry + baseline fields (when identity trust on) |
+
+**Conservative product:** if baseline + scorer + three internal maps are all near 100 000, that is on the order of **5 × 100 000** concurrent map entries in one JVM (trust adds another 50 000 when enabled). Exact heap depends on JVM, string sizes, and feature dimensions — treat this as a **capacity planning signal**, not a measured RSS figure.
+
+Guidance:
+
+* Size `*-max-keys` to expected **active** identity\|endpoint cardinality with headroom; do not assume the default 100 000 is “free.”
+* Idle TTL eviction still runs under maxKeys; capacity eviction removes oldest-access keys when over cap.
+* Prefer authenticating clients so identity is stable (reduces IP churn).
+* Monitor actuator / metrics for map sizes where exposed; watch GC and RSS under load.
+* Defaults were **not** lowered in this release — changing them is an operator decision.
 
 ### Isolation Forest (demo)
 

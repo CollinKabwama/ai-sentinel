@@ -162,12 +162,12 @@ public final class RedisClusterQuarantineReader implements ClusterQuarantineRead
             // Do not cancel(true): it does not stop Lettuce I/O; client/network timeout must be set separately.
             metrics.recordDistributedRedisTimeout();
             status.recordRedisError("timeout", e);
-            log.debug("Redis quarantine lookup timed out for key={}", redisKey);
+            log.debug("Redis quarantine lookup timed out");
             return OptionalLong.empty();
         } catch (NumberFormatException e) {
             metrics.recordDistributedRedisFailure();
             status.recordRedisError("parse", e);
-            log.debug("Redis quarantine value not a long for key={}", redisKey);
+            log.debug("Redis quarantine value was not a parseable long");
             return OptionalLong.empty();
         } catch (Exception e) {
             metrics.recordDistributedRedisFailure();

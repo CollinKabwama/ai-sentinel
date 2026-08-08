@@ -121,7 +121,7 @@ public final class RedisClusterThrottleStore implements ClusterThrottleStore, Di
         } catch (TimeoutException e) {
             metrics.recordDistributedThrottleRedisTimeout();
             status.recordRedisTimeout(e);
-            log.debug("Cluster throttle Redis eval timed out for key={}", redisKey);
+            log.debug("Cluster throttle Redis eval timed out");
             metrics.recordDistributedThrottleEvalDurationNanos(System.nanoTime() - t0);
             return true;
         } catch (Exception e) {
