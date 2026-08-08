@@ -26,7 +26,10 @@ import static dev.aisentinel.core.scenario.ScenarioTestSupport.shell;
 
 /**
  * Scenario {@code realistic-variance-sudden-step}: non-constant calm baselines, then a rate step.
- * Controlled features → real scorer/engine/policy (not full extractor E2E).
+ * <p>
+ * <strong>Test fidelity:</strong> {@code controlled RequestFeatures → scorer/policy}
+ * (not full extractor E2E). See {@link SuddenStepRequestBurstScenarioTest} for why a true
+ * {@code requestsPerWindow} step cannot be produced via the production extractor alone.
  */
 class RealisticVarianceSuddenStepScenarioTest {
 
