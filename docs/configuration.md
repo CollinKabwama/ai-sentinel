@@ -193,7 +193,7 @@ Legend: **Required?** = needed for a working filter once `enabled=true`. **Advan
 | `ai.sentinel.enforcement-scope` | `IDENTITY_ENDPOINT` | Throttle/quarantine key scope only (`IDENTITY_ENDPOINT` or `IDENTITY_GLOBAL`). **Does not** change statistical baseline / `BaselineStore` keys (always `identity\|endpoint`) or trust baseline keys. `IDENTITY_GLOBAL` quarantines/throttles the identity across **all** endpoints — wide blast radius; use only when that is intended. |
 | `ai.sentinel.isolation-forest.enabled` | `false` | In-core Isolation Forest |
 | `ai.sentinel.isolation-forest.local-retrain-enabled` | `true` | Allow in-process IF retrain when IF is enabled (independent of registry refresh) |
-| `ai.sentinel.isolation-forest.score-weight` | `0.5` | Weight of IF vs statistical score in the default composite blend |
+| `ai.sentinel.isolation-forest.score-weight` | `0.5` | Weight of IF vs statistical score in the composite blend **only when IF mode is `MODEL`**. Fallback scores (`FALLBACK_NO_MODEL` / `FALLBACK_INVALID`) remain visible on snapshots/actuator but are excluded from the weighted average. |
 | `ai.sentinel.isolation-forest.training-buffer-size` | `10000` | Bounded buffer for local retrain samples |
 | `ai.sentinel.isolation-forest.min-training-samples` | `100` | Minimum samples before local retrain |
 | `ai.sentinel.isolation-forest.retrain-interval` | `5m` | Local retrain cadence |

@@ -89,6 +89,8 @@ Output includes counts, elapsed time, actual RPS, and latency min/avg/max/p50/p9
 
 ## Actuator fields (reference)
 
-`lastScoreComponents` reflects the **latest** blended score breakdown (`statistical`, optional `isolationForest`, `composite`, `evaluatedAtMillis`); poll after sending traffic if you want fresh values.
+`lastScoreComponents` reflects the **latest** blended score breakdown (`statistical`, optional `isolationForest`, `composite`, `isolationForestIncludedInBlend`, optional `isolationForestScoreMode`, `evaluatedAtMillis`); poll after sending traffic if you want fresh values. Fallback IF scores may appear in `isolationForest` while `isolationForestIncludedInBlend` is `false`.
+
+`lastDecision` is the **most recent completed decision on this JVM** (action/policy band, anomaly vs policy score, evaluation statuses / operator phases, IF mode, statistical dominant signal). It intentionally omits identity, endpoint, headers, IP, and tokens — not a request history.
 
 When IF is enabled, `/actuator/sentinel` also includes fields such as `isolationForestModelLoaded`, `isolationForestBufferedSampleCount`, `isolationForestModelVersion`, retrain timestamps, `acceptedTrainingSampleCount`, and `rejectedTrainingSampleCount`. With Micrometer wired, you may also see `scoreSummary`, `latencySummary`, and retrain counters — see `SentinelActuatorEndpoint` in the starter module for the authoritative list.
