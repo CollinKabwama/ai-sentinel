@@ -109,8 +109,8 @@ RequestFeatures extract(HttpRequestView request, String identityHash, RequestCon
 | `requestsPerWindow` | Rolling request count within `BaselineStore` TTL (10s buckets; default window 5m). Primary volume / flood signal. Name is historical — value is a count, not a normalized rate. |
 | `endpointEntropy` | Shannon entropy over recent endpoints (diversity only). Low entropy ≠ flood. |
 | `endpointConcentration` | Max endpoint share in the same histogram. Useful for diverse→mono shifts; invariant under established mono-endpoint traffic (including floods). |
-| `tokenAgeSeconds` | Derived from request metadata where available |
-| `parameterCount` | Query/form parameter count (not values) |
+| `tokenAgeSeconds` | Age from `Authorization` + `X-Token-Issued-At` (epoch seconds). Missing/invalid → `-1`. Future issued-at within tolerated clock skew (≤300s) → clamped to `0` (not conflated with missing); beyond that → treated as `-1`, not silently `0` (an unbounded clamp let a spoofed header neutralize this feature against near-zero-token-age baselines). |
+| `parameterCount` | **Query/form** `getParameterMap().size()` only — not JSON body field count (JSON APIs often yield `0`) |
 | `payloadSizeBytes` | Body size |
 | `headerFingerprintHash` | Stable hash of selected header names/presence (identity-like) |
 | `ipBucket` | Coarse IP bucket (identity-like) |
@@ -172,7 +172,8 @@ Thresholds **`threshold-moderate`** … **`threshold-critical`** are configured 
 - **`CompositeEnforcementHandler`** — token-bucket throttle, HTTP block with configurable status, quarantine with TTL; maps bounded by `internalMapMaxKeys` / `internalMapTtl`.
 - **`MonitorOnlyEnforcementHandler`** — wraps the composite handler in **MONITOR** mode (no hard blocks; still records intent for telemetry).
 - **`StartupGrace`** — after application start, can force monitor-only behavior for a configurable duration (`startup-grace-period`).
-- **`EnforcementScope`** — throttle/quarantine keys may be **per identity** or **per identity + endpoint**.
+- **`EnforcementScope`** — throttle/quarantine keys may be **per identity** or **per identity + endpoint**. Statistical baselines and `BaselineStore` remain `identity|endpoint` regardless. `IDENTITY_GLOBAL` widens quarantine/throttle blast radius across all endpoints for that identity.
+- **`EnforcementResponse.isCommitted()`** — additive default (`false`); servlet adapter reports `HttpServletResponse.isCommitted()`. Denial writes are skipped when committed; local quarantine/throttle state and telemetry still record intent.
 
 ---
 
@@ -192,8 +193,8 @@ Trusted entries may be literal IPs or **CIDR** prefixes.
 - **`SentinelAutoConfiguration`** registers the pipeline, filter, baseline store, scorers, policy engine (from properties), enforcement beans, telemetry, optional IF scheduler, and **`MicrometerSentinelMetrics`** when a **`MeterRegistry`** exists.
 - **`SentinelProperties`** binds `ai.sentinel.*` (relaxed names, e.g. `isolation-forest.enabled`).
 - **`SentinelEndpointAutoConfiguration`** exposes **`@Endpoint(id = "sentinel")`** → **`/actuator/sentinel`**.
-- Sentinel filter registration uses `ai.sentinel.filter-order` (default `2147483547`, i.e. `Ordered.LOWEST_PRECEDENCE - 100` / `Integer.MAX_VALUE - 100`), which is intended to run **after** authentication filters where **`SecurityContextHolder`** is populated in common setups.
-- Absolute ordering guarantees across every custom Spring/Security filter topology are not assumed; operators should set `ai.sentinel.filter-order` explicitly when their chain requires different placement.
+- Sentinel filter registration uses `ai.sentinel.filter-order` (default `2147483547`, i.e. `Ordered.LOWEST_PRECEDENCE - 100` / `Integer.MAX_VALUE - 100`), which is intended to run **after** authentication filters where **`SecurityContextHolder`** is populated in common setups (principal-based identity preferred over client IP).
+- Absolute ordering guarantees across every custom Spring/Security filter topology are not assumed; operators should set `ai.sentinel.filter-order` explicitly when their chain requires different placement. Running Sentinel earlier improves early deny but typically forces IP-only identity before auth completes.
 
 ---
 
