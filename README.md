@@ -172,7 +172,7 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 - **MONITOR recommended** — Prefer `ai.sentinel.mode=MONITOR` during adoption. Library default is `ENFORCE`; do not treat that default as a readiness claim. Full mode matrix, ENFORCE preconditions, restart behavior, and the availability-first **failure-mode profile**: [`docs/deployment.md`](docs/deployment.md). Statistical warmup is a lifecycle state (`EvaluationStatus.STATISTICAL_WARMUP`), not evidence of abuse; default warmup action is `MONITOR`. Default baseline learning skips `THROTTLE`/`BLOCK`/`QUARANTINE` risk (`ALLOW_OR_MONITOR`).
 - **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository).
 - **Trainer `eventId` dedup** is JVM-local; multiple trainer instances are not coordinated without external design.
-- **Multi-JVM / Docker validation** for cluster quarantine and throttle is not run in default CI when Docker is unavailable; those Testcontainers tests are skipped.
+- **Multi-JVM / Docker validation** — cluster quarantine Testcontainers runs when Docker is available (single-JVM + second Redis client). Multi-process / multi-host proof remains an operator responsibility; see the coverage matrix in [`docs/deployment.md`](docs/deployment.md).
 - **Registry disk** — no automatic artifact cleanup; operators manage retention.
 - **Isolation Forest** returns one scalar score — no per-feature attribution (SHAP/LIME are out of scope).
 - **IF enabled without a loaded model** — fallback score is visible in telemetry/actuator, but the composite blend uses the statistical score only until mode is `MODEL`.
