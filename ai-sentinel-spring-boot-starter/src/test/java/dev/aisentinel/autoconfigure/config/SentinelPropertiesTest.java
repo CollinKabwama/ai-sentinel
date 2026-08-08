@@ -49,4 +49,37 @@ class SentinelPropertiesTest {
                 assertThat(props.getDistributed().isClusterQuarantineWriteEnabled()).isTrue();
             });
     }
+
+    @Test
+    void defaultInternalMapMaxKeysBinds() {
+        contextRunner.run(context -> {
+            assertThat(context).hasNotFailed();
+            assertThat(context.getBean(SentinelProperties.class).getInternalMapMaxKeys()).isEqualTo(100_000);
+        });
+    }
+
+    @Test
+    void internalMapMaxKeysAtBoundsBind() {
+        contextRunner
+            .withPropertyValues("ai.sentinel.internal-map-max-keys=1000")
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context.getBean(SentinelProperties.class).getInternalMapMaxKeys()).isEqualTo(1_000);
+            });
+        contextRunner
+            .withPropertyValues("ai.sentinel.internal-map-max-keys=2000000")
+            .run(context -> {
+                assertThat(context).hasNotFailed();
+                assertThat(context.getBean(SentinelProperties.class).getInternalMapMaxKeys()).isEqualTo(2_000_000);
+            });
+    }
+
+    @Test
+    void invalidInternalMapMaxKeysFailsBinding() {
+        for (String value : new String[] {"0", "-1", "999", "2000001"}) {
+            contextRunner
+                .withPropertyValues("ai.sentinel.internal-map-max-keys=" + value)
+                .run(context -> assertThat(context).hasFailed());
+        }
+    }
 }
