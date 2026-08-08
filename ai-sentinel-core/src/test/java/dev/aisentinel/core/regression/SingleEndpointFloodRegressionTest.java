@@ -39,9 +39,10 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Permanent R-127 coverage: mono-endpoint flooding is a <em>rate</em> problem, not an entropy problem.
  * <p>
  * Shannon entropy and {@code endpointConcentration} are both ~invariant under established mono-endpoint
- * traffic (0 and 1 respectively). Abrupt and gradual floods are detected by {@code requestsPerWindow}
- * under default gated baseline updates. Concentration remains useful for diverse→mono distribution shift
- * without a rate change — that is not a flood.
+ * traffic (0 and 1 respectively). Abrupt floods are detected by {@code requestsPerWindow} under default
+ * gated baseline updates (scenario B). A pure unit staircase asymptotes to MONITOR (~0.31) under
+ * continuous learning and must not freeze-escalate (scenario C / R-036). Concentration remains useful
+ * for diverse→mono distribution shift without a rate change — that is not a flood.
  */
 class SingleEndpointFloodRegressionTest {
 
@@ -111,7 +112,7 @@ class SingleEndpointFloodRegressionTest {
     }
 
     @Test
-    void scenarioC_gradualMonoEndpointRamp_gatingKeepsLateElevated() {
+    void scenarioC_gradualMonoEndpointRamp_staysMonitorBandWithoutFreezeEscalate() {
         StatisticalScorer scorer = newScorer();
         SentinelDecisionEngine gated = gatedEngine(scorer);
         StatisticalScorer alwaysScorer = newScorer();
@@ -127,23 +128,22 @@ class SingleEndpointFloodRegressionTest {
 
         RiskDecision gatedLate = gatedDecisions.get(gatedDecisions.size() - 1);
         RiskDecision alwaysLate = alwaysDecisions.get(alwaysDecisions.size() - 1);
-        Integer firstThrottle = null;
-        for (int i = 0; i < gatedDecisions.size(); i++) {
-            if (THROTTLE_PLUS.contains(gatedDecisions.get(i).action())) {
-                firstThrottle = i;
-                break;
-            }
-        }
+        long gatedThrottlePlus = gatedDecisions.stream().filter(d -> THROTTLE_PLUS.contains(d.action())).count();
 
         System.out.printf(Locale.ROOT,
-            "R127-C firstThrottle=%s gatedLate=%.6f/%s alwaysLate=%.6f/%s%n",
-            firstThrottle, gatedLate.anomalyScore(), gatedLate.action(),
+            "R127-C gatedThrottlePlus=%d gatedLate=%.6f/%s alwaysLate=%.6f/%s%n",
+            gatedThrottlePlus, gatedLate.anomalyScore(), gatedLate.action(),
             alwaysLate.anomalyScore(), alwaysLate.action());
 
-        assertThat(firstThrottle).isNotNull();
-        assertThat(THROTTLE_PLUS.contains(gatedLate.action())).isTrue();
-        assertThat(gatedLate.anomalyScore()).isGreaterThanOrEqualTo(alwaysLate.anomalyScore());
+        // Unit staircase asymptotes to MONITOR (~0.31) under continuous learning (F-001).
+        // Default gating must keep learning through that band — not freeze early and escalate
+        // to THROTTLE+/QUARANTINE (that freeze was the R-036 benign defect). Abrupt floods remain
+        // covered by scenario B.
+        assertThat(gatedThrottlePlus).isZero();
+        assertThat(gatedLate.action()).isEqualTo(EnforcementAction.MONITOR);
+        assertThat(gatedLate.anomalyScore()).isBetween(0.2, 0.4);
         assertThat(alwaysLate.anomalyScore()).isLessThan(0.4);
+        assertThat(gatedLate.anomalyScore()).isGreaterThanOrEqualTo(alwaysLate.anomalyScore());
     }
 
     @Test

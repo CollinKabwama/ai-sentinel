@@ -29,11 +29,16 @@ public final class StatisticalScorer implements AnomalyScorer {
 
     /**
      * Per-dimension measurement resolution for {@link RequestFeatures#toStatisticalArray()} order.
-     * Integer-valued / naturally quantized features cannot have a meaningful sample std below one
-     * unit of measure; using that quantum as a floor is role-evidence, not an arbitrary MIN_STD hike.
+     * Floors are role-evidence for each feature's natural quantization — not an arbitrary
+     * {@code MIN_STD} hike. {@code requestsPerWindow} uses 2.0 (not the integer quantum 1.0):
+     * a rolling-window fill under steady traffic is a +1 staircase, and with floor 1.0 the early
+     * steps reach {@code z≈2} (THROTTLE) then freeze under default {@code ALLOW_OR_MONITOR}
+     * gating, escalating benign identities to QUARANTINE. Floor 2.0 keeps unit-step scores in
+     * ALLOW/MONITOR so learning continues through window fill / ramp asymptote, while genuine
+     * volume shocks (large {@code Δ} requestsPerWindow) still saturate.
      */
     private static final double[] STD_RESOLUTION = {
-        1.0,  // requestsPerWindow
+        2.0,  // requestsPerWindow — see class note above (R-036)
         0.05, // endpointEntropy (nats)
         0.05, // endpointConcentration (share)
         1.0,  // tokenAgeSeconds
