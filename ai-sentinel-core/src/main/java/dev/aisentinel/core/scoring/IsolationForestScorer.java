@@ -11,8 +11,12 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Isolation Forest-based anomaly scorer. Uses a bounded training buffer and
- * async retrain to produce scores in [0,1]. When no model is loaded, returns
- * configurable fallback score so CompositeScorer effectively relies on StatisticalScorer.
+ * async retrain to produce scores in [0,1]. When no model is loaded (or the model
+ * returns an invalid score), returns a configurable fallback score for visibility
+ * and {@link LastScoreMode} telemetry. {@link CompositeScorer} includes IF in the
+ * weighted blend only when {@link LastScoreMode#MODEL} — fallback values do not dilute
+ * the statistical composite. Isolation Forest exposes a single scalar; it does not
+ * provide per-feature attribution.
  */
 public final class IsolationForestScorer implements AnomalyScorer {
 
@@ -69,27 +73,36 @@ public final class IsolationForestScorer implements AnomalyScorer {
 
     @Override
     public double score(RequestFeatures features) {
-        return evaluateScore(features, true);
+        return scoreWithMode(features, true).score();
     }
 
-    /** Result mode of the last {@link #score(RequestFeatures)} call on this instance. */
+    /** Result mode of the last {@link #score(RequestFeatures)} call on this instance (diagnostic — last invocation globally). */
     public LastScoreMode lastScoreMode() {
         return lastScoreMode;
     }
 
     /**
+     * Scores and returns the mode for <em>this</em> invocation (request-safe).
+     * Also publishes {@link #lastScoreMode()} for diagnostics.
+     */
+    public IsolationForestScoreOutcome scoreWithMode(RequestFeatures features) {
+        return scoreWithMode(features, true);
+    }
+
+    /**
      * @param recordRequestMetrics when true, records IF score histogram and inference latency (request path).
      */
-    private double evaluateScore(RequestFeatures features, boolean recordRequestMetrics) {
+    private IsolationForestScoreOutcome scoreWithMode(RequestFeatures features, boolean recordRequestMetrics) {
         IsolationForestModel m = model;
         if (m == null) {
-            lastScoreMode = LastScoreMode.FALLBACK_NO_MODEL;
+            LastScoreMode mode = LastScoreMode.FALLBACK_NO_MODEL;
+            lastScoreMode = mode;
             double fb = config.getFallbackScore();
             if (recordRequestMetrics) {
                 metrics.recordIsolationForestScore(fb);
-                metrics.recordIsolationForestScoreMode(LastScoreMode.FALLBACK_NO_MODEL.name());
+                metrics.recordIsolationForestScoreMode(mode.name());
             }
-            return fb;
+            return new IsolationForestScoreOutcome(fb, mode);
         }
         double[] x = features.toIsolationForestArray();
         long t0 = System.nanoTime();
@@ -99,21 +112,27 @@ public final class IsolationForestScorer implements AnomalyScorer {
             metrics.recordIsolationForestInferenceLatencyNanos(infNanos);
         }
         if (Double.isNaN(s) || s < 0) {
-            lastScoreMode = LastScoreMode.FALLBACK_INVALID;
+            LastScoreMode mode = LastScoreMode.FALLBACK_INVALID;
+            lastScoreMode = mode;
             double fb = config.getFallbackScore();
             if (recordRequestMetrics) {
                 metrics.recordIsolationForestScore(fb);
-                metrics.recordIsolationForestScoreMode(LastScoreMode.FALLBACK_INVALID.name());
+                metrics.recordIsolationForestScoreMode(mode.name());
             }
-            return fb;
+            return new IsolationForestScoreOutcome(fb, mode);
         }
-        lastScoreMode = LastScoreMode.MODEL;
+        LastScoreMode mode = LastScoreMode.MODEL;
+        lastScoreMode = mode;
         double out = Math.min(1.0, Math.max(0.0, s));
         if (recordRequestMetrics) {
             metrics.recordIsolationForestScore(out);
-            metrics.recordIsolationForestScoreMode(LastScoreMode.MODEL.name());
+            metrics.recordIsolationForestScoreMode(mode.name());
         }
-        return out;
+        return new IsolationForestScoreOutcome(out, mode);
+    }
+
+    /** Immutable score + mode from one scoring invocation. */
+    public record IsolationForestScoreOutcome(double score, LastScoreMode mode) {
     }
 
     @Override
@@ -121,7 +140,7 @@ public final class IsolationForestScorer implements AnomalyScorer {
         if (config.getSampleRate() <= 0) return;
         IsolationForestModel m = model;
         if (m != null) {
-            double anomalyScore = evaluateScore(features, false);
+            double anomalyScore = scoreWithMode(features, false).score();
             double rejectionThreshold = config.getTrainingRejectionScoreThreshold();
             if (anomalyScore > rejectionThreshold) {
                 rejectedTrainingSampleCount.incrementAndGet();

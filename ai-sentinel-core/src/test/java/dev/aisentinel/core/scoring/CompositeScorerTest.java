@@ -78,7 +78,11 @@ class CompositeScorerTest {
         assertThat(snap).isNotNull();
         assertThat(snap.statistical()).isEqualTo(0.33);
         assertThat(snap.isolationForest()).isEqualTo(0.44);
-        assertThat(snap.composite()).isEqualTo(blended);
+        // No-model fallback must not dilute the composite toward the mid-band fallback.
+        assertThat(snap.isolationForestIncludedInBlend()).isFalse();
+        assertThat(snap.isolationForestScoreMode()).isEqualTo("FALLBACK_NO_MODEL");
+        assertThat(blended).isEqualTo(0.33);
+        assertThat(snap.composite()).isEqualTo(0.33);
         assertThat(snap.evaluatedAtEpochMillis()).isPositive();
     }
 }

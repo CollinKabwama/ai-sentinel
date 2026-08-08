@@ -63,6 +63,10 @@ public final class StatisticalScorer implements AnomalyScorer {
     private final SentinelMetrics metrics;
     private final AtomicLong nextExpireSweepMs = new AtomicLong(0);
     private final AtomicLong expireSweepCount = new AtomicLong(0);
+    /** Most recent score explanation (volatile publish; diagnostic — last invocation globally). */
+    private volatile StatisticalScoreSnapshot lastScoreSnapshot;
+    /** Optional test seam invoked after this invocation's snapshot is published (same thread). */
+    private volatile java.util.function.Consumer<RequestFeatures> afterScoreHookForTests;
 
     public StatisticalScorer() {
         this(100_000, 300_000L, 2, 0.4);
@@ -141,8 +145,42 @@ public final class StatisticalScorer implements AnomalyScorer {
         return warmupScore;
     }
 
+    /**
+     * Explanation from the most recent {@link #score(RequestFeatures)} call on this instance, or {@code null}
+     * if {@link #score} has never run.
+     * <p>
+     * <strong>Diagnostic only:</strong> this is the last scorer invocation globally on this JVM instance —
+     * not request-scoped. Pipeline / actuator decision explanation must not depend on this getter.
+     */
+    public StatisticalScoreSnapshot getLastScoreSnapshot() {
+        return lastScoreSnapshot;
+    }
+
+    /** Test-only seam for deterministic concurrency interleaving. */
+    public void setAfterScoreHookForTests(java.util.function.Consumer<RequestFeatures> hook) {
+        this.afterScoreHookForTests = hook;
+    }
+
+    /**
+     * Scores and returns an immutable explanation for <em>this</em> invocation (request-safe).
+     * Also publishes {@link #getLastScoreSnapshot()} for diagnostics.
+     */
+    public StatisticalScoreOutcome scoreWithExplanation(RequestFeatures features) {
+        StatisticalScoreOutcome outcome = scoreInternal(features);
+        lastScoreSnapshot = outcome.snapshot();
+        java.util.function.Consumer<RequestFeatures> hook = afterScoreHookForTests;
+        if (hook != null) {
+            hook.accept(features);
+        }
+        return outcome;
+    }
+
     @Override
     public double score(RequestFeatures features) {
+        return scoreWithExplanation(features).score();
+    }
+
+    private StatisticalScoreOutcome scoreInternal(RequestFeatures features) {
         double[] x = features.toStatisticalArray();
         String key = features.identityHash() + "|" + features.endpoint();
         long now = System.currentTimeMillis();
@@ -150,45 +188,66 @@ public final class StatisticalScorer implements AnomalyScorer {
 
         if (isWarmupWithoutExpire(key)) {
             metrics.recordStatisticalScore(warmupScore);
-            return warmupScore;
+            return new StatisticalScoreOutcome(warmupScore, StatisticalScoreSnapshot.warmup(warmupScore));
         }
         WelfordState state = stateByKey.get(key);
         if (state == null) {
-            // Concurrently removed between the warmup check above and this lookup (idle-expiry,
-            // capacity eviction, or a BaselineLifecycle reset on another thread) — no baseline
-            // exists at this instant, which is exactly the warmup condition.
             metrics.recordStatisticalScore(warmupScore);
-            return warmupScore;
+            return new StatisticalScoreOutcome(warmupScore, StatisticalScoreSnapshot.warmup(warmupScore));
         }
         double[] means;
         double[] stds;
         synchronized (state) {
-            // Touch on score so active traffic (including gated-skip traffic) keeps the key alive;
-            // idle means no requests for ttlMs, not merely no accepted updates.
             state.touch(now);
             means = state.getMeansCopy();
             stds = state.getStds();
         }
         int dim = Math.min(x.length, means.length);
-        double maxZ = 0;
+        double maxCappedZ = 0;
+        int dominantIdx = -1;
+        double dominantObserved = 0;
+        double dominantMean = 0;
+        double dominantEffStd = 0;
+        double dominantRawAbsZ = 0;
+        double dominantCappedAbsZ = 0;
         for (int i = 0; i < dim; i++) {
             double mean = means[i];
             double resolution = i < STD_RESOLUTION.length ? STD_RESOLUTION[i] : MIN_STD;
             double std = Math.max(stds[i], Math.max(MIN_STD, resolution));
-            double z = Math.abs((x[i] - mean) / std);
-            if (Double.isNaN(z) || Double.isInfinite(z)) {
-                z = 2.0;
+            double rawAbsZ = Math.abs((x[i] - mean) / std);
+            if (Double.isNaN(rawAbsZ) || Double.isInfinite(rawAbsZ)) {
+                rawAbsZ = 2.0;
             }
             double cap = i < Z_CAP.length ? Z_CAP[i] : 6.0;
-            if (z > cap) {
-                z = cap;
+            double capped = Math.min(rawAbsZ, cap);
+            if (capped >= maxCappedZ) {
+                maxCappedZ = capped;
+                dominantIdx = i;
+                dominantObserved = x[i];
+                dominantMean = mean;
+                dominantEffStd = std;
+                dominantRawAbsZ = rawAbsZ;
+                dominantCappedAbsZ = capped;
             }
-            maxZ = Math.max(maxZ, z);
         }
-        double s = sigmoid(maxZ);
+        double s = sigmoid(maxCappedZ);
         double out = Double.isNaN(s) ? 1.0 : Math.min(1.0, Math.max(0.0, s));
         metrics.recordStatisticalScore(out);
-        return out;
+        StatisticalScoreSnapshot snap = new StatisticalScoreSnapshot(
+            out,
+            false,
+            StatisticalFeatureNames.nameAt(dominantIdx),
+            dominantObserved,
+            dominantMean,
+            dominantEffStd,
+            dominantRawAbsZ,
+            dominantCappedAbsZ
+        );
+        return new StatisticalScoreOutcome(out, snap);
+    }
+
+    /** Immutable score + explanation from one {@link #scoreWithExplanation} invocation. */
+    public record StatisticalScoreOutcome(double score, StatisticalScoreSnapshot snapshot) {
     }
 
     @Override
