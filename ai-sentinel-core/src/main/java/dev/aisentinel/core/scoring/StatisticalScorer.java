@@ -38,7 +38,7 @@ public final class StatisticalScorer implements AnomalyScorer {
      * volume shocks (large {@code Δ} requestsPerWindow) still saturate.
      */
     private static final double[] STD_RESOLUTION = {
-        2.0,  // requestsPerWindow — see class note above (R-036)
+        2.0,  // requestsPerWindow — see class note above
         0.05, // endpointEntropy (nats)
         0.05, // endpointConcentration (share)
         1.0,  // tokenAgeSeconds

@@ -40,7 +40,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Correct steady-state intent: once {@code requestsPerWindow} is stable, live scores converge
  * to ALLOW. A compressed-time extractor climb (rpw {@code 1..N} with no plateau) asymptotes to
  * MONITOR (~0.31) under continuous learning — not QUARANTINE. Early staircase freeze into
- * THROTTLE+ was the R-036 defect.
+ * THROTTLE+ was the prior freeze-then-escalate defect.
  */
 class NormalEstablishedBaselineScenarioTest {
 

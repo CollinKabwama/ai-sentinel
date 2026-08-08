@@ -36,12 +36,12 @@ import java.util.concurrent.atomic.AtomicLong;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Permanent R-127 coverage: mono-endpoint flooding is a <em>rate</em> problem, not an entropy problem.
+ * Mono-endpoint flooding is a <em>rate</em> problem, not an entropy problem.
  * <p>
  * Shannon entropy and {@code endpointConcentration} are both ~invariant under established mono-endpoint
  * traffic (0 and 1 respectively). Abrupt floods are detected by {@code requestsPerWindow} under default
  * gated baseline updates (scenario B). A pure unit staircase asymptotes to MONITOR (~0.31) under
- * continuous learning and must not freeze-escalate (scenario C / R-036). Concentration remains useful
+ * continuous learning and must not freeze-escalate (scenario C). Concentration remains useful
  * for diverse→mono distribution shift without a rate change — that is not a flood.
  */
 class SingleEndpointFloodRegressionTest {
@@ -65,7 +65,7 @@ class SingleEndpointFloodRegressionTest {
         RiskDecision d = engine.evaluate(shell(), IDENTITY, calm, new RequestContext());
 
         System.out.printf(Locale.ROOT,
-            "R127-A calm rpw=%.1f entropy=%.3f conc=%.3f score=%.6f action=%s statuses=%s%n",
+            "mono-flood-A calm rpw=%.1f entropy=%.3f conc=%.3f score=%.6f action=%s statuses=%s%n",
             calm.requestsPerWindow(), calm.endpointEntropy(), calm.endpointConcentration(),
             d.anomalyScore(), d.action(), d.evaluationStatuses());
 
@@ -95,7 +95,7 @@ class SingleEndpointFloodRegressionTest {
         RiskDecision last = elevated.get(elevated.size() - 1);
 
         System.out.printf(Locale.ROOT,
-            "R127-B calmScore=%.6f firstFlood=%.6f/%s lastFlood=%.6f/%s entropy=%.3f conc=%.3f%n",
+            "mono-flood-B calmScore=%.6f firstFlood=%.6f/%s lastFlood=%.6f/%s entropy=%.3f conc=%.3f%n",
             calmProbe.anomalyScore(), first.anomalyScore(), first.action(),
             last.anomalyScore(), last.action(),
             flood.endpointEntropy(), flood.endpointConcentration());
@@ -131,14 +131,14 @@ class SingleEndpointFloodRegressionTest {
         long gatedThrottlePlus = gatedDecisions.stream().filter(d -> THROTTLE_PLUS.contains(d.action())).count();
 
         System.out.printf(Locale.ROOT,
-            "R127-C gatedThrottlePlus=%d gatedLate=%.6f/%s alwaysLate=%.6f/%s%n",
+            "mono-flood-C gatedThrottlePlus=%d gatedLate=%.6f/%s alwaysLate=%.6f/%s%n",
             gatedThrottlePlus, gatedLate.anomalyScore(), gatedLate.action(),
             alwaysLate.anomalyScore(), alwaysLate.action());
 
         // Unit staircase asymptotes to MONITOR (~0.31) under continuous learning (F-001).
         // Default gating must keep learning through that band — not freeze early and escalate
-        // to THROTTLE+/QUARANTINE (that freeze was the R-036 benign defect). Abrupt floods remain
-        // covered by scenario B.
+        // to THROTTLE+/QUARANTINE (the prior benign freeze-then-escalate defect). Abrupt floods
+        // remain covered by scenario B.
         assertThat(gatedThrottlePlus).isZero();
         assertThat(gatedLate.action()).isEqualTo(EnforcementAction.MONITOR);
         assertThat(gatedLate.anomalyScore()).isBetween(0.2, 0.4);
@@ -185,7 +185,7 @@ class SingleEndpointFloodRegressionTest {
         RiskDecision settled = engine.evaluate(shell(), IDENTITY, high, new RequestContext());
 
         System.out.printf(Locale.ROOT,
-            "R127-D flood=%.6f/%s warmup0=%.6f warmup1=%.6f settled=%.6f/%s%n",
+            "mono-flood-D flood=%.6f/%s warmup0=%.6f warmup1=%.6f settled=%.6f/%s%n",
             flood.anomalyScore(), flood.action(), w0.anomalyScore(), w1.anomalyScore(),
             settled.anomalyScore(), settled.action());
 
@@ -205,7 +205,7 @@ class SingleEndpointFloodRegressionTest {
         double collapsed = scorer.score(features(CALM_RPW, 0.0, 1.0));
 
         System.out.printf(Locale.ROOT,
-            "R127-E diverseScore=%.6f collapsedScore=%.6f (same rpw=%.1f)%n",
+            "mono-flood-E diverseScore=%.6f collapsedScore=%.6f (same rpw=%.1f)%n",
             calmScore, collapsed, CALM_RPW);
 
         assertThat(collapsed).isGreaterThan(calmScore);
@@ -240,7 +240,7 @@ class SingleEndpointFloodRegressionTest {
         assertThat(lastFlood).isNotNull();
 
         System.out.printf(Locale.ROOT,
-            "R127-extractor calmRpw=%.0f floodRpw=%.0f entropy %.3f→%.3f conc %.3f→%.3f%n",
+            "mono-flood-extractor calmRpw=%.0f floodRpw=%.0f entropy %.3f→%.3f conc %.3f→%.3f%n",
             calmRpw, lastFlood.requestsPerWindow(), calmEntropy, lastFlood.endpointEntropy(),
             calmConc, lastFlood.endpointConcentration());
 
@@ -268,7 +268,7 @@ class SingleEndpointFloodRegressionTest {
         int after = store.get(key);
 
         System.out.printf(Locale.ROOT,
-            "R127-window before=%d across=%d after=%d%n", before, across, after);
+            "mono-flood-window before=%d across=%d after=%d%n", before, across, after);
 
         assertThat(across).isEqualTo(before + 1);
         assertThat(after).isEqualTo(across);
