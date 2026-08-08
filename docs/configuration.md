@@ -2,6 +2,8 @@
 
 Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer.*`). See **`SentinelProperties`** and **`TrainerProperties`** in the codebase for validation rules.
 
+**Operator deployment modes, MONITOR-first adoption, ENFORCE preconditions, and restart/cold-start:** [`deployment.md`](deployment.md).
+
 ---
 
 ## Core (`ai.sentinel.*`)
@@ -9,7 +11,7 @@ Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer
 | Property | Default | Notes |
 |----------|---------|--------|
 | `ai.sentinel.enabled` | `true` | Master switch |
-| `ai.sentinel.mode` | `ENFORCE` | `OFF`, `MONITOR`, `ENFORCE` |
+| `ai.sentinel.mode` | `ENFORCE` | `OFF` (full filter bypass), `MONITOR` (score/learn/observe; **no client denial**), `ENFORCE` (client denial enabled). **Recommended adoption mode is `MONITOR`** even though the property default is `ENFORCE` — see [`deployment.md`](deployment.md). |
 | `ai.sentinel.exclude-paths` | actuator, health, static, favicon | Comma-separated Ant-style patterns |
 | `ai.sentinel.block-status-code` | `429` | HTTP status written on BLOCK / throttle-exhaust / quarantine responses |
 | `ai.sentinel.quarantine-duration-ms` | `300000` | Local quarantine TTL in milliseconds |
@@ -23,7 +25,7 @@ Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer
 | `ai.sentinel.statistical.baseline-update-policy` | `ALLOW_OR_MONITOR` | When the decision engine may call `AnomalyScorer.update(...)` after the risk decision: `ALWAYS`, `ALLOW_ONLY`, `ALLOW_OR_MONITOR`, `SCORE_BELOW_THRESHOLD`. Mutually exclusive modes. In default composite wiring an accepted update fans out to statistical baseline state and optional Isolation Forest training-buffer handling (IF keeps its own sample-rate / rejection gates). |
 | `ai.sentinel.statistical.baseline-update-score-threshold` | `0.4` | Used only with `SCORE_BELOW_THRESHOLD`: update when fused/policy score is **strictly below** this value (`[0,1]`). Ignored by other modes. |
 | `ai.sentinel.statistical.relearn-mode` | `DISABLED` | Controlled baseline reset: `DISABLED` (default) or `EXPLICIT_ONLY` (operator `BaselineLifecycle.reset`). Automatic skip-triggered relearn is **not** offered — it allowed elevated traffic to both trigger reset and train warmup. Obsolete value `AFTER_CONSECUTIVE_SKIPS` is rejected at binding. |
-| `ai.sentinel.startup-grace-period` | `0` | Duration (e.g. `5m`) enforcing monitor-only after startup |
+| `ai.sentinel.startup-grace-period` | `0` | Duration (e.g. `5m`) forcing MONITOR **presentation** after process start. Distinct from statistical warmup — see [`deployment.md`](deployment.md). |
 | `ai.sentinel.enforcement-scope` | `IDENTITY_ENDPOINT` | Throttle/quarantine key scope only (`IDENTITY_ENDPOINT` or `IDENTITY_GLOBAL`). **Does not** change statistical baseline / `BaselineStore` keys (always `identity\|endpoint`) or trust baseline keys. `IDENTITY_GLOBAL` quarantines/throttles the identity across **all** endpoints — wide blast radius; use only when that is intended. |
 | `ai.sentinel.isolation-forest.enabled` | `false` | In-core Isolation Forest |
 | `ai.sentinel.isolation-forest.local-retrain-enabled` | `true` | Allow in-process IF retrain when IF is enabled (independent of registry refresh) |
