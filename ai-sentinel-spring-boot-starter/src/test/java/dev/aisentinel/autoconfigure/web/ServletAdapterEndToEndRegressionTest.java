@@ -275,4 +275,19 @@ class ServletAdapterEndToEndRegressionTest {
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(response.getContentAsString()).isEqualTo("ok");
     }
+
+    @Test
+    void servletEnforcementResponse_isCommitted_delegatesExactlyToServletResponse() {
+        MockHttpServletResponse mockResponse = new MockHttpServletResponse();
+        ServletEnforcementResponse adapter = new ServletEnforcementResponse(mockResponse);
+
+        assertThat(adapter.isCommitted()).isFalse();
+        assertThat(mockResponse.isCommitted()).isFalse();
+
+        mockResponse.setCommitted(true);
+
+        assertThat(adapter.isCommitted())
+            .as("adapter must reflect the live servlet response's committed state, not a cached snapshot")
+            .isTrue();
+    }
 }
