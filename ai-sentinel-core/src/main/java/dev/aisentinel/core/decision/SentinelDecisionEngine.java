@@ -16,6 +16,7 @@ import dev.aisentinel.core.identity.model.IdentityContext;
 import dev.aisentinel.core.identity.model.TrustEvaluation;
 import dev.aisentinel.core.identity.spi.NoopTrustEvaluator;
 import dev.aisentinel.core.identity.spi.TrustEvaluator;
+import dev.aisentinel.core.metrics.FailOpenReason;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
@@ -27,6 +28,8 @@ import dev.aisentinel.core.policy.TrustPolicyAdjustment;
 import dev.aisentinel.core.policy.TrustPolicyContextKeys;
 import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.scoring.AnomalyScorer;
+import dev.aisentinel.core.scoring.CompositeScorer;
+import dev.aisentinel.core.scoring.IsolationForestScorer;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
 import dev.aisentinel.core.telemetry.TelemetryEvent;
 import lombok.extern.slf4j.Slf4j;
@@ -175,6 +178,7 @@ public final class SentinelDecisionEngine {
      */
     public RiskDecision evaluate(HttpRequestView request, String identityHash, RequestFeatures features,
                                  RequestContext ctx) {
+        boolean optionalPathDegraded = false;
         IdentityContext identityCtx = ctx.get(IdentityContextKeys.IDENTITY_CONTEXT, IdentityContext.class);
         if (identityCtx != null) {
             try {
@@ -184,9 +188,11 @@ public final class SentinelDecisionEngine {
                         identityCtx.withTrustAndRisk(te.trustScore(), te.riskSignals()));
                 }
             } catch (Exception e) {
-                log.debug("Trust evaluation failed for {}: {}: {}",
-                    features.endpoint(), e.getClass().getSimpleName(), e.getMessage());
-                metrics.recordFailOpen();
+                log.debug("Trust evaluation failed for {} (fail-open reason={}): {}: {}",
+                    features.endpoint(), FailOpenReason.TRUST_EVALUATION_FAILURE,
+                    e.getClass().getSimpleName(), e.getMessage());
+                recordFailOpen(FailOpenReason.TRUST_EVALUATION_FAILURE, features.endpoint());
+                optionalPathDegraded = true;
             }
         }
 
@@ -198,10 +204,11 @@ public final class SentinelDecisionEngine {
             // Collect before update so STATISTICAL_WARMUP matches the score just returned.
             evaluationStatuses = EvaluationStatusCollector.collect(scorer, features);
         } catch (Exception e) {
-            log.debug("Scoring failed for {}: {}: {}",
-                features.endpoint(), e.getClass().getSimpleName(), e.getMessage());
+            log.debug("Scoring failed for {} (fail-open reason={}): {}: {}",
+                features.endpoint(), FailOpenReason.SCORER_FAILURE,
+                e.getClass().getSimpleName(), e.getMessage());
             metrics.recordScoringError();
-            metrics.recordFailOpen();
+            recordFailOpen(FailOpenReason.SCORER_FAILURE, features.endpoint());
             return null;
         } finally {
             metrics.recordScoringLatencyNanos(System.nanoTime() - scoreStart);
@@ -227,9 +234,11 @@ public final class SentinelDecisionEngine {
                         ctx.put(FusionContextKeys.FUSED_RISK, fused);
                     }
                 } catch (Exception e) {
-                    log.debug("Risk fusion failed for {}: {}: {}",
-                        features.endpoint(), e.getClass().getSimpleName(), e.getMessage());
-                    metrics.recordFailOpen();
+                    log.debug("Risk fusion failed for {} (fail-open reason={}): {}: {}",
+                        features.endpoint(), FailOpenReason.RISK_FUSION_FAILURE,
+                        e.getClass().getSimpleName(), e.getMessage());
+                    recordFailOpen(FailOpenReason.RISK_FUSION_FAILURE, features.endpoint());
+                    optionalPathDegraded = true;
                 }
             }
         }
@@ -243,9 +252,11 @@ public final class SentinelDecisionEngine {
                 ctx.put(TrustPolicyContextKeys.TRUST_POLICY_DETAIL, tp.trustPolicyDetail());
             }
         } catch (Exception e) {
-            log.debug("Trust policy adjustment failed for {}: {}: {}",
-                features.endpoint(), e.getClass().getSimpleName(), e.getMessage());
-            metrics.recordFailOpen();
+            log.debug("Trust policy adjustment failed for {} (fail-open reason={}): {}: {}",
+                features.endpoint(), FailOpenReason.TRUST_POLICY_FAILURE,
+                e.getClass().getSimpleName(), e.getMessage());
+            recordFailOpen(FailOpenReason.TRUST_POLICY_FAILURE, features.endpoint());
+            optionalPathDegraded = true;
         }
 
         boolean warmup = evaluationStatuses.contains(EvaluationStatus.STATISTICAL_WARMUP);
@@ -255,22 +266,29 @@ public final class SentinelDecisionEngine {
         try {
             shouldUpdate = baselineUpdatePolicy.shouldUpdate(updateContext);
         } catch (Exception e) {
-            log.debug("Baseline-update policy evaluation failed for {}: {}: {}",
-                features.endpoint(), e.getClass().getSimpleName(), e.getMessage());
-            metrics.recordFailOpen();
+            log.debug("Baseline-update policy evaluation failed for {} (fail-open reason={}): {}: {}",
+                features.endpoint(), FailOpenReason.BASELINE_UPDATE_POLICY_FAILURE,
+                e.getClass().getSimpleName(), e.getMessage());
+            recordFailOpen(FailOpenReason.BASELINE_UPDATE_POLICY_FAILURE, features.endpoint());
+            optionalPathDegraded = true;
             shouldUpdate = false;
         }
         EnumSet<EvaluationStatus> statuses = EnumSet.copyOf(evaluationStatuses);
+        if (optionalPathDegraded) {
+            statuses.add(EvaluationStatus.DEGRADED);
+            statuses.remove(EvaluationStatus.COMPLETE);
+        }
         if (shouldUpdate) {
             try {
                 scorer.update(features);
                 baselineLifecycle.onUpdateAccepted(features);
                 metrics.recordBaselineUpdateAccepted(baselineUpdateMode.name(), warmup);
             } catch (Exception e) {
-                log.debug("Baseline update failed for {}: {}: {}",
-                    features.endpoint(), e.getClass().getSimpleName(), e.getMessage());
+                log.debug("Baseline update failed for {} (fail-open reason={}): {}: {}",
+                    features.endpoint(), FailOpenReason.BASELINE_UPDATE_FAILURE,
+                    e.getClass().getSimpleName(), e.getMessage());
                 metrics.recordScoringError();
-                metrics.recordFailOpen();
+                recordFailOpen(FailOpenReason.BASELINE_UPDATE_FAILURE, features.endpoint());
                 return null;
             }
         } else {
@@ -287,7 +305,10 @@ public final class SentinelDecisionEngine {
             action = statisticalWarmupAction;
         }
 
-        telemetry.emit(TelemetryEvent.threatScored(identityHash, features.endpoint(), policyScore));
+        Set<EvaluationStatus> finalStatuses = Set.copyOf(statuses);
+        metrics.recordEvaluationStatuses(finalStatuses);
+        telemetry.emit(TelemetryEvent.threatScored(
+            identityHash, features.endpoint(), policyScore, finalStatuses, isolationForestScoreMode()));
         if (score > 0.5) {
             telemetry.emit(TelemetryEvent.anomalyDetected(identityHash, features.endpoint(), score));
         }
@@ -300,7 +321,32 @@ public final class SentinelDecisionEngine {
         }
 
         metrics.recordPolicyAction(action);
-        return new RiskDecision(action, score, policyScore, features, ctx, startupGraceActive, Set.copyOf(statuses));
+        return new RiskDecision(action, score, policyScore, features, ctx, startupGraceActive, finalStatuses);
+    }
+
+    private void recordFailOpen(FailOpenReason reason, String endpoint) {
+        metrics.recordFailOpen(reason);
+        telemetry.emit(TelemetryEvent.failOpen(reason, endpoint));
+    }
+
+    private String isolationForestScoreMode() {
+        IsolationForestScorer ifScorer = findIsolationForestScorer(scorer);
+        return ifScorer != null ? ifScorer.lastScoreMode().name() : null;
+    }
+
+    private static IsolationForestScorer findIsolationForestScorer(AnomalyScorer root) {
+        if (root instanceof IsolationForestScorer isolationForest) {
+            return isolationForest;
+        }
+        if (root instanceof CompositeScorer composite) {
+            for (AnomalyScorer child : composite.scorersView()) {
+                IsolationForestScorer found = findIsolationForestScorer(child);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     /**

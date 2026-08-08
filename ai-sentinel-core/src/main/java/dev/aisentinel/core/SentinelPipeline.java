@@ -22,6 +22,7 @@ import dev.aisentinel.core.policy.EnforcementAction;
 import dev.aisentinel.core.policy.NoopTrustPolicyAdjuster;
 import dev.aisentinel.core.policy.PolicyEngine;
 import dev.aisentinel.core.policy.TrustPolicyAdjuster;
+import dev.aisentinel.core.metrics.FailOpenReason;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.scoring.AnomalyScorer;
@@ -199,17 +200,19 @@ public final class SentinelPipeline {
             try {
                 identityContextResolver.resolve(request, identityHash, ctx);
             } catch (Exception e) {
-                log.debug("Identity resolution failed for {}: {}: {}",
-                    request.getRequestURI(), e.getClass().getSimpleName(), e.getMessage());
-                metrics.recordFailOpen();
+                log.debug("Identity resolution failed for {} (fail-open reason={}): {}: {}",
+                    request.getRequestURI(), FailOpenReason.IDENTITY_RESOLUTION_FAILURE,
+                    e.getClass().getSimpleName(), e.getMessage());
+                metrics.recordFailOpen(FailOpenReason.IDENTITY_RESOLUTION_FAILURE);
             }
 
             try {
                 features = featureExtractor.extract(request, identityHash, ctx);
             } catch (Exception e) {
-                log.debug("Feature extraction failed for {}: {}: {}",
-                    request.getRequestURI(), e.getClass().getSimpleName(), e.getMessage());
-                metrics.recordFailOpen();
+                log.debug("Feature extraction failed for {} (fail-open reason={}): {}: {}",
+                    request.getRequestURI(), FailOpenReason.FEATURE_EXTRACTION_FAILURE,
+                    e.getClass().getSimpleName(), e.getMessage());
+                metrics.recordFailOpen(FailOpenReason.FEATURE_EXTRACTION_FAILURE);
                 returnValue = true;
                 return returnValue;
             }
