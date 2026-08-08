@@ -3,6 +3,7 @@ package dev.aisentinel.autoconfigure.config;
 import dev.aisentinel.core.SentinelPipeline;
 import dev.aisentinel.core.baseline.BaselineLifecycle;
 import dev.aisentinel.core.baseline.ConfigurableBaselineUpdatePolicy;
+import dev.aisentinel.core.decision.LastDecisionExplanation;
 import dev.aisentinel.core.fusion.DeterministicRequestRiskFusion;
 import dev.aisentinel.core.fusion.NoopRequestRiskFusion;
 import dev.aisentinel.core.fusion.RequestRiskFusion;
@@ -504,6 +505,12 @@ public class SentinelAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    public LastDecisionExplanation lastDecisionExplanation() {
+        return new LastDecisionExplanation();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
     public SentinelPipeline sentinelPipeline(FeatureExtractor featureExtractor,
                                              CompositeScorer compositeScorer,
                                              PolicyEngine policyEngine,
@@ -514,6 +521,7 @@ public class SentinelAutoConfiguration {
                                              TrainingCandidatePublisher trainingCandidatePublisher,
                                              SentinelProperties props,
                                              BaselineLifecycle baselineLifecycle,
+                                             LastDecisionExplanation lastDecisionExplanation,
                                              ObjectProvider<IdentityContextResolver> identityContextResolverProvider,
                                              ObjectProvider<TrustEvaluator> trustEvaluatorProvider,
                                              ObjectProvider<TrustPolicyAdjuster> trustPolicyAdjusterProvider,
@@ -563,7 +571,8 @@ public class SentinelAutoConfiguration {
             new ConfigurableBaselineUpdatePolicy(
                 props.getStatistical().getBaselineUpdatePolicy(),
                 props.getStatistical().getBaselineUpdateScoreThreshold()),
-            baselineLifecycle
+            baselineLifecycle,
+            lastDecisionExplanation
         );
     }
 

@@ -9,6 +9,7 @@ import dev.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
 import dev.aisentinel.distributed.quarantine.ClusterQuarantineReader;
 import dev.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
 import dev.aisentinel.distributed.throttle.ClusterThrottleStore;
+import dev.aisentinel.core.decision.LastDecisionExplanation;
 import dev.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.scoring.CompositeScorer;
@@ -42,6 +43,7 @@ public class SentinelEndpointAutoConfiguration {
                                                             ObjectProvider<StartupGrace> startupGraceProvider,
                                                             ObjectProvider<MicrometerSentinelMetrics> micrometerSentinelMetricsProvider,
                                                             ObjectProvider<CompositeScorer> compositeScorerProvider,
+                                                            ObjectProvider<LastDecisionExplanation> lastDecisionExplanationProvider,
                                                             ObjectProvider<DistributedQuarantineStatus> distributedQuarantineStatusProvider,
                                                             ObjectProvider<DistributedThrottleStatus> distributedThrottleStatusProvider,
                                                             ObjectProvider<ClusterQuarantineReader> clusterQuarantineReaderProvider,
@@ -53,6 +55,7 @@ public class SentinelEndpointAutoConfiguration {
         return new SentinelActuatorEndpoint(props, enforcementHandlerImpl, isolationForestScorerProvider.getIfAvailable(),
             startupGraceProvider.getIfAvailable(), micrometerSentinelMetricsProvider.getIfAvailable(),
             compositeScorerProvider.getIfAvailable(),
+            lastDecisionExplanationProvider.getIfAvailable(),
             distributedQuarantineStatusProvider.getIfAvailable(),
             distributedThrottleStatusProvider.getIfAvailable(),
             clusterQuarantineReaderProvider.getIfAvailable(),
