@@ -90,7 +90,7 @@ Inside **`SentinelDecisionEngine`**, evaluation is sequential: trust → anomaly
 2. **`SentinelPipeline`** resolves identity context, extracts features, delegates the risk decision to **`SentinelDecisionEngine`**, applies enforcement, publishes training candidates, and runs the response hook (including fail-open paths on errors).
 3. **`SentinelDecisionEngine`** performs the servlet-free evaluation — trust, scoring, clamping, optional fusion, policy, trust adjustment, telemetry, startup grace and quarantine overrides — and returns a **`RiskDecision`**. It never writes to the response.
 
-**Framework boundary.** Core sees HTTP only through **`HttpRequestView`** (read) and **`EnforcementResponse`** (write), both defined in `ai-sentinel-core`. The Spring Boot starter supplies the only shipped implementations. `CoreIndependenceArchTest` fails the build if any core class gains a dependency on `jakarta.servlet`, `javax.servlet`, `org.springframework`, or `reactor.netty`.
+**Framework boundary.** Core sees HTTP only through **`HttpRequestView`** (read) and **`EnforcementResponse`** (write), both defined in `ai-sentinel-core`. The Spring Boot starter supplies the only shipped implementations. `CoreIndependenceArchTest` fails the build if any core class depends on `jakarta.servlet`, `javax.servlet`, `org.springframework`, or any `reactor.*` package (including `reactor.core` / `reactor.netty`). Starter servlet types are confined to `dev.aisentinel.autoconfigure.web` by `StarterServletBoundaryArchTest`.
 
 ---
 
@@ -294,10 +294,11 @@ Dedicated distributed meters (`aisentinel.distributed.*`, `aisentinel.identity.t
 ## 14. Testing strategy
 
 - **Unit tests** — `ai-sentinel-core`: scorers, policy boundaries, resolver logic, enforcement maps, IF buffer and retrain behavior, codec/metadata.
+- **Architecture tests** — `CoreIndependenceArchTest` (no Spring/servlet/`reactor.*` in core); starter `StarterServletBoundaryArchTest` (servlet types only under `autoconfigure.web`).
 - **Spring slice tests** — `ai-sentinel-spring-boot-starter`: auto-configuration, actuator JSON shape, filter/proxy integration, model registry beans (`dev.aisentinel.autoconfigure.model.*`).
-- **Distributed / Redis** — `dev.aisentinel.validation.*` and related tests: Testcontainers Redis (`@Testcontainers(disabledWithoutDocker = true)`). **Docker** (or a Docker-compatible CI agent) is required to run those tests; they are skipped when Docker is unavailable.
+- **Distributed / Redis** — `dev.aisentinel.validation.*` and related tests: Testcontainers Redis (`@Testcontainers(disabledWithoutDocker = true)`). **Docker** (or a Docker-compatible CI agent) is required to run those tests; they are skipped when Docker is unavailable. These suites prove **single-JVM** coordination through Redis (often with a second Lettuce client as a stand-in peer). They are **not** a multi-process / multi-host proof — see [`docs/deployment.md`](docs/deployment.md) distributed notes.
 - **Trainer** — `ai-sentinel-trainer` unit tests (orchestrator, buffer, message parser).
-- **Demo** — `DemoIntegrationTest` smoke test with embedded server.
+- **Demo** — `DemoIntegrationTest` smoke test with embedded server. Isolation Forest under live demo traffic remains thinner than unit/registry tests (model load, refresh, inference modes are covered in core/starter unit tests).
 
 ---
 

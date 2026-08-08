@@ -35,6 +35,40 @@ class IsolationForestScorerTest {
         var scorer = new IsolationForestScorer(buffer, config);
         assertThat(scorer.isModelLoaded()).isFalse();
         assertThat(scorer.score(features(1, 0, 60, 0, 100))).isEqualTo(0.5);
+        assertThat(scorer.lastScoreMode()).isEqualTo(IsolationForestScorer.LastScoreMode.FALLBACK_NO_MODEL);
+    }
+
+    @Test
+    void scoreWithModeReportsModelAfterTraining() {
+        var buffer = new BoundedTrainingBuffer(500);
+        var config = new IsolationForestConfig(0.5, 50, 20, 8, 42L, 1.0);
+        var scorer = new IsolationForestScorer(buffer, config);
+        for (int i = 0; i < 100; i++) {
+            buffer.add(new double[]{i % 10, 0.5, 60, 2, 100 + i});
+        }
+        scorer.retrain();
+        var outcome = scorer.scoreWithMode(features(5, 0.5, 60, 2, 150));
+        assertThat(outcome.mode()).isEqualTo(IsolationForestScorer.LastScoreMode.MODEL);
+        assertThat(outcome.score()).isBetween(0.0, 1.0);
+        assertThat(scorer.lastScoreMode()).isEqualTo(IsolationForestScorer.LastScoreMode.MODEL);
+    }
+
+    @Test
+    void invalidModelScoreUsesFallbackInvalidMode() throws Exception {
+        var buffer = new BoundedTrainingBuffer(10);
+        var config = new IsolationForestConfig(0.42, 50, 10, 5, 42L, 1.0);
+        var scorer = new IsolationForestScorer(buffer, config);
+        IsolationForestModel broken = org.mockito.Mockito.mock(IsolationForestModel.class);
+        org.mockito.Mockito.when(broken.score(org.mockito.ArgumentMatchers.any(double[].class)))
+            .thenReturn(Double.NaN);
+        var modelField = IsolationForestScorer.class.getDeclaredField("model");
+        modelField.setAccessible(true);
+        modelField.set(scorer, broken);
+
+        var outcome = scorer.scoreWithMode(features(1, 0, 60, 0, 100));
+        assertThat(outcome.mode()).isEqualTo(IsolationForestScorer.LastScoreMode.FALLBACK_INVALID);
+        assertThat(outcome.score()).isEqualTo(0.42);
+        assertThat(scorer.lastScoreMode()).isEqualTo(IsolationForestScorer.LastScoreMode.FALLBACK_INVALID);
     }
 
     @Test

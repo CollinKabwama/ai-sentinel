@@ -278,6 +278,19 @@ Related property detail: [`configuration.md`](configuration.md) (fail-open repor
 * Local single-instance behavior is the default and fully exercised in unit/integration tests.
 * Redis quarantine/throttle/trust and Kafka training publish are **optional**, fail-open, and validated with Testcontainers where Docker is available.
 * Testcontainers / single-JVM suites are **not** a substitute for production multi-process proof.
+
+### Distributed test coverage (what is / is not proven)
+
+| Area | Automated coverage today | Still untested here |
+|------|--------------------------|---------------------|
+| Cluster quarantine write → Redis → read | Testcontainers single-JVM; second Lettuce client stands in for a peer | Separate OS processes / hosts; rolling restart races across nodes |
+| Cluster throttle | Unit tests with mocked Redis; fail-open paths | Live Redis Testcontainers throttle under concurrent JVMs |
+| Distributed trust baselines | Unit tests with mocked Redis + fail-open fallback | Multi-JVM trust continuity under partition |
+| Training publish / Kafka | Publisher unit / bounded fail-open tests | Broker E2E across publishers and trainer instances |
+| Multi-host networking / K8s | — | Not in scope of library CI |
+
+Operators should validate Redis timeouts, degraded gauges, and peer visibility in **their** topology before relying on ENFORCE with distributed flags.
+
 * Prefer MONITOR until distributed degraded gauges, timeouts, and cardinality are understood in your environment.
 * Redis round-trips on quarantine read, throttle (THROTTLE path), and distributed trust are part of the request-path latency budget — see the matrix in [`configuration.md`](configuration.md).
 * Redis key cardinality for quarantine/throttle/trust is **TTL-only**; the library does not hard-cap Redis memory. Shared Redis `maxmemory` / eviction policy is a deployment decision.

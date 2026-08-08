@@ -1,5 +1,6 @@
 package dev.aisentinel.core.scoring;
 
+import dev.aisentinel.core.model.RequestFeatures;
 import dev.aisentinel.distributed.training.TrainingFingerprintHashes;
 import dev.aisentinel.model.ModelArtifactMetadata;
 import org.junit.jupiter.api.Test;
@@ -72,5 +73,19 @@ class IsolationForestScorerRegistryInstallTest {
         assertThat(scorer.getRegistryArtifactVersion()).isEqualTo("reg-v1");
         assertThat(scorer.isModelLoaded()).isTrue();
         assertThat(scorer.getActiveModelSource()).isEqualTo(IsolationForestScorer.ActiveModelSource.REGISTRY);
+        var outcome = scorer.scoreWithMode(RequestFeatures.builder()
+            .identityHash("id")
+            .endpoint("/api")
+            .timestampMillis(0)
+            .requestsPerWindow(2)
+            .endpointEntropy(0.5)
+            .tokenAgeSeconds(60)
+            .parameterCount(1)
+            .payloadSizeBytes(100)
+            .headerFingerprintHash(0)
+            .ipBucket(0)
+            .build());
+        assertThat(outcome.mode()).isEqualTo(IsolationForestScorer.LastScoreMode.MODEL);
+        assertThat(outcome.score()).isBetween(0.0, 1.0);
     }
 }
