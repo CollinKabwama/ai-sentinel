@@ -250,7 +250,7 @@ Request-path failures that **allow** the request still allow it. Operators disti
 
 Dedicated distributed meters (`aisentinel.distributed.*`, `aisentinel.identity.trust.baseline.redis.*`) remain the source of truth for Redis quarantine/throttle/trust fail-open; they are not double-counted as `FailOpenReason`.
 
-**Do not** treat MONITOR mode or fail-open availability as ENFORCE readiness.
+**Do not** treat MONITOR mode or fail-open availability as ENFORCE readiness. Operating-mode semantics, adoption sequence, and restart behavior: [`docs/deployment.md`](docs/deployment.md).
 
 ## 12. Extension points (beans)
 
