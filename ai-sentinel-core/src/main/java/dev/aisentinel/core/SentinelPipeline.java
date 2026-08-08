@@ -3,6 +3,10 @@ package dev.aisentinel.core;
 import dev.aisentinel.core.baseline.BaselineLifecycle;
 import dev.aisentinel.core.baseline.BaselineUpdatePolicy;
 import dev.aisentinel.core.baseline.ConfigurableBaselineUpdatePolicy;
+import dev.aisentinel.core.decision.DecisionExplanationEvidence;
+import dev.aisentinel.core.decision.ExplanationContextKeys;
+import dev.aisentinel.core.decision.LastDecisionExplanation;
+import dev.aisentinel.core.decision.OperatorEvaluationPhase;
 import dev.aisentinel.core.decision.RiskDecision;
 import dev.aisentinel.core.decision.SentinelDecisionEngine;
 import dev.aisentinel.core.enforcement.EnforcementHandler;
@@ -27,6 +31,7 @@ import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.scoring.AnomalyScorer;
 import dev.aisentinel.core.scoring.CompositeScorer;
+import dev.aisentinel.core.scoring.StatisticalScoreSnapshot;
 import dev.aisentinel.core.fusion.FusedRisk;
 import dev.aisentinel.core.fusion.FusionContextKeys;
 import dev.aisentinel.core.fusion.NoopRequestRiskFusion;
@@ -60,6 +65,7 @@ public final class SentinelPipeline {
     private final String sentinelModeName;
     private final IdentityContextResolver identityContextResolver;
     private final IdentityResponseHook identityResponseHook;
+    private final LastDecisionExplanation lastDecisionExplanation;
 
     public SentinelPipeline(FeatureExtractor featureExtractor, AnomalyScorer scorer, PolicyEngine policyEngine,
                             EnforcementHandler enforcementHandler, TelemetryEmitter telemetry, StartupGrace startupGrace,
@@ -167,6 +173,34 @@ public final class SentinelPipeline {
                             EnforcementAction statisticalWarmupAction,
                             BaselineUpdatePolicy baselineUpdatePolicy,
                             BaselineLifecycle baselineLifecycle) {
+        this(featureExtractor, scorer, compositeScorerOrNull, policyEngine, enforcementHandler, telemetry, startupGrace,
+            metrics, trainingCandidatePublisher, enforcementScope, trainingTenantId, trainingNodeId, sentinelModeName,
+            identityContextResolver, trustEvaluator, trustPolicyAdjuster, identityResponseHook, riskFusion,
+            statisticalWarmupAction, baselineUpdatePolicy, baselineLifecycle, LastDecisionExplanation.NOOP);
+    }
+
+    public SentinelPipeline(FeatureExtractor featureExtractor,
+                            AnomalyScorer scorer,
+                            CompositeScorer compositeScorerOrNull,
+                            PolicyEngine policyEngine,
+                            EnforcementHandler enforcementHandler,
+                            TelemetryEmitter telemetry,
+                            StartupGrace startupGrace,
+                            SentinelMetrics metrics,
+                            TrainingCandidatePublisher trainingCandidatePublisher,
+                            EnforcementScope enforcementScope,
+                            String trainingTenantId,
+                            String trainingNodeId,
+                            String sentinelModeName,
+                            IdentityContextResolver identityContextResolver,
+                            TrustEvaluator trustEvaluator,
+                            TrustPolicyAdjuster trustPolicyAdjuster,
+                            IdentityResponseHook identityResponseHook,
+                            RequestRiskFusion riskFusion,
+                            EnforcementAction statisticalWarmupAction,
+                            BaselineUpdatePolicy baselineUpdatePolicy,
+                            BaselineLifecycle baselineLifecycle,
+                            LastDecisionExplanation lastDecisionExplanation) {
         this.featureExtractor = featureExtractor;
         this.compositeScorerOrNull = compositeScorerOrNull;
         this.enforcementHandler = enforcementHandler;
@@ -183,6 +217,9 @@ public final class SentinelPipeline {
         this.sentinelModeName = sentinelModeName != null ? sentinelModeName : "ENFORCE";
         this.identityContextResolver = identityContextResolver != null ? identityContextResolver : NoopIdentityContextResolver.INSTANCE;
         this.identityResponseHook = identityResponseHook != null ? identityResponseHook : NoopIdentityResponseHook.INSTANCE;
+        this.lastDecisionExplanation = lastDecisionExplanation != null
+            ? lastDecisionExplanation
+            : LastDecisionExplanation.NOOP;
     }
 
     /**
@@ -224,6 +261,7 @@ public final class SentinelPipeline {
                 returnValue = true;
                 return returnValue;
             }
+            recordLastDecision(decision);
 
             EnforcementAction action = decision.action();
             boolean proceed = enforcementHandler.apply(action, request, response, identityHash, features.endpoint());
@@ -245,6 +283,38 @@ public final class SentinelPipeline {
         }
     }
 
+    private void recordLastDecision(RiskDecision decision) {
+        if (lastDecisionExplanation == LastDecisionExplanation.NOOP) {
+            return;
+        }
+        DecisionExplanationEvidence evidence = decision.context() != null
+            ? decision.context().get(ExplanationContextKeys.DECISION_EXPLANATION, DecisionExplanationEvidence.class)
+            : null;
+        Double statisticalScore = evidence != null ? evidence.statisticalScore() : null;
+        Double isolationForestScore = evidence != null ? evidence.isolationForestScore() : null;
+        Boolean isolationForestIncludedInBlend = evidence != null ? evidence.isolationForestIncludedInBlend() : null;
+        String isolationForestScoreMode = evidence != null ? evidence.isolationForestScoreMode() : null;
+        StatisticalScoreSnapshot statisticalExplanation = evidence != null ? evidence.statisticalExplanation() : null;
+        var statuses = decision.evaluationStatuses().stream().map(Enum::name).sorted().toList();
+        var phases = OperatorEvaluationPhase.fromStatuses(decision.evaluationStatuses()).stream().sorted().toList();
+        // Completion-order publication: whoever finishes last overwrites (volatile publish of immutable snapshot).
+        lastDecisionExplanation.record(new LastDecisionExplanation.Snapshot(
+            decision.action().name(),
+            decision.anomalyScore(),
+            decision.policyScore(),
+            Double.compare(decision.anomalyScore(), decision.policyScore()) != 0,
+            statuses,
+            phases,
+            isolationForestScoreMode,
+            statisticalScore,
+            isolationForestScore,
+            isolationForestIncludedInBlend,
+            statisticalExplanation,
+            decision.startupGraceActive(),
+            System.currentTimeMillis()
+        ));
+    }
+
     private void offerTrainingCandidate(RequestFeatures features, String identityHash, EnforcementAction action,
                                         double rawAnomalyScoreClamped,
                                         boolean requestProceeded,
@@ -253,7 +323,14 @@ public final class SentinelPipeline {
         try {
             Double statisticalScore = null;
             Double isolationForestScore = null;
-            if (compositeScorerOrNull != null) {
+            DecisionExplanationEvidence evidence = ctx != null
+                ? ctx.get(ExplanationContextKeys.DECISION_EXPLANATION, DecisionExplanationEvidence.class)
+                : null;
+            if (evidence != null) {
+                statisticalScore = evidence.statisticalScore();
+                isolationForestScore = evidence.isolationForestScore();
+            } else if (compositeScorerOrNull != null) {
+                // Diagnostic fallback only when no request-scoped evidence (custom scorer path).
                 var snap = compositeScorerOrNull.getLastCompositeScoreSnapshot();
                 if (snap != null) {
                     double st = snap.statistical();

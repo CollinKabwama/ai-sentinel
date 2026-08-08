@@ -32,6 +32,12 @@ import static org.assertj.core.api.Assertions.assertThat;
  * Scenario {@code sudden-step-request-burst}: stable constant-{@code requestsPerWindow} Welford baseline,
  * then an abrupt elevated level.
  * <p>
+ * <strong>Test fidelity:</strong> {@code controlled RequestFeatures → scorer/policy}
+ * (not full extractor E2E). {@code requestsPerWindow} is a rolling count across BaselineStore
+ * buckets, not a per-second rate; the production extractor increments approximately
+ * {@code 1, 2, 3, ...} per request, so a synthetic {@code 10 → 100} step cannot be produced
+ * through the full extractor path without intermediate counts.
+ * <p>
  * <strong>Honest scope:</strong> does <em>not</em> claim full extractor→policy E2E for the step.
  * {@link DefaultFeatureExtractor} increments {@code requestsPerWindow} by +1 per call, so a true step
  * cannot be produced through the extractor alone. This test uses:

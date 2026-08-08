@@ -18,8 +18,18 @@ final class EvaluationStatusCollector {
     }
 
     static Set<EvaluationStatus> collect(AnomalyScorer scorer, RequestFeatures features) {
+        return collect(scorer, features, null);
+    }
+
+    /**
+     * @param isolationForestModeOrNull request-owned IF mode from the same score invocation; when non-null,
+     *                                  used instead of reading the scorer's shared {@code lastScoreMode}
+     */
+    static Set<EvaluationStatus> collect(AnomalyScorer scorer,
+                                         RequestFeatures features,
+                                         IsolationForestScorer.LastScoreMode isolationForestModeOrNull) {
         EnumSet<EvaluationStatus> out = EnumSet.noneOf(EvaluationStatus.class);
-        contribute(scorer, features, out);
+        contribute(scorer, features, isolationForestModeOrNull, out);
         boolean degraded = out.contains(EvaluationStatus.STATISTICAL_WARMUP)
             || out.contains(EvaluationStatus.MODEL_UNAVAILABLE)
             || out.contains(EvaluationStatus.MODEL_FALLBACK_USED)
@@ -30,10 +40,13 @@ final class EvaluationStatusCollector {
         return Set.copyOf(out);
     }
 
-    private static void contribute(AnomalyScorer scorer, RequestFeatures features, Set<EvaluationStatus> out) {
+    private static void contribute(AnomalyScorer scorer,
+                                   RequestFeatures features,
+                                   IsolationForestScorer.LastScoreMode isolationForestModeOrNull,
+                                   Set<EvaluationStatus> out) {
         if (scorer instanceof CompositeScorer composite) {
             for (AnomalyScorer child : composite.scorersView()) {
-                contribute(child, features, out);
+                contribute(child, features, isolationForestModeOrNull, out);
             }
             return;
         }
@@ -46,7 +59,9 @@ final class EvaluationStatusCollector {
             return;
         }
         if (scorer instanceof IsolationForestScorer isolationForest) {
-            IsolationForestScorer.LastScoreMode mode = isolationForest.lastScoreMode();
+            IsolationForestScorer.LastScoreMode mode = isolationForestModeOrNull != null
+                ? isolationForestModeOrNull
+                : isolationForest.lastScoreMode();
             if (mode == IsolationForestScorer.LastScoreMode.FALLBACK_NO_MODEL) {
                 out.add(EvaluationStatus.MODEL_UNAVAILABLE);
                 out.add(EvaluationStatus.MODEL_FALLBACK_USED);

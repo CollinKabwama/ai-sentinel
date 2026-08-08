@@ -106,7 +106,7 @@ RequestFeatures extract(HttpRequestView request, String identityHash, RequestCon
 
 | Field | Role |
 |-------|------|
-| `requestsPerWindow` | Rolling request count within `BaselineStore` TTL (10s buckets; default window 5m). Primary volume / flood signal. Name is historical — value is a count, not a normalized rate. |
+| `requestsPerWindow` | Rolling request count within `BaselineStore` TTL (10s buckets; default window 5m). Primary volume / flood signal. Name is historical — value is a count, not a normalized rate. The production extractor advances this approximately `1, 2, 3, …` under repeated requests in the same window, so characterization of an abrupt `10 → 100` step uses controlled `RequestFeatures` fixtures (test fidelity: controlled features → scorer/policy), not full extractor E2E. |
 | `endpointEntropy` | Shannon entropy over recent endpoints (diversity only). Low entropy ≠ flood. |
 | `endpointConcentration` | Max endpoint share in the same histogram. Useful for diverse→mono shifts; invariant under established mono-endpoint traffic (including floods). |
 | `tokenAgeSeconds` | Age from `Authorization` + `X-Token-Issued-At` (epoch seconds). Missing/invalid → `-1`. Future issued-at within tolerated clock skew (≤300s) → clamped to `0` (not conflated with missing); beyond that → treated as `-1`, not silently `0` (an unbounded clamp let a spoofed header neutralize this feature against near-zero-token-age baselines). |
@@ -142,12 +142,15 @@ so genuine single-dimension rate bursts still saturate.
 
 - Training samples are **`RequestFeatures.toIsolationForestArray()`** — **five** behavioral features only (`requestsPerWindow`, `endpointEntropy`, `tokenAgeSeconds`, `parameterCount`, `payloadSizeBytes`). Hash and IP bucket ordinals are **excluded** to avoid wasting splits on weak features.
 - **`BoundedTrainingBuffer`** caps stored vectors; **`IsolationForestRetrainScheduler`** (starter) retrains on an interval when isolation forest is enabled **and** filesystem model-registry refresh is **not** fully wired (`refresh-enabled` + non-empty `filesystem-root`), so only one background path swaps the model. Property **`ai.sentinel.isolation-forest.local-retrain-enabled`** can disable local retrain explicitly. **`ModelRefreshScheduler`** installs registry artifacts off-request (immediate tick at startup plus poll interval). Swap to a new model is atomic for readers.
-- If no model is loaded, a configurable **fallback score** is returned so the composite scorer still behaves predictably.
+- If no model is loaded, a configurable **fallback score** is still returned for visibility and `LastScoreMode` telemetry. **`CompositeScorer` includes Isolation Forest in the weighted blend only when mode is `MODEL`** — fallback values do not dilute the statistical composite toward a mid-band default.
+- Isolation Forest returns a **single scalar** anomaly score. It does **not** expose per-feature contribution, SHAP, or path attribution.
 - When a model exists, high-scoring requests can be **rejected from the training buffer** (anti-poisoning).
 
 ### 5.3 Composite scorer
 
-**`CompositeScorer`** weights the statistical scorer (weight `1.0`) and optionally the IF scorer (`isolation-forest.score-weight`). NaN/negative scores are clamped toward high risk before policy. Child scorers are held in a copy-on-write list so scoring always observes a stable registration snapshot if `addScorer` runs concurrently.
+**`CompositeScorer`** weights the statistical scorer (weight `1.0`) and optionally the IF scorer (`isolation-forest.score-weight`) **when a model produced the IF score**. Fallback IF scores remain on `CompositeScoreSnapshot` / actuator for operators but are excluded from the blend. NaN/negative scores are clamped toward high risk before policy. Child scorers are held in a copy-on-write list so scoring always observes a stable registration snapshot if `addScorer` runs concurrently.
+
+**`StatisticalScorer`** also publishes a **`StatisticalScoreSnapshot`** after each `score` call (dominant feature name, observed value, reference mean, effective std, raw/capped `|z|`). Request-owned explanation is attached to `RequestContext` during the same evaluation (`DecisionExplanationEvidence`); scorer `getLast*Snapshot()` getters remain diagnostic only (last invocation globally on that JVM instance). Isolation Forest has no per-feature attribution.
 
 ---
 
@@ -226,7 +229,7 @@ Local enforcement stays authoritative; Redis and transport failures are fail-ope
 
 - **`DefaultTelemetryEmitter`** — JSON logs + Micrometer counters for events (verbosity and sampling configurable).
 - **`MicrometerSentinelMetrics`** — registers meters such as `aisentinel.score.composite`, `aisentinel.score.statistical`, `aisentinel.score.if`, `aisentinel.latency.pipeline`, `aisentinel.latency.scoring`, `aisentinel.latency.if`, per-action counters, retrain timers/counters, `aisentinel.failopen.count`, `aisentinel.failopen.reason{reason=...}`, `aisentinel.evaluation.status{status=...}`, `aisentinel.isolationforest.score.mode{mode=...}`, etc., with percentiles where applicable.
-- **`/actuator/sentinel`** aggregates config flags, quarantine/throttle counts, IF training state (including `isolationForestLastScoreMode` / `isolationForestActiveModelSource`), **score/latency summaries** when the Micrometer adapter is present, **`evaluationStatusModel`** (operator-phase → `EvaluationStatus` mapping), and **`lastScoreComponents`** (statistical vs optional IF vs blended composite from the **most recent** `CompositeScorer` evaluation—useful for quick A/B-style checks alongside `aisentinel.score.*` meters).
+- **`/actuator/sentinel`** aggregates config flags, quarantine/throttle counts, IF training state (including `isolationForestLastScoreMode` / `isolationForestActiveModelSource`), **score/latency summaries** when the Micrometer adapter is present, **`evaluationStatusModel`** (operator-phase → `EvaluationStatus` mapping), **`lastScoreComponents`** (diagnostic last composite evaluation on this JVM), and **`lastDecision`** (the most recent **fully completed** decision explanation published by **this JVM**, assembled from request-scoped evidence: action/policy band, anomaly vs policy score, evaluation statuses / operator phases, IF mode, statistical dominant signal). `lastDecision` intentionally omits identity, endpoint, headers, IP, and tokens — it is not a request history. Concurrent completions use completion-order overwrite (last publisher wins).
 
 ### EvaluationStatus lifecycle (operator model)
 

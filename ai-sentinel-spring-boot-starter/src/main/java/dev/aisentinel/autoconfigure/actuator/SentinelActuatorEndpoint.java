@@ -5,6 +5,7 @@ import dev.aisentinel.autoconfigure.distributed.DistributedQuarantineStatus;
 import dev.aisentinel.autoconfigure.distributed.DistributedThrottleStatus;
 import dev.aisentinel.autoconfigure.distributed.training.TrainingPublishStatus;
 import dev.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
+import dev.aisentinel.core.decision.LastDecisionExplanation;
 import dev.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import dev.aisentinel.distributed.quarantine.ClusterQuarantineReader;
 import dev.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
@@ -17,6 +18,7 @@ import dev.aisentinel.distributed.training.TrainingCandidatePublisher;
 import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.scoring.CompositeScorer;
 import dev.aisentinel.core.scoring.IsolationForestScorer;
+import dev.aisentinel.core.scoring.StatisticalScoreSnapshot;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.actuate.endpoint.annotation.Endpoint;
 import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
@@ -28,7 +30,10 @@ import java.util.Map;
 
 /**
  * Actuator endpoint {@code /actuator/sentinel}: read-only operational snapshot (config flags, IF state, distributed
- * health, recent score components, Micrometer summaries when available).
+ * health, recent score components, last decision explanation, Micrometer summaries when available).
+ * <p>
+ * {@code lastDecision} is the most recent completed decision observed by <strong>this JVM</strong> — not cluster
+ * history. It intentionally omits identity, endpoint, headers, IP, and tokens.
  */
 @Slf4j
 @Endpoint(id = "sentinel")
@@ -40,6 +45,7 @@ public class SentinelActuatorEndpoint {
     private final StartupGrace startupGrace;
     private final MicrometerSentinelMetrics micrometerSentinelMetrics;
     private final CompositeScorer compositeScorer;
+    private final LastDecisionExplanation lastDecisionExplanation;
     private final DistributedQuarantineStatus distributedQuarantineStatus;
     private final DistributedThrottleStatus distributedThrottleStatus;
     private final ClusterQuarantineReader clusterQuarantineReader;
@@ -61,12 +67,33 @@ public class SentinelActuatorEndpoint {
                                     ClusterThrottleStore clusterThrottleStore,
                                     ObjectProvider<TrainingPublishStatus> trainingPublishStatusProvider,
                                     ObjectProvider<TrainingCandidatePublisher> trainingCandidatePublisherProvider) {
+        this(props, enforcementHandlerImpl, isolationForestScorer, startupGrace, micrometerSentinelMetrics,
+            compositeScorer, null, distributedQuarantineStatus, distributedThrottleStatus, clusterQuarantineReader,
+            clusterQuarantineWriter, clusterThrottleStore, trainingPublishStatusProvider,
+            trainingCandidatePublisherProvider);
+    }
+
+    public SentinelActuatorEndpoint(SentinelProperties props,
+                                    CompositeEnforcementHandler enforcementHandlerImpl,
+                                    IsolationForestScorer isolationForestScorer,
+                                    StartupGrace startupGrace,
+                                    MicrometerSentinelMetrics micrometerSentinelMetrics,
+                                    CompositeScorer compositeScorer,
+                                    LastDecisionExplanation lastDecisionExplanation,
+                                    DistributedQuarantineStatus distributedQuarantineStatus,
+                                    DistributedThrottleStatus distributedThrottleStatus,
+                                    ClusterQuarantineReader clusterQuarantineReader,
+                                    ClusterQuarantineWriter clusterQuarantineWriter,
+                                    ClusterThrottleStore clusterThrottleStore,
+                                    ObjectProvider<TrainingPublishStatus> trainingPublishStatusProvider,
+                                    ObjectProvider<TrainingCandidatePublisher> trainingCandidatePublisherProvider) {
         this.props = props;
         this.enforcementHandlerImpl = enforcementHandlerImpl;
         this.isolationForestScorer = isolationForestScorer;
         this.startupGrace = startupGrace != null ? startupGrace : StartupGrace.NEVER;
         this.micrometerSentinelMetrics = micrometerSentinelMetrics;
         this.compositeScorer = compositeScorer;
+        this.lastDecisionExplanation = lastDecisionExplanation;
         this.distributedQuarantineStatus = distributedQuarantineStatus;
         this.distributedThrottleStatus = distributedThrottleStatus;
         this.clusterQuarantineReader = clusterQuarantineReader;
@@ -190,6 +217,8 @@ public class SentinelActuatorEndpoint {
             map.put("distributedQuarantine", dq);
         }
         map.put("lastScoreComponents", lastScoreComponentsPayload());
+        map.put("lastDecision", lastDecisionPayload());
+        map.put("lastDecisionScope", "lastCompletedDecisionOnThisJvm");
         return map;
     }
 
@@ -207,6 +236,58 @@ public class SentinelActuatorEndpoint {
             m.put("isolationForest", snap.isolationForest());
         }
         m.put("composite", snap.composite());
+        m.put("isolationForestIncludedInBlend", snap.isolationForestIncludedInBlend());
+        if (snap.isolationForestScoreMode() != null) {
+            m.put("isolationForestScoreMode", snap.isolationForestScoreMode());
+        }
+        m.put("evaluatedAtMillis", snap.evaluatedAtEpochMillis());
+        return m;
+    }
+
+    private Map<String, Object> lastDecisionPayload() {
+        if (lastDecisionExplanation == null) {
+            return Map.of();
+        }
+        LastDecisionExplanation.Snapshot snap = lastDecisionExplanation.get();
+        if (snap == null) {
+            return Map.of();
+        }
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("action", snap.action());
+        m.put("anomalyScore", snap.anomalyScore());
+        m.put("policyScore", snap.policyScore());
+        m.put("policyScoreDiffersFromAnomaly", snap.policyScoreDiffersFromAnomaly());
+        m.put("policyBand", snap.action());
+        m.put("evaluationStatuses", snap.evaluationStatuses());
+        m.put("operatorPhases", snap.operatorPhases());
+        if (snap.isolationForestScoreMode() != null) {
+            m.put("isolationForestScoreMode", snap.isolationForestScoreMode());
+        }
+        if (snap.statisticalScore() != null) {
+            m.put("statisticalScore", snap.statisticalScore());
+        }
+        if (snap.isolationForestScore() != null) {
+            m.put("isolationForestScore", snap.isolationForestScore());
+        }
+        if (snap.isolationForestIncludedInBlend() != null) {
+            m.put("isolationForestIncludedInBlend", snap.isolationForestIncludedInBlend());
+        }
+        StatisticalScoreSnapshot se = snap.statisticalExplanation();
+        if (se != null) {
+            Map<String, Object> stat = new LinkedHashMap<>();
+            stat.put("score", se.score());
+            stat.put("warmup", se.warmup());
+            if (se.dominantFeature() != null) {
+                stat.put("dominantFeature", se.dominantFeature());
+                stat.put("observedValue", se.observedValue());
+                stat.put("referenceMean", se.referenceMean());
+                stat.put("effectiveStd", se.effectiveStd());
+                stat.put("rawAbsZ", se.rawAbsZ());
+                stat.put("cappedAbsZ", se.cappedAbsZ());
+            }
+            m.put("statisticalExplanation", stat);
+        }
+        m.put("startupGraceActive", snap.startupGraceActive());
         m.put("evaluatedAtMillis", snap.evaluatedAtEpochMillis());
         return m;
     }

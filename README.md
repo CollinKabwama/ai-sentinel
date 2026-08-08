@@ -127,7 +127,7 @@ Optional integrations do not change the core policy math unless you turn the cor
 
 - **JSON telemetry** — Structured events with configurable verbosity and sampling (`ai.sentinel.telemetry.*`).
 - **Micrometer** — Meters prefixed with `aisentinel.*`.
-- **`GET /actuator/sentinel`** — Configuration flags, quarantine and throttle summaries, Isolation Forest state, and recent score components when the Micrometer adapter is present.
+- **`GET /actuator/sentinel`** — Configuration flags, quarantine and throttle summaries, Isolation Forest state, recent score components, and **`lastDecision`** (why the last request on this JVM was acted on: action/band, scores, evaluation phases, IF mode, statistical dominant signal). Intentionally omits identity and request identifiers.
 
 Example exposure:
 
@@ -174,6 +174,9 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 - **Trainer `eventId` dedup** is JVM-local; multiple trainer instances are not coordinated without external design.
 - **Multi-JVM / Docker validation** for cluster quarantine and throttle is not run in default CI when Docker is unavailable; those Testcontainers tests are skipped.
 - **Registry disk** — no automatic artifact cleanup; operators manage retention.
+- **Isolation Forest** returns one scalar score — no per-feature attribution (SHAP/LIME are out of scope).
+- **IF enabled without a loaded model** — fallback score is visible in telemetry/actuator, but the composite blend uses the statistical score only until mode is `MODEL`.
+- **Characterization test fidelity** — sudden-step detector scenarios use controlled `RequestFeatures` (not full extractor E2E). Production `requestsPerWindow` is a rolling bucket count that increments per request (~`1, 2, 3, …`), so a synthetic `10 → 100` step cannot be produced through the extractor alone.
 - **Custom SPI breaking change** — core SPIs take `HttpRequestView` / `EnforcementResponse` (not servlet types); starter auto-config consumers are unaffected.
 
 ---
