@@ -117,7 +117,7 @@ Reset clears statistical state for the key so the next observations re-enter `ST
 
 ### Baseline lifetime alignment
 
-`BaselineStore` (rolling request counts) and `StatisticalScorer` (Welford state) both use `ai.sentinel.baseline-ttl` / `baseline-max-keys`. Idle keys expire on access paths even when under `max-keys`, so an idle identity does not return to a stale Welford mean after the request window has emptied. In-memory state is process-local: a restart is a cold start (warmup). Capacity eviction is serialized; per-key bucket prune/count is synchronized with increments so rolling-window semantics stay exact under concurrent access.
+`BaselineStore` (rolling request counts) and `StatisticalScorer` (Welford state) both use `ai.sentinel.baseline-ttl` / `baseline-max-keys`. Idle keys expire on access paths even when under `max-keys`, so an idle identity does not return to a stale Welford mean after the request window has emptied. In-memory state is process-local: a restart is a cold start (warmup). Capacity eviction is serialized; per-key bucket prune/count is synchronized with increments so rolling-window semantics stay exact under concurrent access. Local quarantine/throttle maps are also process-local and empty after restart; Redis-backed cluster quarantine/throttle (when enabled) survive the JVM if Redis still holds the keys.
 
 `BaselineStore` uses fixed **10-second buckets**. `requestsPerWindow` is the **sum of bucket counts overlapping the TTL** (default 5 minutes) — a rolling count, not a normalized per-second rate. Crossing a 10-second bucket boundary does **not** reset the count. Counts decline only as buckets age out of the TTL window. Mono-endpoint flooding is detected by this volume signal under gated baseline updates; Shannon `endpointEntropy` (diversity) and `endpointConcentration` (max share) do not distinguish established mono-endpoint use from mono-endpoint floods (both yield entropy ≈ 0 and concentration ≈ 1).
 
@@ -127,10 +127,12 @@ Reset clears statistical state for the key so the next observations re-enter `ST
 |----------|---------|--------|
 | `ai.sentinel.identity.trust.trust-evaluation-enabled` | `true` | When false with identity on, behavioral trust evaluator is disabled (noop) |
 | `ai.sentinel.identity.trust.baseline-ttl` | `15m` | TTL for in-memory and Redis-backed baseline entries |
-| `ai.sentinel.identity.trust.baseline-max-keys` | `50000` | Max tracked baseline keys in the in-memory store |
+| `ai.sentinel.identity.trust.baseline-max-keys` | `50000` | Max tracked baseline keys in the **in-memory** store (and Redis fail-open fallback). **Does not** cap Redis key cardinality when distributed trust is enabled |
 | `ai.sentinel.identity.trust.distributed.enabled` | `false` | When true and a `StringRedisTemplate` bean exists, baselines use Redis (atomic Lua + TTL); otherwise in-memory only |
 | `ai.sentinel.identity.trust.distributed.key-prefix` | `aisentinel:trust:bl:` | Redis key prefix; logical keys are hashed to a fixed-width suffix |
 | `ai.sentinel.identity.trust.distributed.command-timeout` | `50ms` | Max wait on the Redis **EVAL** (Lua) round-trip for behavioral baselines; binds to `SentinelProperties.TrustDistributed#commandTimeout`. Timeout or error falls back to in-memory (does not cancel in-flight I/O—align `spring.data.redis.timeout`) |
+
+**Redis trust cardinality (ops):** Distributed trust baselines are bounded by **TTL only** — there is no application-side Redis `maxKeys` and no request-path `SCAN`/`KEYS`. Physical keys are `{key-prefix}{sha256(logicalKey)}` with logical keys `p:{principal}`, `s:{sessionIdHash}`, or `i:{identityHash}` (unauthenticated sessionless traffic uses the client IP hash). Every successful write refreshes TTL (`SET … PX`). Operators must size Redis memory for peak unique identities/sessions within `baseline-ttl`, monitor key count for the trust prefix, and configure Redis `maxmemory` / eviction policy as an infrastructure control. Prefer authenticating or sessioning clients when enabling distributed trust so unauthenticated IP churn cannot inflate cardinality. Fail-open on Redis error uses the local in-memory store (which **is** `baseline-max-keys`-bounded); after Redis recovers, subsequent writes go to Redis again without an application restart.
 
 ### Trust-aware policy (`ai.sentinel.identity.trust-aware-policy.*`)
 
