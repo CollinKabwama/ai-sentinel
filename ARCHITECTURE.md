@@ -214,7 +214,7 @@ Trusted entries may be literal IPs or **CIDR** prefixes.
 
 **End-to-end flow (when enabled):** starter **nodes** asynchronously **publish** training candidates → **trainer** consumes and trains → **writes** registry artifacts → starter **nodes** **refresh** and install Isolation Forest models from the filesystem registry. Redis and Kafka are optional; log-based transport and local-only operation remain valid.
 
-Local enforcement stays authoritative; Redis and transport failures are fail-open. Property names and validation scope: [`docs/configuration.md`](docs/configuration.md).
+Local enforcement stays authoritative; Redis and transport failures are fail-open. Property names and validation scope: [`docs/configuration.md`](docs/configuration.md). Quarantine **read**, cluster **throttle** (THROTTLE path), and distributed **trust** EVAL waits are on the request-path latency budget (default future timeouts ~50ms); quarantine **write** and training publish are async. Redis key cardinality for these features is TTL-only — no application `SCAN`/`KEYS`/`DBSIZE` and no hard Redis key cap. DEBUG logs for Redis failures omit key material.
 
 **Restart / recovery:** Statistical baselines, request-window stores, and local quarantine/throttle maps are process-local — a JVM restart is a cold start (`STATISTICAL_WARMUP`) with empty local enforcement maps. Filesystem Isolation Forest registry artifacts survive and are reinstalled by `ModelRefreshScheduler` (immediate startup tick + poll). Optional Redis cluster quarantine/throttle and distributed trust baselines survive JVM restart when Redis retains TTL keys; degraded status clears on the next successful Redis operation without requiring an application restart.
 
