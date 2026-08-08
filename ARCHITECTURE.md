@@ -215,6 +215,10 @@ Trusted entries may be literal IPs or **CIDR** prefixes.
 
 Local enforcement stays authoritative; Redis and transport failures are fail-open. Property names and validation scope: [`docs/configuration.md`](docs/configuration.md).
 
+**Restart / recovery:** Statistical baselines, request-window stores, and local quarantine/throttle maps are process-local — a JVM restart is a cold start (`STATISTICAL_WARMUP`) with empty local enforcement maps. Filesystem Isolation Forest registry artifacts survive and are reinstalled by `ModelRefreshScheduler` (immediate startup tick + poll). Optional Redis cluster quarantine/throttle and distributed trust baselines survive JVM restart when Redis retains TTL keys; degraded status clears on the next successful Redis operation without requiring an application restart.
+
+**Distributed trust baselines** (optional): Redis keys are `{prefix}{sha256(logicalKey)}` with TTL refresh on write and **no application-side Redis cardinality cap** (`baseline-max-keys` applies only to the in-memory store / fail-open fallback). Operators must size Redis for peak unique identities within TTL — see `docs/configuration.md`.
+
 ---
 
 ## 11. Observability
