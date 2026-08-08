@@ -19,6 +19,11 @@ class MicrometerSentinelMetricsTest {
         m.recordIsolationForestScore(0.5);
         m.recordPolicyAction(EnforcementAction.ALLOW);
         m.recordFailOpen();
+        m.recordFailOpen(dev.aisentinel.core.metrics.FailOpenReason.SCORER_FAILURE);
+        m.recordIsolationForestScoreMode("FALLBACK_NO_MODEL");
+        m.recordEvaluationStatuses(java.util.Set.of(
+            dev.aisentinel.core.decision.EvaluationStatus.MODEL_FALLBACK_USED,
+            dev.aisentinel.core.decision.EvaluationStatus.MODEL_UNAVAILABLE));
         m.recordNanOrNegativeScoreClamped();
         m.recordScoringError();
         m.recordPipelineLatencyNanos(1_000_000L);
@@ -29,7 +34,10 @@ class MicrometerSentinelMetricsTest {
 
         assertThat(registry.find("aisentinel.score.composite").summary().count()).isEqualTo(1L);
         assertThat(registry.find("aisentinel.action.allow").counter().count()).isEqualTo(1.0);
-        assertThat(registry.find("aisentinel.failopen.count").counter().count()).isEqualTo(1.0);
+        assertThat(registry.find("aisentinel.failopen.count").counter().count()).isEqualTo(2.0);
+        assertThat(registry.find("aisentinel.failopen.reason").tag("reason", "SCORER_FAILURE").counter().count()).isEqualTo(1.0);
+        assertThat(registry.find("aisentinel.isolationforest.score.mode").tag("mode", "FALLBACK_NO_MODEL").counter().count()).isEqualTo(1.0);
+        assertThat(registry.find("aisentinel.evaluation.status").tag("status", "MODEL_FALLBACK_USED").counter().count()).isEqualTo(1.0);
         assertThat(registry.find("aisentinel.nan.clamped.count").counter().count()).isEqualTo(1.0);
         assertThat(registry.find("aisentinel.errors.scoring.count").counter().count()).isEqualTo(1.0);
         assertThat(registry.find("aisentinel.latency.pipeline").timer().count()).isEqualTo(1L);

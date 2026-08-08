@@ -55,8 +55,14 @@ class SentinelMetricsNoopTest {
         if (type == EnforcementAction.class) {
             return EnforcementAction.ALLOW;
         }
+        if (type == FailOpenReason.class) {
+            return FailOpenReason.SCORER_FAILURE;
+        }
         if (type == String.class) {
             return "ALLOW_OR_MONITOR";
+        }
+        if (type == java.util.Collection.class) {
+            return java.util.List.of();
         }
         throw new IllegalArgumentException("Update SentinelMetricsNoopTest for new parameter type: " + type);
     }

@@ -162,4 +162,56 @@ class SentinelActuatorEndpointTest {
         assertThat(components.get("statistical")).isEqualTo(0.55);
         assertThat(components.get("composite")).isEqualTo(0.55);
     }
+
+    @Test
+    void isolationForestModeFieldsReportSensibleDefaultBeforeAnyScoreAndUpdateAfter() {
+        SentinelProperties props = new SentinelProperties();
+        props.getIsolationForest().setEnabled(true);
+        var buffer = new BoundedTrainingBuffer(500);
+        var config = new IsolationForestConfig(0.5, 50, 20, 8, 42L, 1.0);
+        IsolationForestScorer ifScorer = new IsolationForestScorer(buffer, config);
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), ifScorer, StartupGrace.NEVER, null, null,
+            null, null, null, null, null, nullProvider(), nullProvider());
+
+        // Before any request has been scored: no model loaded yet, but the field is present and
+        // reports a meaningful (not null) fallback-mode default rather than an ambiguous absence.
+        Map<String, Object> initial = endpoint.info();
+        assertThat(initial.get("isolationForestLastScoreMode")).isEqualTo("FALLBACK_NO_MODEL");
+        assertThat(initial.get("isolationForestActiveModelSource")).isEqualTo("NONE");
+
+        RequestFeatures f = RequestFeatures.builder()
+            .identityHash("id").endpoint("/api").timestampMillis(0)
+            .requestsPerWindow(1).endpointEntropy(0).tokenAgeSeconds(60)
+            .parameterCount(0).payloadSizeBytes(0).headerFingerprintHash(0).ipBucket(0)
+            .build();
+
+        // Still no model: scoring keeps reporting the fallback mode, not a stale/absent value.
+        ifScorer.score(f);
+        assertThat(endpoint.info().get("isolationForestLastScoreMode")).isEqualTo("FALLBACK_NO_MODEL");
+
+        // Recovery: once a model is trained and installed, the next score reports MODEL — no
+        // stale FALLBACK_NO_MODEL survives after the dependency becomes healthy.
+        for (int i = 0; i < 100; i++) {
+            buffer.add(new double[] {i % 10, 0.5, 60, 2, 100 + i});
+        }
+        ifScorer.retrain();
+        assertThat(ifScorer.isModelLoaded()).isTrue();
+        ifScorer.score(f);
+
+        Map<String, Object> recovered = endpoint.info();
+        assertThat(recovered.get("isolationForestLastScoreMode")).isEqualTo("MODEL");
+        assertThat(recovered.get("isolationForestActiveModelSource")).isEqualTo("LOCAL_RETRAIN");
+    }
+
+    @Test
+    void evaluationStatusModelIsAlwaysPresentAndBounded() {
+        SentinelProperties props = new SentinelProperties();
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, null,
+            null, null, null, null, null, nullProvider(), nullProvider());
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> model = (Map<String, Object>) endpoint.info().get("evaluationStatusModel");
+
+        assertThat(model).containsKeys("WARMUP", "LIVE", "MODEL_FALLBACK", "DEGRADED", "FAIL_OPEN");
+    }
 }
