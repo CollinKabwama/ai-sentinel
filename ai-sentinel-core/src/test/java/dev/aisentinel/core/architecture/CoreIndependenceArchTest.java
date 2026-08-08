@@ -17,13 +17,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class CoreIndependenceArchTest {
 
+    /**
+     * Broad package trees (not brittle leaf packages). {@code reactor..} covers {@code reactor.core},
+     * {@code reactor.netty}, {@code reactor.util}, etc. {@code org.springframework..} covers WebFlux and Security.
+     */
     private static final String[] FORBIDDEN_PACKAGES = {
         "org.springframework..",
-        "org.springframework.web..",
-        "org.springframework.security..",
         "jakarta.servlet..",
         "javax.servlet..",
-        "reactor.netty.."
+        "reactor.."
     };
 
     private static JavaClasses coreProductionClasses;
@@ -41,8 +43,8 @@ class CoreIndependenceArchTest {
         ArchRule rule = noClasses()
             .that().resideInAPackage("dev.aisentinel..")
             .should().dependOnClassesThat().resideInAnyPackage(FORBIDDEN_PACKAGES)
-            .because("ai-sentinel-core is the framework-independent decision core; servlet and Spring adapters "
-                + "live in ai-sentinel-spring-boot-starter");
+            .because("ai-sentinel-core is the framework-independent decision core; servlet, Spring, and reactive "
+                + "adapters live outside this module");
 
         rule.check(coreProductionClasses);
     }
