@@ -3,6 +3,8 @@ design_info.txt
 docs/*
 !docs/configuration.md
 !docs/deployment.md
+!docs/migration.md
+!docs/testing.md
 !docs/README.md
 
 # Local artifacts

@@ -7,7 +7,7 @@ Do not enable `ENFORCE` based on synthetic regression suites alone. Application-
 
 Property defaults (verified): `ai.sentinel.enabled=true`, `ai.sentinel.mode=ENFORCE`. The library default is enforcement-capable; **operators should override to `MONITOR` during adoption.**
 
-Full property tables: [`configuration.md`](configuration.md). Architecture and observability: [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
+Full property tables: [`configuration.md`](configuration.md). Upgrade from 0.1.0: [`migration.md`](migration.md). Architecture and observability: [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
 ---
 
