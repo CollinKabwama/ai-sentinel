@@ -133,7 +133,10 @@ It consumes `RequestFeatures.toStatisticalArray()` — six behavioral dimensions
 `headerFingerprintHash` / `ipBucket` are excluded (they remain on the feature object
 for behavioral trust and the full `toArray()` export). Near-zero historical variance is
 mitigated with role-aware measurement-resolution floors and per-feature `|z|` caps; the
-global numerical `MIN_STD` is only a divide-by-zero guard. Aggregation remains `max|z|`
+global numerical `MIN_STD` is only a divide-by-zero guard. `requestsPerWindow` uses a
+resolution floor of **2.0** (not the integer quantum 1.0) so the natural +1 staircase while
+a rolling window fills stays in ALLOW/MONITOR under default gated learning instead of
+freezing at THROTTLE and escalating benign traffic. Aggregation remains `max|z|`
 so genuine single-dimension rate bursts still saturate.
 
 ### 5.2 Isolation Forest (optional)

@@ -26,11 +26,13 @@ import java.util.Locale;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Gradual linear request-rate ramp under production decision flow.
+ * Gradual linear request-count ramp under production decision flow.
  * <p>
- * Under unconditional always-update, late ramp scores asymptote below THROTTLE.
- * Under the default {@code ALLOW_OR_MONITOR} baseline-update policy, elevated observations
- * stop training once risk reaches THROTTLE+, so late-ramp contamination is reduced.
+ * A unit staircase in {@code requestsPerWindow} asymptotes to MONITOR (~0.31) under continuous
+ * learning (max{@code |z|} → √12/2). Default {@code ALLOW_OR_MONITOR} gating must remain at least
+ * as elevated as always-update at the late probe and must <em>not</em> freeze the early staircase
+ * into THROTTLE+/QUARANTINE (see benign established-baseline regressions). Abrupt volume shocks
+ * that cross THROTTLE still freeze under gating ({@code SuddenStepRequestBurstScenarioTest}).
  */
 class GradualEndpointRequestRampScenarioTest {
 
