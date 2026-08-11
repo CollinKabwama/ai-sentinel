@@ -18,6 +18,9 @@ mvn clean verify
 This is the **primary release gate**. It runs unit, integration, architecture, characterization,
 and module packaging for the full reactor.
 
+When Docker is unavailable, Testcontainers-backed distributed checks are **skipped** (typically five
+tests in the starter module). Skips are expected in that environment; failures and errors are not.
+
 Expected shape (may grow if tests are added):
 
 | Module | Typical tests | Notes |
