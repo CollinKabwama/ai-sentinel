@@ -102,7 +102,8 @@ switch to `RiskDecision.of(...)` or pass an `evaluationStatuses` set.
    deliberate reason to change them.
 4. Remove obsolete relearn settings if present.
 5. Re-run your integration tests and the characterization release gate
-   ([`testing.md`](testing.md)).
+   ([`testing.md`](testing.md)). Prefer `mvn clean verify` from the repository root when validating
+   a fork or downstream build that includes this library’s sources.
 6. Review Actuator `lastDecision` / evaluation phases in a staging environment before ENFORCE.
 
 ---
