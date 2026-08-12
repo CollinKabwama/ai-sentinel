@@ -126,6 +126,8 @@ mvn test
 mvn clean verify
 ```
 
+`mvn clean verify` is the same primary gate used for release validation ([`docs/testing.md`](docs/testing.md)). Without Docker, a small number of Testcontainers tests are skipped rather than failed.
+
 Running a single module in isolation only works when its dependencies are already installed with matching sources:
 
 ```bash

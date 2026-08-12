@@ -116,7 +116,7 @@ and architecture gates are included in that command — see [`docs/testing.md`](
 
 Confirm MONITOR-first guidance is still accurate in [`docs/deployment.md`](docs/deployment.md) and
 that [`CHANGELOG.md`](CHANGELOG.md) / [`docs/migration.md`](docs/migration.md) match the tag you are
-about to cut.
+about to cut. Do not publish release notes that claim production-ready ENFORCE from synthetic suites alone.
 
 ### 2. Set a non-SNAPSHOT version
 
