@@ -1,6 +1,9 @@
 package dev.aisentinel.autoconfigure.config;
 
 import dev.aisentinel.core.enforcement.EnforcementScope;
+import dev.aisentinel.core.baseline.BaselineUpdateMode;
+import dev.aisentinel.core.baseline.BaselineRelearnMode;
+import dev.aisentinel.core.policy.EnforcementAction;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
@@ -36,9 +39,15 @@ public class SentinelProperties {
     private double throttleRequestsPerSecond = 5.0;
     private Duration baselineTtl = Duration.ofMinutes(5);
     private int baselineMaxKeys = 100_000;
-    /** Max keys for internal maps (stateByKey, endpointHistory, throttle, quarantine). Default 100_000. */
+    /**
+     * Max keys for internal maps (endpointHistory, throttle, quarantine). Default 100_000.
+     * Binding rejects zero, negative, and absurdly small values ({@code < 1000}) as well as
+     * values above {@code 2_000_000}. Defaults are unchanged when the property is unset.
+     */
+    @Min(1_000)
+    @Max(2_000_000)
     private int internalMapMaxKeys = 100_000;
-    /** TTL for internal map entries (evict after this period of no access). Default 5 minutes. */
+    /** TTL for internal map entries (endpointHistory, throttle, quarantine). Default 5 minutes. */
     private Duration internalMapTtl = Duration.ofMinutes(5);
     /** Trusted proxy IPs/CIDRs; if empty, forwarded headers are not used. When remote is trusted, client IP is taken from X-Forwarded-For (rightmost-untrusted), Forwarded, or X-Real-IP. */
     private List<String> trustedProxies = List.of();
@@ -50,8 +59,28 @@ public class SentinelProperties {
     private EnforcementScope enforcementScope = EnforcementScope.IDENTITY_ENDPOINT;
     /** Min samples per key before using real score (cold-start); below this return warmup-score. Default 2. */
     private int warmupMinSamples = 2;
-    /** Score returned during warmup (cold-start) to avoid bypass. Default 0.4 (MONITOR). */
+    /**
+     * Numeric score returned during statistical warmup (telemetry / fusion input). Default {@code 0.4}.
+     * Does <strong>not</strong> alone choose enforcement; see {@link #warmupAction}.
+     */
     private double warmupScore = 0.4;
+    /**
+     * Enforcement action while {@code EvaluationStatus.STATISTICAL_WARMUP} is active. Default {@code MONITOR}.
+     * Allowed: {@code ALLOW} or {@code MONITOR}. Other actions are rejected at binding validation.
+     */
+    private EnforcementAction warmupAction = EnforcementAction.MONITOR;
+
+    @jakarta.validation.constraints.AssertTrue(message = "ai.sentinel.warmup-action must be ALLOW or MONITOR")
+    public boolean isWarmupActionAllowed() {
+        return warmupAction == EnforcementAction.ALLOW
+            || warmupAction == EnforcementAction.MONITOR;
+    }
+
+    /**
+     * Statistical baseline learning controls ({@code ai.sentinel.statistical.*}).
+     */
+    @Valid
+    private Statistical statistical = new Statistical();
 
     /** Policy: scores at or above this map to MONITOR (below elevated). Default 0.2. */
     private double thresholdModerate = 0.2;
@@ -73,6 +102,31 @@ public class SentinelProperties {
     /** Identity resolution and trust hooks: disabled by default; no change to API security behavior when off. */
     @Valid
     private Identity identity = new Identity();
+
+    @Data
+    public static class Statistical {
+        /**
+         * When scored observations may update the statistical baseline / scorer online state.
+         * Default {@link BaselineUpdateMode#ALLOW_OR_MONITOR}. Use {@link BaselineUpdateMode#ALWAYS}
+         * for the previous unconditional update behavior.
+         */
+        private BaselineUpdateMode baselineUpdatePolicy = BaselineUpdateMode.ALLOW_OR_MONITOR;
+
+        /**
+         * Used only when {@link #baselineUpdatePolicy} is {@link BaselineUpdateMode#SCORE_BELOW_THRESHOLD}:
+         * update when fused/policy score is strictly below this value. Default {@code 0.4}.
+         */
+        @DecimalMin("0.0")
+        @DecimalMax("1.0")
+        private double baselineUpdateScoreThreshold = 0.4;
+
+        /**
+         * Controlled baseline reset. Default {@link BaselineRelearnMode#DISABLED}.
+         * {@link BaselineRelearnMode#EXPLICIT_ONLY} enables operator {@code BaselineLifecycle.reset}.
+         * Automatic skip-triggered relearn is not offered (removed after security review).
+         */
+        private BaselineRelearnMode relearnMode = BaselineRelearnMode.DISABLED;
+    }
 
     @Data
     public static class Identity {

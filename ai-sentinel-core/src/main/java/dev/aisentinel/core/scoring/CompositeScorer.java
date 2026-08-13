@@ -3,8 +3,8 @@ package dev.aisentinel.core.scoring;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.model.RequestFeatures;
 
-import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 /**
  * Weighted combination of anomaly scorers.
@@ -12,13 +12,22 @@ import java.util.List;
  * <p>
  * After each {@link #score(RequestFeatures)} call, exposes a snapshot of component scores for
  * operations and A/B-style comparison (statistical vs Isolation Forest vs blended composite).
+ * {@link #getLastCompositeScoreSnapshot()} is <strong>diagnostic only</strong> (last invocation
+ * globally) — request-owned explanation uses {@link #scoreWithExplanation(RequestFeatures)}.
+ * <p>
+ * Isolation Forest contributes to the weighted blend <strong>only</strong> when its score mode
+ * for <em>this</em> invocation is {@link IsolationForestScorer.LastScoreMode#MODEL}. Configured
+ * fallback scores remain visible on the snapshot but do not dilute the composite.
+ * <p>
+ * Child scorers are held in a {@link CopyOnWriteArrayList} so {@link #score}/{@link #update}
+ * always iterate a stable snapshot even if {@link #addScorer} runs concurrently.
  */
 public final class CompositeScorer implements AnomalyScorer {
 
-    private final List<WeightedScorer> scorers = new ArrayList<>();
+    private final List<WeightedScorer> scorers = new CopyOnWriteArrayList<>();
     private final SentinelMetrics metrics;
 
-    /** Most recent per-scorer values from the last {@link #score} invocation (volatile publish). */
+    /** Most recent per-scorer values from the last score invocation (volatile publish; diagnostic). */
     private volatile CompositeScoreSnapshot lastSnapshot;
 
     public CompositeScorer() {
@@ -36,51 +45,95 @@ public final class CompositeScorer implements AnomalyScorer {
     }
 
     /**
-     * Snapshot from the last {@link #score(RequestFeatures)} call, or {@code null} if {@link #score} has never run.
+     * Registered child scorers (evaluation-status collection). Order matches blend registration.
+     * Not a public SPI extension point — package consumers only.
+     */
+    public java.util.List<AnomalyScorer> scorersView() {
+        java.util.List<AnomalyScorer> view = new java.util.ArrayList<>(scorers.size());
+        for (WeightedScorer ws : scorers) {
+            view.add(ws.scorer);
+        }
+        return List.copyOf(view);
+    }
+
+    /**
+     * Snapshot from the last score invocation on this instance, or {@code null} if never scored.
+     * <p>
+     * <strong>Diagnostic only:</strong> last scorer invocation globally — not request-scoped.
      */
     public CompositeScoreSnapshot getLastCompositeScoreSnapshot() {
         return lastSnapshot;
     }
 
-    @Override
-    public double score(RequestFeatures features) {
+    /**
+     * Scores and returns immutable component explanations for <em>this</em> invocation (request-safe).
+     * Also publishes {@link #getLastCompositeScoreSnapshot()} for diagnostics.
+     */
+    public CompositeScoreOutcome scoreWithExplanation(RequestFeatures features) {
         if (scorers.isEmpty()) {
             metrics.recordCompositeScore(0.0);
             lastSnapshot = null;
-            return 0.0;
+            return new CompositeScoreOutcome(0.0, null, null);
         }
         double sum = 0;
         double totalWeight = 0;
         double statistical = Double.NaN;
         Double isolationForest = null;
+        boolean isolationForestIncludedInBlend = false;
+        String isolationForestScoreMode = null;
+        StatisticalScoreSnapshot statisticalSnapshot = null;
         for (WeightedScorer ws : scorers) {
-            double s = ws.scorer.score(features);
-            if (ws.scorer instanceof StatisticalScorer) {
+            double s;
+            boolean includeInBlend = true;
+            if (ws.scorer instanceof StatisticalScorer statisticalScorer) {
+                StatisticalScorer.StatisticalScoreOutcome st = statisticalScorer.scoreWithExplanation(features);
+                s = st.score();
                 statistical = s;
-            } else if (ws.scorer instanceof IsolationForestScorer) {
+                statisticalSnapshot = st.snapshot();
+            } else if (ws.scorer instanceof IsolationForestScorer ifScorer) {
+                IsolationForestScorer.IsolationForestScoreOutcome ifOut = ifScorer.scoreWithMode(features);
+                s = ifOut.score();
                 isolationForest = s;
+                IsolationForestScorer.LastScoreMode mode = ifOut.mode();
+                isolationForestScoreMode = mode.name();
+                includeInBlend = mode == IsolationForestScorer.LastScoreMode.MODEL;
+                isolationForestIncludedInBlend = includeInBlend;
+            } else {
+                s = ws.scorer.score(features);
             }
-            sum += s * ws.weight;
-            totalWeight += ws.weight;
+            if (includeInBlend) {
+                sum += s * ws.weight;
+                totalWeight += ws.weight;
+            }
         }
         if (totalWeight <= 0) {
             metrics.recordCompositeScore(0.0);
             lastSnapshot = null;
-            return 0.0;
+            return new CompositeScoreOutcome(0.0, null, statisticalSnapshot);
         }
         double raw = sum / totalWeight;
+        long now = System.currentTimeMillis();
         if (Double.isNaN(raw) || raw < 0) {
-            // Same safety clamp as SentinelDecisionEngine; record here because default wiring never surfaces
-            // illegal values past this composite layer.
             metrics.recordNanOrNegativeScoreClamped();
             metrics.recordCompositeScore(1.0);
-            lastSnapshot = new CompositeScoreSnapshot(statistical, isolationForest, 1.0, System.currentTimeMillis());
-            return 1.0;
+            CompositeScoreSnapshot snap = new CompositeScoreSnapshot(
+                statistical, isolationForest, 1.0, now,
+                isolationForestIncludedInBlend, isolationForestScoreMode);
+            lastSnapshot = snap;
+            return new CompositeScoreOutcome(1.0, snap, statisticalSnapshot);
         }
         double out = Math.min(1.0, raw);
         metrics.recordCompositeScore(out);
-        lastSnapshot = new CompositeScoreSnapshot(statistical, isolationForest, out, System.currentTimeMillis());
-        return out;
+        CompositeScoreSnapshot snap = new CompositeScoreSnapshot(
+            statistical, isolationForest, out, now,
+            isolationForestIncludedInBlend, isolationForestScoreMode);
+        lastSnapshot = snap;
+        return new CompositeScoreOutcome(out, snap, statisticalSnapshot);
+    }
+
+    @Override
+    public double score(RequestFeatures features) {
+        return scoreWithExplanation(features).score();
     }
 
     @Override
@@ -93,14 +146,33 @@ public final class CompositeScorer implements AnomalyScorer {
     private record WeightedScorer(AnomalyScorer scorer, double weight) {}
 
     /**
-     * Point-in-time component scores after the latest composite evaluation (for actuator / validation).
+     * Request-owned result of one {@link #scoreWithExplanation} call.
+     */
+    public record CompositeScoreOutcome(
+        double score,
+        CompositeScoreSnapshot compositeSnapshot,
+        StatisticalScoreSnapshot statisticalSnapshot
+    ) {
+    }
+
+    /**
+     * Point-in-time component scores after a composite evaluation (for actuator / validation).
      * {@code statistical} may be NaN if no {@link StatisticalScorer} is registered;
      * {@code isolationForest} is null when no {@link IsolationForestScorer} is registered.
+     * {@code isolationForestIncludedInBlend} is true only when IF mode was {@code MODEL}.
      */
     public record CompositeScoreSnapshot(
         double statistical,
         Double isolationForest,
         double composite,
-        long evaluatedAtEpochMillis
-    ) {}
+        long evaluatedAtEpochMillis,
+        boolean isolationForestIncludedInBlend,
+        String isolationForestScoreMode
+    ) {
+        /** Compatibility constructor when IF mode fields are unknown. */
+        public CompositeScoreSnapshot(double statistical, Double isolationForest, double composite,
+                                      long evaluatedAtEpochMillis) {
+            this(statistical, isolationForest, composite, evaluatedAtEpochMillis, false, null);
+        }
+    }
 }

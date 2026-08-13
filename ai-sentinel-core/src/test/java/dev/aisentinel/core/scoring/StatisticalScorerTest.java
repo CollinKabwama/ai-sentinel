@@ -168,4 +168,65 @@ class StatisticalScorerTest {
         double score = scorer.score(f);
         assertThat(score).isBetween(0.0, 1.0);
     }
+
+    @Test
+    void resetRemovesKeyIntoWarmup() {
+        var scorer = new StatisticalScorer(1000, 60_000L, 2, 0.4);
+        var f = RequestFeatures.builder()
+            .identityHash("id")
+            .endpoint("/api")
+            .timestampMillis(0)
+            .requestsPerWindow(1)
+            .endpointEntropy(0)
+            .tokenAgeSeconds(60)
+            .parameterCount(2)
+            .payloadSizeBytes(100)
+            .headerFingerprintHash(10)
+            .ipBucket(1)
+            .build();
+        for (int i = 0; i < 10; i++) {
+            scorer.update(f);
+        }
+        assertThat(scorer.isWarmup(f)).isFalse();
+        assertThat(scorer.reset("id", "/api")).isTrue();
+        assertThat(scorer.isWarmup(f)).isTrue();
+        assertThat(scorer.reset("id", "/api")).isFalse();
+    }
+
+    @Test
+    void concurrentResetDuringScore_doesNotThrow() throws Exception {
+        var scorer = new StatisticalScorer(1000, 60_000L, 2, 0.4);
+        var f = RequestFeatures.builder()
+            .identityHash("id")
+            .endpoint("/api")
+            .timestampMillis(0)
+            .requestsPerWindow(1)
+            .endpointEntropy(0)
+            .tokenAgeSeconds(60)
+            .parameterCount(2)
+            .payloadSizeBytes(100)
+            .headerFingerprintHash(10)
+            .ipBucket(1)
+            .build();
+        for (int i = 0; i < 20; i++) {
+            scorer.update(f);
+        }
+        Thread scorerThread = new Thread(() -> {
+            for (int i = 0; i < 500; i++) {
+                scorer.score(f);
+                scorer.update(f);
+            }
+        });
+        Thread resetter = new Thread(() -> {
+            for (int i = 0; i < 500; i++) {
+                scorer.reset("id", "/api");
+                scorer.update(f);
+            }
+        });
+        scorerThread.start();
+        resetter.start();
+        scorerThread.join();
+        resetter.join();
+        assertThat(scorer.score(f)).isBetween(0.0, 1.0);
+    }
 }

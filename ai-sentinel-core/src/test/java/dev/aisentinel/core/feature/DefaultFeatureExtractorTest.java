@@ -34,6 +34,8 @@ class DefaultFeatureExtractorTest {
         assertThat(f.endpoint()).isEqualTo("/api/hello");
         assertThat(f.parameterCount()).isEqualTo(0);
         assertThat(f.toArray()).hasSize(7);
+        assertThat(f.toStatisticalArray()).hasSize(6);
+        assertThat(f.endpointConcentration()).isBetween(0.0, 1.0);
     }
 
     @Test
@@ -44,6 +46,8 @@ class DefaultFeatureExtractorTest {
         RequestFeatures f = ext.extract(request, "id1", new RequestContext());
         assertThat(f.endpoint()).isEqualTo("polygenelubricants");
         assertThat(f.toArray()).hasSize(7);
+        assertThat(f.toStatisticalArray()).hasSize(6);
+        assertThat(f.endpointConcentration()).isBetween(0.0, 1.0);
     }
 
     @Test

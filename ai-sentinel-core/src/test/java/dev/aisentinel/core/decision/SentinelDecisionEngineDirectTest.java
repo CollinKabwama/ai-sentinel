@@ -205,7 +205,7 @@ class SentinelDecisionEngineDirectTest {
 
     @Test
     void scorerIsUpdatedAndTelemetryEmittedWithoutAnyHttpTypes() {
-        FixedAnomalyScorer scorer = new FixedAnomalyScorer(0.75);
+        FixedAnomalyScorer scorer = new FixedAnomalyScorer(0.1);
         RecordingTelemetry telemetry = new RecordingTelemetry();
 
         engine(scorer, StartupGrace.NEVER, telemetry)
@@ -213,7 +213,16 @@ class SentinelDecisionEngineDirectTest {
 
         assertThat(scorer.updates).isEqualTo(1);
         assertThat(telemetry.events).extracting(TelemetryEvent::type)
-            .containsExactly("ThreatScored", "AnomalyDetected");
+            .containsExactly("ThreatScored");
+    }
+
+    @Test
+    void elevatedRiskDoesNotUpdateScorerByDefault() {
+        FixedAnomalyScorer scorer = new FixedAnomalyScorer(0.75);
+        RiskDecision decision = engine(scorer, StartupGrace.NEVER, new RecordingTelemetry())
+            .evaluate(new MapHttpRequestView(), "h", features(), new RequestContext());
+        assertThat(decision.hasStatus(EvaluationStatus.BASELINE_UPDATE_SKIPPED)).isTrue();
+        assertThat(scorer.updates).isEqualTo(0);
     }
 
     private static EnforcementAction actionFor(double score) {

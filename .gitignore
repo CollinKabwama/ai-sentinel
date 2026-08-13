@@ -2,7 +2,10 @@
 design_info.txt
 docs/*
 !docs/configuration.md
-!docs/DOCUMENTATION_CLEANUP_REPORT.md
+!docs/deployment.md
+!docs/migration.md
+!docs/testing.md
+!docs/README.md
 
 # Local artifacts
 *.pptx

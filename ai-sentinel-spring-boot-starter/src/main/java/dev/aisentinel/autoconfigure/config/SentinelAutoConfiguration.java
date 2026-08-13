@@ -1,6 +1,9 @@
 package dev.aisentinel.autoconfigure.config;
 
 import dev.aisentinel.core.SentinelPipeline;
+import dev.aisentinel.core.baseline.BaselineLifecycle;
+import dev.aisentinel.core.baseline.ConfigurableBaselineUpdatePolicy;
+import dev.aisentinel.core.decision.LastDecisionExplanation;
 import dev.aisentinel.core.fusion.DeterministicRequestRiskFusion;
 import dev.aisentinel.core.fusion.NoopRequestRiskFusion;
 import dev.aisentinel.core.fusion.RequestRiskFusion;
@@ -116,11 +119,24 @@ public class SentinelAutoConfiguration {
     @Bean
     @ConditionalOnMissingBean
     public StatisticalScorer statisticalScorer(SentinelProperties props, SentinelMetrics sentinelMetrics) {
-        int maxKeys = props.getInternalMapMaxKeys() > 0 ? props.getInternalMapMaxKeys() : 100_000;
-        long ttlMs = props.getInternalMapTtl() != null ? props.getInternalMapTtl().toMillis() : 300_000L;
+        // Align statistical Welford lifetime with BaselineStore (ai.sentinel.baseline-ttl / baseline-max-keys).
+        int maxKeys = props.getBaselineMaxKeys() > 0 ? props.getBaselineMaxKeys() : 100_000;
+        long ttlMs = props.getBaselineTtl() != null ? props.getBaselineTtl().toMillis() : 300_000L;
         int warmupMin = props.getWarmupMinSamples() >= 0 ? props.getWarmupMinSamples() : 2;
         double warmupScore = props.getWarmupScore() < 0 ? 0.4 : Math.min(1.0, props.getWarmupScore());
         return new StatisticalScorer(maxKeys, ttlMs, warmupMin, warmupScore, sentinelMetrics);
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
+    public BaselineLifecycle baselineLifecycle(StatisticalScorer statisticalScorer,
+                                               SentinelProperties props,
+                                               SentinelMetrics sentinelMetrics) {
+        var statistical = props.getStatistical();
+        return new BaselineLifecycle(
+            statisticalScorer,
+            statistical.getRelearnMode(),
+            sentinelMetrics);
     }
 
     @Bean
@@ -489,6 +505,12 @@ public class SentinelAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    public LastDecisionExplanation lastDecisionExplanation() {
+        return new LastDecisionExplanation();
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
     public SentinelPipeline sentinelPipeline(FeatureExtractor featureExtractor,
                                              CompositeScorer compositeScorer,
                                              PolicyEngine policyEngine,
@@ -498,6 +520,8 @@ public class SentinelAutoConfiguration {
                                              SentinelMetrics sentinelMetrics,
                                              TrainingCandidatePublisher trainingCandidatePublisher,
                                              SentinelProperties props,
+                                             BaselineLifecycle baselineLifecycle,
+                                             LastDecisionExplanation lastDecisionExplanation,
                                              ObjectProvider<IdentityContextResolver> identityContextResolverProvider,
                                              ObjectProvider<TrustEvaluator> trustEvaluatorProvider,
                                              ObjectProvider<TrustPolicyAdjuster> trustPolicyAdjusterProvider,
@@ -542,7 +566,13 @@ public class SentinelAutoConfiguration {
             trustEvaluator,
             trustPolicyAdjuster,
             identityResponseHook,
-            requestRiskFusion
+            requestRiskFusion,
+            props.getWarmupAction(),
+            new ConfigurableBaselineUpdatePolicy(
+                props.getStatistical().getBaselineUpdatePolicy(),
+                props.getStatistical().getBaselineUpdateScoreThreshold()),
+            baselineLifecycle,
+            lastDecisionExplanation
         );
     }
 

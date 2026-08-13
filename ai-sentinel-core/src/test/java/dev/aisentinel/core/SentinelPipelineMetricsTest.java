@@ -45,7 +45,7 @@ class SentinelPipelineMetricsTest {
 
         assertThat(proceed).isTrue();
         verify(metrics).recordScoringError();
-        verify(metrics).recordFailOpen();
+        verify(metrics).recordFailOpen(dev.aisentinel.core.metrics.FailOpenReason.SCORER_FAILURE);
         verify(metrics).recordScoringLatencyNanos(anyLong());
         verify(metrics).recordPipelineLatencyNanos(anyLong());
         verifyNoInteractions(handler);

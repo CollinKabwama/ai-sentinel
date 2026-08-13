@@ -111,15 +111,20 @@ git pull
 mvn clean verify
 ```
 
-Fix any test or build failures before continuing.
+Fix any test or build failures before continuing. Run `mvn clean verify` **twice**. Characterization
+and architecture gates are included in that command — see [`docs/testing.md`](docs/testing.md).
+
+Confirm MONITOR-first guidance is still accurate in [`docs/deployment.md`](docs/deployment.md) and
+that [`CHANGELOG.md`](CHANGELOG.md) / [`docs/migration.md`](docs/migration.md) match the tag you are
+about to cut. Do not publish release notes that claim production-ready ENFORCE from synthetic suites alone.
 
 ### 2. Set a non-SNAPSHOT version
 
-Central **release** publishing rejects `-SNAPSHOT` versions. Update the parent and every module parent reference to the release version (for example bump `0.1.0` → `0.2.0`):
+Central **release** publishing rejects `-SNAPSHOT` versions. Update the parent and every module parent reference to the release version (for example bump `0.2.0` → `0.2.1`):
 
 ```bash
 # Example with the versions plugin (adjust newVersion as needed):
-# mvn versions:set -DnewVersion=0.2.0 -DgenerateBackupPoms=false
+# mvn versions:set -DnewVersion=0.2.1 -DgenerateBackupPoms=false
 # Or edit the <version> in the parent pom.xml and each module's parent reference.
 ```
 
@@ -143,6 +148,9 @@ mvn clean deploy -Prelease -pl ai-sentinel-core,ai-sentinel-spring-boot-starter 
 
 Trainer and demo are skipped via module properties and `excludeArtifacts` in the parent POM.
 
+Default `mvn clean verify` (without `-Prelease`) packages module JARs but does **not** attach
+sources/javadoc or publish. Sources/javadoc JARs are produced only under `-Prelease`.
+
 ### 4. Publish on the Central Portal (manual)
 
 On success the build reports a **deployment id** and:
@@ -165,7 +173,7 @@ git tag -a v0.2.0 -m "Release 0.2.0"
 git push origin v0.2.0
 ```
 
-Commit the version bump on `main` if it is not already committed. Use the same version string you published (current line is **0.1.0**).
+Commit the version bump on `main` if it is not already committed. Use the same version string you published (current library line is **0.2.0**).
 
 ### 6. Bump to the next development version (optional)
 
@@ -207,6 +215,9 @@ curl -sS --request POST \
 
 ## Related docs
 
+- [`CHANGELOG.md`](CHANGELOG.md) — user-facing release notes
+- [`docs/migration.md`](docs/migration.md) — upgrade from the previous published line
+- [`docs/testing.md`](docs/testing.md) — characterization and release gates
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — runtime design
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — branching and local builds
 - [`SECURITY.md`](SECURITY.md) — vulnerability reporting

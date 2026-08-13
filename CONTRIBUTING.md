@@ -107,7 +107,9 @@ java -version   # expect 21
 mvn clean install
 ```
 
-To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter:0.1.0` (or the version in the parent `pom.xml`). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
+To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter:0.2.0` (or the version in the parent `pom.xml`). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
+
+Characterization and release-gate testing: [`docs/testing.md`](docs/testing.md). Upgrading from the previous published line: [`docs/migration.md`](docs/migration.md).
 
 **Publishing to Maven Central:** see **[`RELEASING.md`](RELEASING.md)** for the full release checklist (Central Portal, GPG, `-Prelease` deploy).
 
@@ -123,6 +125,8 @@ mvn test
 # or
 mvn clean verify
 ```
+
+`mvn clean verify` is the same primary gate used for release validation ([`docs/testing.md`](docs/testing.md)). Without Docker, a small number of Testcontainers tests are skipped rather than failed.
 
 Running a single module in isolation only works when its dependencies are already installed with matching sources:
 

@@ -5,16 +5,60 @@ import dev.aisentinel.core.model.RequestFeatures;
 
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Statistical anomaly scorer using Welford's online algorithm for rolling mean/std.
  * Score is z-score based, normalized to [0.0, 1.0].
  * State updates and reads are synchronized for happens-before; internal maps are bounded with TTL.
+ * <p>
+ * Idle keys older than the configured TTL are expired on score/update paths so statistical history
+ * does not outlive the rolling request-window baseline lifetime.
+ * <p>
+ * Consumes {@link RequestFeatures#toStatisticalArray()} (behavioral dims only). Identity-like
+ * hash/IP features are excluded; near-zero variance is mitigated with role-aware resolution floors
+ * and per-feature {@code |z|} caps rather than raising the global numerical {@code MIN_STD}.
  */
 public final class StatisticalScorer implements AnomalyScorer {
 
+    /** Numerical floor only — prevents divide-by-zero; not the anti-FP mitigation. */
     private static final double MIN_STD = 1e-6;
     private static final double SIGMOID_SCALE = 3.0;
+    /** Throttles the O(n) idle-expiry scan; bounds worst-case staleness of expiry to about this long past TTL. */
+    private static final long EXPIRE_SWEEP_INTERVAL_MS = 1000L;
+
+    /**
+     * Per-dimension measurement resolution for {@link RequestFeatures#toStatisticalArray()} order.
+     * Floors are role-evidence for each feature's natural quantization — not an arbitrary
+     * {@code MIN_STD} hike. {@code requestsPerWindow} uses 2.0 (not the integer quantum 1.0):
+     * a rolling-window fill under steady traffic is a +1 staircase, and with floor 1.0 the early
+     * steps reach {@code z≈2} (THROTTLE) then freeze under default {@code ALLOW_OR_MONITOR}
+     * gating, escalating benign identities to QUARANTINE. Floor 2.0 keeps unit-step scores in
+     * ALLOW/MONITOR so learning continues through window fill / ramp asymptote, while genuine
+     * volume shocks (large {@code Δ} requestsPerWindow) still saturate.
+     */
+    private static final double[] STD_RESOLUTION = {
+        2.0,  // requestsPerWindow — see class note above
+        0.05, // endpointEntropy (nats)
+        0.05, // endpointConcentration (share)
+        1.0,  // tokenAgeSeconds
+        1.0,  // parameterCount
+        1.0   // payloadSizeBytes
+    };
+
+    /**
+     * Per-dimension {@code |z|} caps (same order). Rate stays nearly uncapped so genuine bursts
+     * still saturate; ordinal/magnitude dims are capped so a constant-history unit flip cannot
+     * alone force {@code max|z|} → score 1.0 / QUARANTINE.
+     */
+    private static final double[] Z_CAP = {
+        20.0, // requestsPerWindow — high enough that sigmoid saturates to 1.0 in double
+        6.0,  // endpointEntropy
+        6.0,  // endpointConcentration
+        6.0,  // tokenAgeSeconds
+        2.0,  // parameterCount — unit/large flips alone cannot exceed THROTTLE band
+        2.0   // payloadSizeBytes
+    };
 
     private final Map<String, WelfordState> stateByKey = new ConcurrentHashMap<>();
     private final int maxKeys;
@@ -22,6 +66,12 @@ public final class StatisticalScorer implements AnomalyScorer {
     private final int warmupMinSamples;
     private final double warmupScore;
     private final SentinelMetrics metrics;
+    private final AtomicLong nextExpireSweepMs = new AtomicLong(0);
+    private final AtomicLong expireSweepCount = new AtomicLong(0);
+    /** Most recent score explanation (volatile publish; diagnostic — last invocation globally). */
+    private volatile StatisticalScoreSnapshot lastScoreSnapshot;
+    /** Optional test seam invoked after this invocation's snapshot is published (same thread). */
+    private volatile java.util.function.Consumer<RequestFeatures> afterScoreHookForTests;
 
     public StatisticalScorer() {
         this(100_000, 300_000L, 2, 0.4);
@@ -44,52 +94,173 @@ public final class StatisticalScorer implements AnomalyScorer {
         this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
     }
 
+    /** Configured idle TTL in milliseconds (minimum 1000). */
+    public long ttlMs() {
+        return ttlMs;
+    }
+
+    /** Configured max retained identity|endpoint keys. */
+    public int maxKeys() {
+        return maxKeys;
+    }
+
     /** Welford state map size (for cache gauges). */
     public int metricsStateEntryCount() {
         return stateByKey.size();
     }
 
+    /** Number of idle-expiry sweeps actually performed (tests / ops). */
+    public long expireSweepCount() {
+        return expireSweepCount.get();
+    }
+
+    /** Configured idle-expiry sweep interval in milliseconds. */
+    public long expireSweepIntervalMs() {
+        return EXPIRE_SWEEP_INTERVAL_MS;
+    }
+
+    /**
+     * Removes Welford state for an identity|endpoint key so the next observation re-enters warmup.
+     *
+     * @return {@code true} when a key was present and removed
+     */
+    public boolean reset(String identityHash, String endpoint) {
+        String key = identityHash + "|" + endpoint;
+        return stateByKey.remove(key) != null;
+    }
+
+    /** Removes all Welford state (tests / full restart simulation). */
+    public void resetAll() {
+        stateByKey.clear();
+    }
+
+    /**
+     * {@code true} when this identity|endpoint key lacks enough samples for live z-score scoring.
+     * Does not mutate state. Used by the decision engine for {@link dev.aisentinel.core.decision.EvaluationStatus}
+     * without expanding the pluggable {@link AnomalyScorer} SPI.
+     */
+    public boolean isWarmup(RequestFeatures features) {
+        String key = features.identityHash() + "|" + features.endpoint();
+        expireIdle(System.currentTimeMillis());
+        return isWarmupWithoutExpire(key);
+    }
+
+    /** Configured numeric score returned while {@link #isWarmup(RequestFeatures)} is true (telemetry / fusion input). */
+    public double warmupScore() {
+        return warmupScore;
+    }
+
+    /**
+     * Explanation from the most recent {@link #score(RequestFeatures)} call on this instance, or {@code null}
+     * if {@link #score} has never run.
+     * <p>
+     * <strong>Diagnostic only:</strong> this is the last scorer invocation globally on this JVM instance —
+     * not request-scoped. Pipeline / actuator decision explanation must not depend on this getter.
+     */
+    public StatisticalScoreSnapshot getLastScoreSnapshot() {
+        return lastScoreSnapshot;
+    }
+
+    /** Test-only seam for deterministic concurrency interleaving. */
+    public void setAfterScoreHookForTests(java.util.function.Consumer<RequestFeatures> hook) {
+        this.afterScoreHookForTests = hook;
+    }
+
+    /**
+     * Scores and returns an immutable explanation for <em>this</em> invocation (request-safe).
+     * Also publishes {@link #getLastScoreSnapshot()} for diagnostics.
+     */
+    public StatisticalScoreOutcome scoreWithExplanation(RequestFeatures features) {
+        StatisticalScoreOutcome outcome = scoreInternal(features);
+        lastScoreSnapshot = outcome.snapshot();
+        java.util.function.Consumer<RequestFeatures> hook = afterScoreHookForTests;
+        if (hook != null) {
+            hook.accept(features);
+        }
+        return outcome;
+    }
+
     @Override
     public double score(RequestFeatures features) {
-        double[] x = features.toArray();
-        String key = features.identityHash() + "|" + features.endpoint();
+        return scoreWithExplanation(features).score();
+    }
 
+    private StatisticalScoreOutcome scoreInternal(RequestFeatures features) {
+        double[] x = features.toStatisticalArray();
+        String key = features.identityHash() + "|" + features.endpoint();
+        long now = System.currentTimeMillis();
+        expireIdle(now);
+
+        if (isWarmupWithoutExpire(key)) {
+            metrics.recordStatisticalScore(warmupScore);
+            return new StatisticalScoreOutcome(warmupScore, StatisticalScoreSnapshot.warmup(warmupScore));
+        }
         WelfordState state = stateByKey.get(key);
         if (state == null) {
             metrics.recordStatisticalScore(warmupScore);
-            return warmupScore;
+            return new StatisticalScoreOutcome(warmupScore, StatisticalScoreSnapshot.warmup(warmupScore));
         }
         double[] means;
         double[] stds;
-        int n;
         synchronized (state) {
-            n = state.n;
-            if (n < Math.max(2, warmupMinSamples)) {
-                metrics.recordStatisticalScore(warmupScore);
-                return warmupScore;
-            }
+            state.touch(now);
             means = state.getMeansCopy();
             stds = state.getStds();
         }
-        double maxZ = 0;
-        for (int i = 0; i < x.length; i++) {
+        int dim = Math.min(x.length, means.length);
+        double maxCappedZ = 0;
+        int dominantIdx = -1;
+        double dominantObserved = 0;
+        double dominantMean = 0;
+        double dominantEffStd = 0;
+        double dominantRawAbsZ = 0;
+        double dominantCappedAbsZ = 0;
+        for (int i = 0; i < dim; i++) {
             double mean = means[i];
-            double std = Math.max(stds[i], MIN_STD);
-            double z = Math.abs((x[i] - mean) / std);
-            if (Double.isNaN(z) || Double.isInfinite(z)) z = 2.0;
-            maxZ = Math.max(maxZ, z);
+            double resolution = i < STD_RESOLUTION.length ? STD_RESOLUTION[i] : MIN_STD;
+            double std = Math.max(stds[i], Math.max(MIN_STD, resolution));
+            double rawAbsZ = Math.abs((x[i] - mean) / std);
+            if (Double.isNaN(rawAbsZ) || Double.isInfinite(rawAbsZ)) {
+                rawAbsZ = 2.0;
+            }
+            double cap = i < Z_CAP.length ? Z_CAP[i] : 6.0;
+            double capped = Math.min(rawAbsZ, cap);
+            if (capped >= maxCappedZ) {
+                maxCappedZ = capped;
+                dominantIdx = i;
+                dominantObserved = x[i];
+                dominantMean = mean;
+                dominantEffStd = std;
+                dominantRawAbsZ = rawAbsZ;
+                dominantCappedAbsZ = capped;
+            }
         }
-        double s = sigmoid(maxZ);
+        double s = sigmoid(maxCappedZ);
         double out = Double.isNaN(s) ? 1.0 : Math.min(1.0, Math.max(0.0, s));
         metrics.recordStatisticalScore(out);
-        return out;
+        StatisticalScoreSnapshot snap = new StatisticalScoreSnapshot(
+            out,
+            false,
+            StatisticalFeatureNames.nameAt(dominantIdx),
+            dominantObserved,
+            dominantMean,
+            dominantEffStd,
+            dominantRawAbsZ,
+            dominantCappedAbsZ
+        );
+        return new StatisticalScoreOutcome(out, snap);
+    }
+
+    /** Immutable score + explanation from one {@link #scoreWithExplanation} invocation. */
+    public record StatisticalScoreOutcome(double score, StatisticalScoreSnapshot snapshot) {
     }
 
     @Override
     public void update(RequestFeatures features) {
-        double[] x = features.toArray();
+        double[] x = features.toStatisticalArray();
         String key = features.identityHash() + "|" + features.endpoint();
         long now = System.currentTimeMillis();
+        expireIdle(now);
 
         stateByKey.compute(key, (k, s) -> {
             WelfordState st = s != null ? s : new WelfordState(x.length);
@@ -97,11 +268,43 @@ public final class StatisticalScorer implements AnomalyScorer {
             return st;
         });
 
-        evictIfNeeded(now);
+        evictIfOverCapacity(now);
     }
 
-    private void evictIfNeeded(long now) {
-        if (stateByKey.size() <= maxKeys) return;
+    /**
+     * Drops keys whose last access is older than TTL, throttled to at most one full-map scan per
+     * {@link #EXPIRE_SWEEP_INTERVAL_MS} regardless of request volume. An unconditional per-call scan
+     * is O(n) in tracked-key count on every score/update; at realistic production cardinality this
+     * measurably regressed request latency, so the sweep itself is rate-limited rather than the
+     * expiry guarantee (idle keys are still guaranteed to expire, within one sweep interval of TTL).
+     */
+    void expireIdle(long now) {
+        long next = nextExpireSweepMs.get();
+        if (now < next) {
+            return;
+        }
+        if (!nextExpireSweepMs.compareAndSet(next, now + EXPIRE_SWEEP_INTERVAL_MS)) {
+            return;
+        }
+        expireSweepCount.incrementAndGet();
+        long cutoff = now - ttlMs;
+        stateByKey.entrySet().removeIf(e -> e.getValue().lastAccessMs() < cutoff);
+    }
+
+    private boolean isWarmupWithoutExpire(String key) {
+        WelfordState state = stateByKey.get(key);
+        if (state == null) {
+            return true;
+        }
+        synchronized (state) {
+            return state.n < Math.max(2, warmupMinSamples);
+        }
+    }
+
+    private void evictIfOverCapacity(long now) {
+        if (stateByKey.size() <= maxKeys) {
+            return;
+        }
         long cutoff = now - ttlMs;
         stateByKey.entrySet().removeIf(e -> e.getValue().lastAccessMs() < cutoff);
         while (stateByKey.size() > maxKeys) {
@@ -114,7 +317,9 @@ public final class StatisticalScorer implements AnomalyScorer {
                     victim = e.getKey();
                 }
             }
-            if (victim == null) break;
+            if (victim == null) {
+                break;
+            }
             stateByKey.remove(victim);
         }
     }
@@ -145,6 +350,10 @@ public final class StatisticalScorer implements AnomalyScorer {
                 double delta2 = x[i] - means[i];
                 m2[i] += delta * delta2;
             }
+            lastAccessMs = nowMs;
+        }
+
+        synchronized void touch(long nowMs) {
             lastAccessMs = nowMs;
         }
 

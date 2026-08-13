@@ -7,8 +7,9 @@ import java.io.IOException;
 import java.util.Objects;
 
 /**
- * Servlet adapter for {@link EnforcementResponse}. Writes go through the response writer, so an already committed
- * response surfaces as {@link IOException} to the caller (enforcement handlers treat that as best-effort).
+ * Servlet adapter for {@link EnforcementResponse}. Writes go through the response writer.
+ * When {@link HttpServletResponse#isCommitted()} is true, callers should skip mutation via
+ * {@link #isCommitted()}; otherwise an already committed response may surface as {@link IOException}.
  */
 public final class ServletEnforcementResponse implements EnforcementResponse {
 
@@ -36,5 +37,10 @@ public final class ServletEnforcementResponse implements EnforcementResponse {
     @Override
     public void writeBody(String body) throws IOException {
         response.getWriter().write(body);
+    }
+
+    @Override
+    public boolean isCommitted() {
+        return response.isCommitted();
     }
 }

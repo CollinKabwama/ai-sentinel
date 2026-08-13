@@ -7,7 +7,8 @@ import java.io.IOException;
  * decision core from any servlet or web framework.
  * <p>
  * Adapters live in the integration layer (for example {@code ServletEnforcementResponse} in the Spring Boot starter).
- * Callers should treat writes as best-effort: an already committed response may surface as {@link IOException}.
+ * Callers should treat writes as best-effort: an already committed response may surface as {@link IOException},
+ * and handlers should consult {@link #isCommitted()} before mutating status or body when possible.
  * <p>
  * <strong>Thread safety:</strong> one response instance is bound to a single request; do not share across threads.
  */
@@ -21,4 +22,14 @@ public interface EnforcementResponse {
 
     /** Writes a response body. May throw if the underlying response is already committed. */
     void writeBody(String body) throws IOException;
+
+    /**
+     * Whether the underlying HTTP response is already committed (headers/body flushed).
+     * Default {@code false} for non-servlet or test adapters; servlet adapters override.
+     * When {@code true}, status/body mutations must be skipped — enforcement state and telemetry
+     * may still be recorded.
+     */
+    default boolean isCommitted() {
+        return false;
+    }
 }

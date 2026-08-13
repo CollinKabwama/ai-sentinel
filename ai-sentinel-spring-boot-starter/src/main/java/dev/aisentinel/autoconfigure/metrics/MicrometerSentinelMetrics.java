@@ -1,13 +1,17 @@
 package dev.aisentinel.autoconfigure.metrics;
 
-import dev.aisentinel.core.policy.EnforcementAction;
+import dev.aisentinel.core.decision.EvaluationStatus;
+import dev.aisentinel.core.metrics.FailOpenReason;
 import dev.aisentinel.core.metrics.SentinelMetrics;
+import dev.aisentinel.core.policy.EnforcementAction;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.DistributionSummary;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
 
+import java.util.Collection;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
@@ -35,6 +39,9 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Counter modelRetrainFailure;
 
     private final Counter failOpen;
+    private final Map<String, Counter> failOpenByReason = new LinkedHashMap<>();
+    private final Map<String, Counter> evaluationStatusByName = new LinkedHashMap<>();
+    private final Map<String, Counter> isolationForestScoreModeByName = new LinkedHashMap<>();
     private final Counter nanClamped;
     private final Counter scoringErrors;
 
@@ -85,6 +92,11 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Counter trustBaselineRedisFailure;
     private final Counter trustBaselineRedisFallback;
 
+    private final Map<String, Counter> baselineUpdateAcceptedByMode = new LinkedHashMap<>();
+    private final Map<String, Counter> baselineUpdateSkippedByMode = new LinkedHashMap<>();
+    private final Counter baselineUpdateAcceptedWarmup;
+    private final Map<String, Counter> baselineRelearnByReason = new LinkedHashMap<>();
+
     public MicrometerSentinelMetrics(MeterRegistry registry) {
         this.scoreComposite = DistributionSummary.builder("aisentinel.score.composite")
             .description("Blended anomaly score after composite weighting")
@@ -110,7 +122,7 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
             .publishPercentiles(0.5, 0.99)
             .register(registry);
         this.latencyScoring = Timer.builder("aisentinel.latency.scoring")
-            .description("Scorer score + update latency")
+            .description("AnomalyScorer score latency")
             .publishPercentiles(0.5, 0.99)
             .register(registry);
         this.latencyIf = Timer.builder("aisentinel.latency.if")
@@ -124,7 +136,27 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         this.modelRetrainSuccess = Counter.builder("aisentinel.model.retrain.success").register(registry);
         this.modelRetrainFailure = Counter.builder("aisentinel.model.retrain.failure").register(registry);
 
-        this.failOpen = Counter.builder("aisentinel.failopen.count").register(registry);
+        this.failOpen = Counter.builder("aisentinel.failopen.count")
+            .description("Aggregate fail-open count (all reasons)")
+            .register(registry);
+        for (FailOpenReason reason : FailOpenReason.values()) {
+            failOpenByReason.put(reason.name(), Counter.builder("aisentinel.failopen.reason")
+                .description("Fail-open by structured reason")
+                .tag("reason", reason.name())
+                .register(registry));
+        }
+        for (EvaluationStatus status : EvaluationStatus.values()) {
+            evaluationStatusByName.put(status.name(), Counter.builder("aisentinel.evaluation.status")
+                .description("EvaluationStatus observed on completed RiskDecision")
+                .tag("status", status.name())
+                .register(registry));
+        }
+        for (String mode : List.of("MODEL", "FALLBACK_NO_MODEL", "FALLBACK_INVALID")) {
+            isolationForestScoreModeByName.put(mode, Counter.builder("aisentinel.isolationforest.score.mode")
+                .description("Isolation Forest request-path score resolution mode")
+                .tag("mode", mode)
+                .register(registry));
+        }
         this.nanClamped = Counter.builder("aisentinel.nan.clamped.count").register(registry);
         this.scoringErrors = Counter.builder("aisentinel.errors.scoring.count").register(registry);
 
@@ -242,6 +274,26 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         this.trustBaselineRedisFallback = Counter.builder("aisentinel.identity.trust.baseline.redis.fallback")
             .description("Behavioral trust baseline used in-memory store after Redis failure")
             .register(registry);
+
+        for (String mode : List.of("ALWAYS", "ALLOW_ONLY", "ALLOW_OR_MONITOR", "SCORE_BELOW_THRESHOLD")) {
+            baselineUpdateAcceptedByMode.put(mode, Counter.builder("aisentinel.baseline.update.accepted")
+                .description("Online scorer update accepted by baseline-update policy")
+                .tag("policy", mode)
+                .register(registry));
+            baselineUpdateSkippedByMode.put(mode, Counter.builder("aisentinel.baseline.update.skipped")
+                .description("Online scorer update skipped by baseline-update policy")
+                .tag("policy", mode)
+                .register(registry));
+        }
+        this.baselineUpdateAcceptedWarmup = Counter.builder("aisentinel.baseline.update.accepted.warmup")
+            .description("Baseline updates accepted while statistical warmup is active")
+            .register(registry);
+        for (String reason : List.of("EXPLICIT")) {
+            baselineRelearnByReason.put(reason, Counter.builder("aisentinel.baseline.relearn")
+                .description("Statistical baseline key reset (controlled explicit relearn)")
+                .tag("reason", reason)
+                .register(registry));
+        }
     }
 
     @Override
@@ -266,6 +318,17 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     }
 
     @Override
+    public void recordIsolationForestScoreMode(String mode) {
+        if (mode == null || mode.isBlank()) {
+            return;
+        }
+        Counter counter = isolationForestScoreModeByName.get(mode);
+        if (counter != null) {
+            counter.increment();
+        }
+    }
+
+    @Override
     public void recordPipelineLatencyNanos(long nanos) {
         if (nanos >= 0) {
             latencyPipeline.record(nanos, TimeUnit.NANOSECONDS);
@@ -277,6 +340,41 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         if (nanos >= 0) {
             latencyScoring.record(nanos, TimeUnit.NANOSECONDS);
         }
+    }
+
+    @Override
+    public void recordBaselineUpdateAccepted(String policyMode, boolean warmup) {
+        Counter counter = baselineUpdateAcceptedByMode.get(normalizePolicyMode(policyMode));
+        if (counter != null) {
+            counter.increment();
+        }
+        if (warmup) {
+            baselineUpdateAcceptedWarmup.increment();
+        }
+    }
+
+    @Override
+    public void recordBaselineUpdateSkipped(String policyMode) {
+        Counter counter = baselineUpdateSkippedByMode.get(normalizePolicyMode(policyMode));
+        if (counter != null) {
+            counter.increment();
+        }
+    }
+
+    @Override
+    public void recordBaselineRelearn(String reason) {
+        String normalized = reason == null || reason.isBlank() ? "EXPLICIT" : reason;
+        Counter counter = baselineRelearnByReason.get(normalized);
+        if (counter != null) {
+            counter.increment();
+        }
+    }
+
+    private static String normalizePolicyMode(String policyMode) {
+        if (policyMode == null || policyMode.isBlank()) {
+            return "ALLOW_OR_MONITOR";
+        }
+        return policyMode;
     }
 
     @Override
@@ -300,6 +398,33 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     @Override
     public void recordFailOpen() {
         failOpen.increment();
+    }
+
+    @Override
+    public void recordFailOpen(FailOpenReason reason) {
+        failOpen.increment();
+        if (reason != null) {
+            Counter counter = failOpenByReason.get(reason.name());
+            if (counter != null) {
+                counter.increment();
+            }
+        }
+    }
+
+    @Override
+    public void recordEvaluationStatuses(Collection<? extends Enum<?>> statuses) {
+        if (statuses == null) {
+            return;
+        }
+        for (Enum<?> status : statuses) {
+            if (status == null) {
+                continue;
+            }
+            Counter counter = evaluationStatusByName.get(status.name());
+            if (counter != null) {
+                counter.increment();
+            }
+        }
     }
 
     @Override

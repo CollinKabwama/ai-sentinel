@@ -2,6 +2,8 @@ package dev.aisentinel.core.metrics;
 
 import dev.aisentinel.core.policy.EnforcementAction;
 
+import java.util.Collection;
+
 /**
  * Optional observability hooks for Sentinel (no Micrometer/Spring dependency in core).
  * Default methods are no-ops; production wiring is provided by the Spring Boot starter.
@@ -19,10 +21,38 @@ public interface SentinelMetrics {
     /** Isolation Forest sub-score (or fallback when no model). */
     default void recordIsolationForestScore(double score) {}
 
+    /**
+     * Isolation Forest request-path resolution mode ({@code MODEL}, {@code FALLBACK_NO_MODEL},
+     * {@code FALLBACK_INVALID}). Call in addition to {@link #recordIsolationForestScore(double)}.
+     */
+    default void recordIsolationForestScoreMode(String mode) {}
+
     default void recordPipelineLatencyNanos(long nanos) {}
 
-    /** Time spent in {@link dev.aisentinel.core.scoring.AnomalyScorer#score} + {@code update} for the request. */
+    /** Time spent in {@link dev.aisentinel.core.scoring.AnomalyScorer#score} for the request. */
     default void recordScoringLatencyNanos(long nanos) {}
+
+    /**
+     * Online baseline / scorer update ran for this request.
+     *
+     * @param policyMode low-cardinality {@link dev.aisentinel.core.baseline.BaselineUpdateMode#name()}
+     * @param warmup     {@code true} when update was forced because evaluation was in statistical warmup
+     */
+    default void recordBaselineUpdateAccepted(String policyMode, boolean warmup) {}
+
+    /**
+     * Online baseline / scorer update was skipped by the configured policy.
+     *
+     * @param policyMode low-cardinality {@link dev.aisentinel.core.baseline.BaselineUpdateMode#name()}
+     */
+    default void recordBaselineUpdateSkipped(String policyMode) {}
+
+    /**
+     * Statistical baseline key was reset (controlled relearn).
+     *
+     * @param reason low-cardinality reason such as {@code EXPLICIT}
+     */
+    default void recordBaselineRelearn(String reason) {}
 
     /** IF model inference only (hot path inside {@link dev.aisentinel.core.scoring.IsolationForestScorer#score}). */
     default void recordIsolationForestInferenceLatencyNanos(long nanos) {}
@@ -30,8 +60,25 @@ public interface SentinelMetrics {
     /** Policy outcome applied (after grace / quarantine overrides). */
     default void recordPolicyAction(EnforcementAction action) {}
 
-    /** Request allowed despite pipeline error (fail-open). */
+    /**
+     * Request allowed despite pipeline error (fail-open). Aggregate counter for back-compat;
+     * prefer {@link #recordFailOpen(FailOpenReason)} so operators can split by cause.
+     */
     default void recordFailOpen() {}
+
+    /**
+     * Fail-open with a structured reason. Default implementation delegates to {@link #recordFailOpen()}
+     * so existing {@link SentinelMetrics} implementations remain source-compatible.
+     */
+    default void recordFailOpen(FailOpenReason reason) {
+        recordFailOpen();
+    }
+
+    /**
+     * Records each {@link dev.aisentinel.core.decision.EvaluationStatus} observed on a completed decision.
+     * Default no-op; Micrometer tags by status name (low cardinality enum).
+     */
+    default void recordEvaluationStatuses(Collection<? extends Enum<?>> statuses) {}
 
     /** Illegal raw score corrected before policy (NaN or negative). */
     default void recordNanOrNegativeScoreClamped() {}

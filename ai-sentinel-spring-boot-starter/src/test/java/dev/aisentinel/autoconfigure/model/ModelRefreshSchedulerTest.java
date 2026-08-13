@@ -73,6 +73,111 @@ class ModelRefreshSchedulerTest {
     }
 
     @Test
+    void tickSkipsSameRegistryVersionWhenModelLoaded() throws Exception {
+        BoundedTrainingBuffer buf = new BoundedTrainingBuffer(50);
+        IsolationForestConfig cfg = new IsolationForestConfig(0.5, 2, 5, 3, 1L, 1.0, 0.99);
+        IsolationForestScorer scorer = new IsolationForestScorer(buf, cfg, SentinelMetrics.NOOP);
+        List<double[]> samples = List.of(
+            new double[] {1, 2, 3, 4, 5},
+            new double[] {2, 2, 2, 2, 2},
+            new double[] {3, 3, 3, 3, 3}
+        );
+        var m = new IsolationForestTrainer(5, 3, 42L).train(samples);
+        byte[] payload = IsolationForestModelCodec.encode(m);
+        String hash = TrainingFingerprintHashes.sha256HexBytes(payload);
+        var meta = new ModelArtifactMetadata(
+            "default",
+            "v-same",
+            ModelArtifactMetadata.CURRENT_ARTIFACT_SCHEMA_VERSION,
+            2,
+            ModelArtifactMetadata.MODEL_TYPE_ISOLATION_FOREST_V1,
+            900L,
+            5,
+            5,
+            3,
+            3,
+            hash
+        );
+        assertThat(scorer.tryInstallFromRegistry(meta, payload)).isTrue();
+
+        AtomicLong skipped = new AtomicLong();
+        AtomicLong success = new AtomicLong();
+        SentinelMetrics metrics = new SentinelMetrics() {
+            @Override
+            public void recordModelRegistryRefreshSkippedSameVersion() {
+                skipped.incrementAndGet();
+            }
+
+            @Override
+            public void recordModelRegistryRefreshSuccess() {
+                success.incrementAndGet();
+            }
+        };
+        ModelRegistryReader reader = new ModelRegistryReader() {
+            @Override
+            public Optional<ModelArtifactMetadata> resolveActiveMetadata(String tenantId) {
+                return Optional.of(meta);
+            }
+
+            @Override
+            public Optional<byte[]> fetchPayload(String tenantId, String modelVersion) {
+                return Optional.of(payload);
+            }
+        };
+        SentinelProperties props = new SentinelProperties();
+        props.getDistributed().setTenantId("default");
+        ModelRefreshScheduler sched = new ModelRefreshScheduler(scorer, reader, props, metrics);
+        sched.tick();
+        assertThat(skipped.get()).isEqualTo(1);
+        assertThat(success.get()).isEqualTo(0);
+        assertThat(scorer.getRegistryArtifactVersion()).isEqualTo("v-same");
+    }
+
+    @Test
+    void tickRecordsFailureWhenPayloadMissing() {
+        BoundedTrainingBuffer buf = new BoundedTrainingBuffer(10);
+        IsolationForestConfig cfg = new IsolationForestConfig(0.5, 2, 5, 3, 1L, 1.0, 0.99);
+        IsolationForestScorer scorer = new IsolationForestScorer(buf, cfg, SentinelMetrics.NOOP);
+        AtomicLong failures = new AtomicLong();
+        SentinelMetrics metrics = new SentinelMetrics() {
+            @Override
+            public void recordModelRegistryRefreshFailure() {
+                failures.incrementAndGet();
+            }
+        };
+        var meta = new ModelArtifactMetadata(
+            "default",
+            "v-missing",
+            ModelArtifactMetadata.CURRENT_ARTIFACT_SCHEMA_VERSION,
+            2,
+            ModelArtifactMetadata.MODEL_TYPE_ISOLATION_FOREST_V1,
+            900L,
+            5,
+            5,
+            3,
+            3,
+            "deadbeef"
+        );
+        ModelRegistryReader reader = new ModelRegistryReader() {
+            @Override
+            public Optional<ModelArtifactMetadata> resolveActiveMetadata(String tenantId) {
+                return Optional.of(meta);
+            }
+
+            @Override
+            public Optional<byte[]> fetchPayload(String tenantId, String modelVersion) {
+                return Optional.empty();
+            }
+        };
+        SentinelProperties props = new SentinelProperties();
+        props.getDistributed().setTenantId("default");
+        ModelRefreshScheduler sched = new ModelRefreshScheduler(scorer, reader, props, metrics);
+        sched.tick();
+        assertThat(failures.get()).isEqualTo(1);
+        assertThat(scorer.isModelLoaded()).isFalse();
+    }
+
+    @Test
     void startRunsImmediateRefreshOffThread() throws Exception {
         BoundedTrainingBuffer buf = new BoundedTrainingBuffer(10);
         IsolationForestConfig cfg = new IsolationForestConfig(0.5, 2, 5, 3, 1L, 1.0, 0.99);

@@ -1,6 +1,7 @@
 package dev.aisentinel.autoconfigure.actuator;
 
 import dev.aisentinel.autoconfigure.config.SentinelProperties;
+import dev.aisentinel.core.decision.LastDecisionExplanation;
 import dev.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.model.RequestFeatures;
@@ -9,6 +10,7 @@ import dev.aisentinel.core.scoring.CompositeScorer;
 import dev.aisentinel.core.scoring.IsolationForestConfig;
 import dev.aisentinel.core.scoring.IsolationForestScorer;
 import dev.aisentinel.core.scoring.StatisticalScorer;
+import dev.aisentinel.core.scoring.StatisticalScoreSnapshot;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.BeansException;
@@ -84,9 +86,12 @@ class SentinelActuatorEndpointTest {
         assertThat(info).containsKeys("enabled", "mode", "isolationForestEnabled", "quarantineCount",
             "startupGraceActive", "enforcementScope", "activeThrottleCount", "activeQuarantineCount",
             "acceptedTrainingSampleCount", "rejectedTrainingSampleCount", "lastScoreComponents",
+            "lastDecision", "lastDecisionScope",
             "distributedEnabled", "distributedClusterQuarantineReadEnabled", "distributedClusterQuarantineWriteEnabled",
             "distributedClusterThrottleEnabled", "distributedRedisEnabled", "distributedRedisKeyPrefix",
             "distributedTrainingPublishEnabled", "distributedTrainingKafkaEnabled", "distributedTrainingCandidatesTopic");
+        assertThat(info.get("lastDecisionScope")).isEqualTo("lastCompletedDecisionOnThisJvm");
+        assertThat(info.get("lastDecision")).isEqualTo(Map.of());
         assertThat(info.get("enabled")).isEqualTo(true);
         assertThat(info.get("mode")).isEqualTo("ENFORCE");
         assertThat(info.get("isolationForestEnabled")).isEqualTo(false);
@@ -158,8 +163,130 @@ class SentinelActuatorEndpointTest {
         @SuppressWarnings("unchecked")
         Map<String, Object> components = (Map<String, Object>) endpoint.info().get("lastScoreComponents");
 
-        assertThat(components).containsKeys("statistical", "composite", "evaluatedAtMillis");
+        assertThat(components).containsKeys("statistical", "composite", "evaluatedAtMillis",
+            "isolationForestIncludedInBlend");
         assertThat(components.get("statistical")).isEqualTo(0.55);
         assertThat(components.get("composite")).isEqualTo(0.55);
+        assertThat(components.get("isolationForestIncludedInBlend")).isEqualTo(false);
+    }
+
+    @Test
+    void lastDecisionExplainsActionScoresAndStatisticalDominantWithoutSensitiveFields() {
+        SentinelProperties props = new SentinelProperties();
+        var holder = new LastDecisionExplanation();
+        holder.record(new LastDecisionExplanation.Snapshot(
+            "BLOCK",
+            0.91,
+            0.91,
+            false,
+            java.util.List.of("COMPLETE", "STATISTICAL_LIVE"),
+            java.util.List.of("LIVE"),
+            "FALLBACK_NO_MODEL",
+            0.91,
+            0.5,
+            false,
+            new StatisticalScoreSnapshot(0.91, false, "requestsPerWindow", 100.0, 10.0, 1.0, 90.0, 20.0),
+            false,
+            1_700_000_000_000L
+        ));
+
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, null,
+            holder, null, null, null, null, null, nullProvider(), nullProvider());
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> last = (Map<String, Object>) endpoint.info().get("lastDecision");
+
+        assertThat(last.get("action")).isEqualTo("BLOCK");
+        assertThat(last.get("policyBand")).isEqualTo("BLOCK");
+        assertThat(last.get("anomalyScore")).isEqualTo(0.91);
+        assertThat(last.get("isolationForestScoreMode")).isEqualTo("FALLBACK_NO_MODEL");
+        assertThat(last.get("isolationForestIncludedInBlend")).isEqualTo(false);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> se = (Map<String, Object>) last.get("statisticalExplanation");
+        assertThat(se.get("dominantFeature")).isEqualTo("requestsPerWindow");
+        assertThat(last.keySet()).doesNotContain("identityHash", "endpoint", "ipBucket", "headerFingerprintHash",
+            "context", "features", "token");
+        String encoded = last.toString();
+        assertThat(encoded).doesNotContain("identityHash").doesNotContain("/api/");
+    }
+
+    @Test
+    void lastDecisionReportsModelFallbackAndDegradedPhases() {
+        SentinelProperties props = new SentinelProperties();
+        var holder = new LastDecisionExplanation();
+        holder.record(new LastDecisionExplanation.Snapshot(
+            "MONITOR",
+            0.4,
+            0.4,
+            false,
+            java.util.List.of("DEGRADED", "MODEL_FALLBACK_USED", "MODEL_UNAVAILABLE", "STATISTICAL_WARMUP"),
+            java.util.List.of("DEGRADED", "MODEL_FALLBACK", "WARMUP"),
+            "FALLBACK_NO_MODEL",
+            0.4,
+            0.5,
+            false,
+            StatisticalScoreSnapshot.warmup(0.4),
+            false,
+            99L
+        ));
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, null,
+            holder, null, null, null, null, null, nullProvider(), nullProvider());
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> last = (Map<String, Object>) endpoint.info().get("lastDecision");
+        assertThat(last.get("operatorPhases")).asList().contains("MODEL_FALLBACK", "DEGRADED", "WARMUP");
+        assertThat(last.get("isolationForestIncludedInBlend")).isEqualTo(false);
+    }
+
+    @Test
+    void isolationForestModeFieldsReportSensibleDefaultBeforeAnyScoreAndUpdateAfter() {
+        SentinelProperties props = new SentinelProperties();
+        props.getIsolationForest().setEnabled(true);
+        var buffer = new BoundedTrainingBuffer(500);
+        var config = new IsolationForestConfig(0.5, 50, 20, 8, 42L, 1.0);
+        IsolationForestScorer ifScorer = new IsolationForestScorer(buffer, config);
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), ifScorer, StartupGrace.NEVER, null, null,
+            null, null, null, null, null, nullProvider(), nullProvider());
+
+        // Before any request has been scored: no model loaded yet, but the field is present and
+        // reports a meaningful (not null) fallback-mode default rather than an ambiguous absence.
+        Map<String, Object> initial = endpoint.info();
+        assertThat(initial.get("isolationForestLastScoreMode")).isEqualTo("FALLBACK_NO_MODEL");
+        assertThat(initial.get("isolationForestActiveModelSource")).isEqualTo("NONE");
+
+        RequestFeatures f = RequestFeatures.builder()
+            .identityHash("id").endpoint("/api").timestampMillis(0)
+            .requestsPerWindow(1).endpointEntropy(0).tokenAgeSeconds(60)
+            .parameterCount(0).payloadSizeBytes(0).headerFingerprintHash(0).ipBucket(0)
+            .build();
+
+        // Still no model: scoring keeps reporting the fallback mode, not a stale/absent value.
+        ifScorer.score(f);
+        assertThat(endpoint.info().get("isolationForestLastScoreMode")).isEqualTo("FALLBACK_NO_MODEL");
+
+        // Recovery: once a model is trained and installed, the next score reports MODEL — no
+        // stale FALLBACK_NO_MODEL survives after the dependency becomes healthy.
+        for (int i = 0; i < 100; i++) {
+            buffer.add(new double[] {i % 10, 0.5, 60, 2, 100 + i});
+        }
+        ifScorer.retrain();
+        assertThat(ifScorer.isModelLoaded()).isTrue();
+        ifScorer.score(f);
+
+        Map<String, Object> recovered = endpoint.info();
+        assertThat(recovered.get("isolationForestLastScoreMode")).isEqualTo("MODEL");
+        assertThat(recovered.get("isolationForestActiveModelSource")).isEqualTo("LOCAL_RETRAIN");
+    }
+
+    @Test
+    void evaluationStatusModelIsAlwaysPresentAndBounded() {
+        SentinelProperties props = new SentinelProperties();
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, null,
+            null, null, null, null, null, nullProvider(), nullProvider());
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> model = (Map<String, Object>) endpoint.info().get("evaluationStatusModel");
+
+        assertThat(model).containsKeys("WARMUP", "LIVE", "MODEL_FALLBACK", "DEGRADED", "FAIL_OPEN");
     }
 }
