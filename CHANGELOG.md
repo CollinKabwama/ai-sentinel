@@ -12,6 +12,9 @@ Operator-facing hardening of statistical learning, observability, and deployment
 **Recommended first deployment mode remains `MONITOR`.** This release does **not** claim
 production-ready `ENFORCE` from synthetic tests alone.
 
+See also: [`docs/migration.md`](docs/migration.md) · [`docs/deployment.md`](docs/deployment.md) ·
+[`docs/testing.md`](docs/testing.md)
+
 ### Added
 
 - **Evaluation lifecycle on decisions** — `RiskDecision.evaluationStatuses` carries markers such as

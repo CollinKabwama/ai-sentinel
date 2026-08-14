@@ -16,7 +16,8 @@ mvn clean verify
 ```
 
 This is the **primary release gate**. It runs unit, integration, architecture, characterization,
-and module packaging for the full reactor.
+and module packaging for the full reactor. The same command is what CI should run for pull
+requests and release candidates.
 
 When Docker is unavailable, Testcontainers-backed distributed checks are **skipped** (typically five
 tests in the starter module). Skips are expected in that environment; failures and errors are not.
