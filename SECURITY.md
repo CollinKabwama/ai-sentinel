@@ -43,3 +43,5 @@ Maintainers will acknowledge receipt when possible and coordinate a fix and disc
 
 No security boundary is perfect; review changes in your own threat model before production use.
 This project is an early open-source release (see parent `pom.xml` version); treat production readiness as an operator judgment, not a claim of the library alone.
+
+Related: [`docs/deployment.md`](docs/deployment.md) · [`CHANGELOG.md`](CHANGELOG.md) · [`docs/migration.md`](docs/migration.md)
