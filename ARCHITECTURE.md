@@ -296,6 +296,8 @@ Dedicated distributed meters (`aisentinel.distributed.*`, `aisentinel.identity.t
 
 ## 14. Testing strategy
 
+Canonical release-gate command and characterization inventory: [`docs/testing.md`](docs/testing.md).
+
 - **Unit tests** — `ai-sentinel-core`: scorers, policy boundaries, resolver logic, enforcement maps, IF buffer and retrain behavior, codec/metadata.
 - **Architecture tests** — `CoreIndependenceArchTest` (no Spring/servlet/`reactor.*` in core); starter `StarterServletBoundaryArchTest` (servlet types only under `autoconfigure.web`).
 - **Spring slice tests** — `ai-sentinel-spring-boot-starter`: auto-configuration, actuator JSON shape, filter/proxy integration, model registry beans (`dev.aisentinel.autoconfigure.model.*`).
