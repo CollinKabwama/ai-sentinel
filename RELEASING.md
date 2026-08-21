@@ -216,6 +216,7 @@ curl -sS --request POST \
 ## Related docs
 
 - [`CHANGELOG.md`](CHANGELOG.md) — user-facing release notes
+- [`docs/README.md`](docs/README.md) — docs layout and operator reading order
 - [`docs/migration.md`](docs/migration.md) — upgrade from the previous published line
 - [`docs/testing.md`](docs/testing.md) — characterization and release gates
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — runtime design
