@@ -109,7 +109,7 @@ mvn clean install
 
 To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter:0.2.0` (or the version in the parent `pom.xml`). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
 
-Characterization and release-gate testing: [`docs/testing.md`](docs/testing.md). Upgrading from the previous published line: [`docs/migration.md`](docs/migration.md).
+Characterization and release-gate testing: [`docs/testing.md`](docs/testing.md). Upgrading from the previous published line: [`docs/migration.md`](docs/migration.md). Docs index and reading order: [`docs/README.md`](docs/README.md).
 
 **Publishing to Maven Central:** see **[`RELEASING.md`](RELEASING.md)** for the full release checklist (Central Portal, GPG, `-Prelease` deploy).
 
