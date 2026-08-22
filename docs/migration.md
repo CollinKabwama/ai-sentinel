@@ -110,10 +110,13 @@ switch to `RiskDecision.of(...)` or pass an `evaluationStatuses` set.
 
 ## Related docs
 
-- [`CHANGELOG.md`](../CHANGELOG.md)
-- [`configuration.md`](configuration.md)
-- [`deployment.md`](deployment.md)
-- [`testing.md`](testing.md)
-- [`../RELEASING.md`](../RELEASING.md)
-- [`../ARCHITECTURE.md`](../ARCHITECTURE.md)
-- [`../SECURITY.md`](../SECURITY.md)
+| Doc | Use when |
+|-----|----------|
+| [`CHANGELOG.md`](../CHANGELOG.md) | Reviewing user-facing changes in this release line |
+| [`configuration.md`](configuration.md) | Looking up exact property names and defaults |
+| [`deployment.md`](deployment.md) | Choosing OFF / MONITOR / ENFORCE and fail-open posture |
+| [`testing.md`](testing.md) | Validating a build with the characterization / release gate |
+| [`../ARCHITECTURE.md`](../ARCHITECTURE.md) | Understanding runtime components and replaceability |
+| [`../SECURITY.md`](../SECURITY.md) | Threat-model notes and reporting process |
+| [`../RELEASING.md`](../RELEASING.md) | Publishing artifacts (maintainers) |
+| [`README.md`](README.md) | Docs layout and reading order |

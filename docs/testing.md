@@ -19,6 +19,9 @@ This is the **primary release gate**. It runs unit, integration, architecture, c
 and module packaging for the full reactor. The same command is what CI should run for pull
 requests and release candidates.
 
+`mvn test` alone is useful for fast local iteration, but it is **not** a substitute for the release
+gate: packaging and some module checks only run under `verify`.
+
 When Docker is unavailable, Testcontainers-backed distributed checks are **skipped** (typically five
 tests in the starter module). Skips are expected in that environment; failures and errors are not.
 
