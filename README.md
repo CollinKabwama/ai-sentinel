@@ -1,12 +1,14 @@
 # AI-Sentinel
 
-**Zero-trust API defense for Spring Boot** — runtime behavioral analysis, identity-aware trust, anomaly scoring, optional risk fusion, and adaptive enforcement, all **in-process** in your JVM.
+**Zero-trust API defense** — continuous identity-keyed behavioral risk evaluation and adaptive application response. The currently available implementation is an **in-process Java 21 Spring Boot/Servlet** library.
 
 ---
 
 ## Overview
 
-AI-Sentinel is a library and Spring Boot starter that evaluates each HTTP request using privacy-oriented features (rates, entropy, payload shape, header fingerprints, IP buckets, and related signals). It combines statistical baselines with an optional **Isolation Forest** model, optionally blends **identity trust** with **anomaly risk**, and maps the outcome to actions: allow, monitor, throttle, block, or quarantine. There is no hosted scoring service: a servlet **filter** runs the pipeline on every request.
+AI-Sentinel evaluates each request using privacy-oriented behavioral features (rates, entropy, payload shape, header fingerprints, IP buckets, and related signals). It combines statistical baselines with an optional **Isolation Forest** model, optionally blends **identity trust** with **anomaly risk**, and maps the outcome to actions: allow, monitor, throttle, block, or quarantine.
+
+**How it is packaged today:** there is no hosted scoring service. A servlet **filter** in the Spring Boot starter adapts each HTTP request into the decision core and runs the pipeline in-process. The decision core (`ai-sentinel-core`) is Java code that does **not** depend on Spring or Servlet APIs; the starter is the **current deployable adapter**, not the entire security architecture.
 
 **Problem it addresses:** Static rules and coarse rate limits miss gradual or identity-specific abuse. AI-Sentinel complements authentication and infrastructure controls with **per-identity** behavioral signals and a single, configurable policy surface.
 
@@ -30,10 +32,10 @@ AI-Sentinel is a library and Spring Boot starter that evaluates each HTTP reques
 
 | Layer | Responsibility |
 |-------|------------------|
-| **ai-sentinel-core** | Framework-independent engine (pipeline, decision engine, scoring, policy, enforcement) |
-| **ai-sentinel-spring-boot-starter** | Auto-configuration, `SentinelFilter`, `SentinelProperties`, actuator, Micrometer, optional Redis and Kafka integration |
+| **ai-sentinel-core** | Framework-independent **Java** engine (pipeline, decision engine, scoring, policy, enforcement). No Spring, Servlet, or Reactor on the core classpath. |
+| **ai-sentinel-spring-boot-starter** | **Current** Spring Boot / Servlet adapter: auto-configuration, `SentinelFilter`, `SentinelProperties`, actuator, Micrometer, optional Redis and Kafka integration |
 | **ai-sentinel-trainer** | Optional application: consumes training candidates, trains Isolation Forest models, publishes artifacts to a shared filesystem registry |
-| **ai-sentinel-demo** | Reference application and smoke tests |
+| **ai-sentinel-demo** | Reference Spring Boot application and smoke tests |
 
 Runtime details, extension points, and distributed components are described in **[`ARCHITECTURE.md`](ARCHITECTURE.md)**.
 
