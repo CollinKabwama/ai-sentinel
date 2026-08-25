@@ -1,6 +1,14 @@
 # AI-Sentinel — Architecture (as implemented)
 
-This document describes the **current** runtime architecture of the AI-Sentinel Spring Boot starter and core library. It replaces earlier design-only notes (e.g. external ML libraries or modules that were never added to this repository).
+This document describes the **current** runtime architecture: a **Java** decision core plus the **Spring Boot / Servlet** starter that ships as the reference integration. It replaces earlier design-only notes (e.g. external ML libraries or modules that were never added to this repository).
+
+**Layering (keep these distinct):**
+
+1. **Security model** — identity/request context → behavioral signals → risk evaluation → policy → adaptive response → telemetry/learning  
+2. **Java core** (`ai-sentinel-core`) — implements that model without Spring, Servlet, or Reactor dependencies  
+3. **Current adapter** (`ai-sentinel-spring-boot-starter`) — Servlet filter and Spring Boot wiring; requires **Java 21**
+
+Framework-independent means free of Spring/Servlet/Reactor APIs inside the Java core — **not** language-independent, and not a claim that other runtime adapters are available today.
 
 ---
 
@@ -23,10 +31,10 @@ Latency is optimized with bounded maps, careful locking, and lock-free IF infere
 
 ```
 ai-sentinel/
-├── ai-sentinel-core/                 # Framework-independent engine (no servlet, no Spring)
-├── ai-sentinel-spring-boot-starter/  # Servlet filter, auto-config, actuator, Micrometer
+├── ai-sentinel-core/                 # Java decision core (no servlet, no Spring, no Reactor)
+├── ai-sentinel-spring-boot-starter/  # Current Servlet filter, auto-config, actuator, Micrometer
 ├── ai-sentinel-trainer/              # Optional app: Kafka consumer, IF training, filesystem registry publisher
-├── ai-sentinel-demo/                 # Reference application
+├── ai-sentinel-demo/                 # Reference Spring Boot application
 └── scripts/                          # Optional Python traffic / training helpers
 ```
 
