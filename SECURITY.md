@@ -36,6 +36,7 @@ Maintainers will acknowledge receipt when possible and coordinate a fix and disc
 ## Known limitations
 
 - **Not a full WAF or IAM product** — AI-Sentinel complements auth and infrastructure controls; it does not replace them.
+- **Current deployable path is Java 21 + Spring Boot / Servlet** — the decision core is free of Spring/Servlet APIs, but the only shipped application integration today is the servlet starter. Other runtime adapters are not available in this repository.
 - **Distributed features depend on Redis/Kafka** — Misconfiguration, credential leaks, or broker compromise are outside this library’s scope; follow standard practices for secrets and network policy.
 - **Filesystem model registry** — Uses a shared filesystem layout; OS permissions and shared mounts are your responsibility.
 - **Trainer dedup is JVM-local** — Duplicate `eventId` handling does not survive process restarts or multiple trainer instances without external coordination.
