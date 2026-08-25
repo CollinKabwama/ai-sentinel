@@ -39,10 +39,10 @@ When your PR **deprecates** functionality (but keeps it working for a transition
 
 | Module | Purpose |
 |--------|---------|
-| **ai-sentinel-core** | Framework-agnostic engine: features, scorers, `SentinelDecisionEngine` / `RiskDecision`, policy, enforcement, pipeline contracts, Isolation Forest training/scoring, model artifact types (`dev.aisentinel.model.*`). |
-| **ai-sentinel-spring-boot-starter** | Spring Boot auto-configuration, servlet filter, `SentinelProperties`, actuator, Micrometer adapter, optional distributed and model-registry beans. |
+| **ai-sentinel-core** | Framework-independent **Java** engine (no Spring/Servlet/Reactor): features, scorers, `SentinelDecisionEngine` / `RiskDecision`, policy, enforcement, pipeline contracts, Isolation Forest training/scoring, model artifact types (`dev.aisentinel.model.*`). |
+| **ai-sentinel-spring-boot-starter** | **Current** Spring Boot / Servlet adapter: auto-configuration, servlet filter, `SentinelProperties`, actuator, Micrometer, optional distributed and model-registry beans. |
 | **ai-sentinel-trainer** | Optional standalone Spring Boot app: consumes training candidates (Kafka when enabled), trains IF, publishes to a filesystem model registry. See [`ai-sentinel-trainer/README.md`](ai-sentinel-trainer/README.md). |
-| **ai-sentinel-demo** | Reference app for local runs and smoke tests. |
+| **ai-sentinel-demo** | Reference Spring Boot app for local runs and smoke tests. |
 
 ---
 

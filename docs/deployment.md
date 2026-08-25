@@ -1,6 +1,6 @@
 # Deployment modes and operator safety
 
-This guide states **actual** `OFF` / `MONITOR` / `ENFORCE` behavior from the Spring Boot starter filter and core pipeline. It is the primary reference for safe adoption.
+This guide states **actual** `OFF` / `MONITOR` / `ENFORCE` behavior from the **current** Spring Boot / Servlet starter filter and core pipeline. It is the primary reference for safe adoption of the Java 21 deployable integration.
 
 **Recommended initial deployment mode: `MONITOR`.**  
 Do not enable `ENFORCE` based on synthetic regression suites alone. Application-specific monitoring, tuning, and operational validation are required first.
@@ -9,7 +9,7 @@ Property defaults (verified): `ai.sentinel.enabled=true`, `ai.sentinel.mode=ENFO
 
 Full property tables: [`configuration.md`](configuration.md). Upgrade from the previous published
 line (`0.1.0`): [`migration.md`](migration.md). Validation gates: [`testing.md`](testing.md).
-Architecture and observability: [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
+Architecture (security model vs Java core vs current adapter) and observability: [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
 ---
 
