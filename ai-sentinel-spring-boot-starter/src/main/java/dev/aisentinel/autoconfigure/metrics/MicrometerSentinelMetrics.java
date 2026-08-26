@@ -43,6 +43,7 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Map<String, Counter> evaluationStatusByName = new LinkedHashMap<>();
     private final Map<String, Counter> isolationForestScoreModeByName = new LinkedHashMap<>();
     private final Counter nanClamped;
+    private final Counter invalidScoreRejected;
     private final Counter scoringErrors;
 
     private final Counter distributedQuarantineLookup;
@@ -157,7 +158,12 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
                 .tag("mode", mode)
                 .register(registry));
         }
-        this.nanClamped = Counter.builder("aisentinel.nan.clamped.count").register(registry);
+        this.nanClamped = Counter.builder("aisentinel.nan.clamped.count")
+            .description("Legacy: historically NaN/negative clamped to 1.0; prefer aisentinel.invalid.score.rejected")
+            .register(registry);
+        this.invalidScoreRejected = Counter.builder("aisentinel.invalid.score.rejected")
+            .description("Scorer returned NaN/±Infinity/negative; classified INVALID_SCORE (not max risk)")
+            .register(registry);
         this.scoringErrors = Counter.builder("aisentinel.errors.scoring.count").register(registry);
 
         this.distributedQuarantineLookup = Counter.builder("aisentinel.distributed.quarantine.lookup")
@@ -430,6 +436,11 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     @Override
     public void recordNanOrNegativeScoreClamped() {
         nanClamped.increment();
+    }
+
+    @Override
+    public void recordInvalidScoreRejected() {
+        invalidScoreRejected.increment();
     }
 
     @Override
