@@ -239,6 +239,54 @@ class SentinelActuatorEndpointTest {
     }
 
     @Test
+    void lastDecisionNullsNonFiniteScoresForInvalidScorePresentation() throws Exception {
+        SentinelProperties props = new SentinelProperties();
+        var holder = new LastDecisionExplanation();
+        holder.record(new LastDecisionExplanation.Snapshot(
+            "ALLOW",
+            Double.NaN,
+            Double.NaN,
+            false,
+            java.util.List.of("INVALID_SCORE"),
+            java.util.List.of("LIVE"),
+            null,
+            null,
+            Double.POSITIVE_INFINITY,
+            false,
+            null,
+            false,
+            42L
+        ));
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, null,
+            holder, null, null, null, null, null, nullProvider(), nullProvider());
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> last = (Map<String, Object>) endpoint.info().get("lastDecision");
+        assertThat(last.get("action")).isEqualTo("ALLOW");
+        assertThat(last.get("anomalyScore")).isNull();
+        assertThat(last.get("policyScore")).isNull();
+        assertThat(last.get("isolationForestScore")).isNull();
+        assertThat(last.get("evaluationStatuses")).asList().contains("INVALID_SCORE");
+        // Must not look like legitimate 0.0 or 1.0 risk, and must not emit a NaN token.
+        assertThat(last.get("anomalyScore")).isNotEqualTo(0.0);
+        assertThat(last.get("anomalyScore")).isNotEqualTo(1.0);
+        String encoded = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(last);
+        assertThat(encoded).doesNotContain("NaN");
+        assertThat(encoded).doesNotContain("Infinity");
+        assertThat(encoded).contains("\"anomalyScore\":null");
+        assertThat(encoded).contains("INVALID_SCORE");
+    }
+
+    @Test
+    void finiteScoreOrNullMapsOnlyNonFinite() {
+        assertThat(SentinelActuatorEndpoint.finiteScoreOrNull(0.0)).isEqualTo(0.0);
+        assertThat(SentinelActuatorEndpoint.finiteScoreOrNull(1.0)).isEqualTo(1.0);
+        assertThat(SentinelActuatorEndpoint.finiteScoreOrNull(Double.NaN)).isNull();
+        assertThat(SentinelActuatorEndpoint.finiteScoreOrNull(Double.POSITIVE_INFINITY)).isNull();
+        assertThat(SentinelActuatorEndpoint.finiteScoreOrNull(Double.NEGATIVE_INFINITY)).isNull();
+    }
+
+    @Test
     void isolationForestModeFieldsReportSensibleDefaultBeforeAnyScoreAndUpdateAfter() {
         SentinelProperties props = new SentinelProperties();
         props.getIsolationForest().setEnabled(true);

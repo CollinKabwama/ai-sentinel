@@ -231,11 +231,11 @@ public class SentinelActuatorEndpoint {
             return Map.of();
         }
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("statistical", Double.isNaN(snap.statistical()) ? null : snap.statistical());
+        m.put("statistical", finiteScoreOrNull(snap.statistical()));
         if (snap.isolationForest() != null) {
-            m.put("isolationForest", snap.isolationForest());
+            m.put("isolationForest", finiteScoreOrNull(snap.isolationForest()));
         }
-        m.put("composite", snap.composite());
+        m.put("composite", finiteScoreOrNull(snap.composite()));
         m.put("isolationForestIncludedInBlend", snap.isolationForestIncludedInBlend());
         if (snap.isolationForestScoreMode() != null) {
             m.put("isolationForestScoreMode", snap.isolationForestScoreMode());
@@ -254,8 +254,11 @@ public class SentinelActuatorEndpoint {
         }
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("action", snap.action());
-        m.put("anomalyScore", snap.anomalyScore());
-        m.put("policyScore", snap.policyScore());
+        // Public/JSON boundary: never emit NaN/Inf as score numbers (Jackson would stringify "NaN").
+        // Internal Snapshot may still hold NaN for INVALID_SCORE; null here is unambiguous and
+        // cannot be mistaken for legitimate 0.0 or 1.0 risk. Status list carries INVALID_SCORE.
+        m.put("anomalyScore", finiteScoreOrNull(snap.anomalyScore()));
+        m.put("policyScore", finiteScoreOrNull(snap.policyScore()));
         m.put("policyScoreDiffersFromAnomaly", snap.policyScoreDiffersFromAnomaly());
         m.put("policyBand", snap.action());
         m.put("evaluationStatuses", snap.evaluationStatuses());
@@ -264,10 +267,10 @@ public class SentinelActuatorEndpoint {
             m.put("isolationForestScoreMode", snap.isolationForestScoreMode());
         }
         if (snap.statisticalScore() != null) {
-            m.put("statisticalScore", snap.statisticalScore());
+            m.put("statisticalScore", finiteScoreOrNull(snap.statisticalScore()));
         }
         if (snap.isolationForestScore() != null) {
-            m.put("isolationForestScore", snap.isolationForestScore());
+            m.put("isolationForestScore", finiteScoreOrNull(snap.isolationForestScore()));
         }
         if (snap.isolationForestIncludedInBlend() != null) {
             m.put("isolationForestIncludedInBlend", snap.isolationForestIncludedInBlend());
@@ -275,20 +278,25 @@ public class SentinelActuatorEndpoint {
         StatisticalScoreSnapshot se = snap.statisticalExplanation();
         if (se != null) {
             Map<String, Object> stat = new LinkedHashMap<>();
-            stat.put("score", se.score());
+            stat.put("score", finiteScoreOrNull(se.score()));
             stat.put("warmup", se.warmup());
             if (se.dominantFeature() != null) {
                 stat.put("dominantFeature", se.dominantFeature());
-                stat.put("observedValue", se.observedValue());
-                stat.put("referenceMean", se.referenceMean());
-                stat.put("effectiveStd", se.effectiveStd());
-                stat.put("rawAbsZ", se.rawAbsZ());
-                stat.put("cappedAbsZ", se.cappedAbsZ());
+                stat.put("observedValue", finiteScoreOrNull(se.observedValue()));
+                stat.put("referenceMean", finiteScoreOrNull(se.referenceMean()));
+                stat.put("effectiveStd", finiteScoreOrNull(se.effectiveStd()));
+                stat.put("rawAbsZ", finiteScoreOrNull(se.rawAbsZ()));
+                stat.put("cappedAbsZ", finiteScoreOrNull(se.cappedAbsZ()));
             }
             m.put("statisticalExplanation", stat);
         }
         m.put("startupGraceActive", snap.startupGraceActive());
         m.put("evaluatedAtMillis", snap.evaluatedAtEpochMillis());
         return m;
+    }
+
+    /** Presentation-only: finite scores pass through; NaN/±Infinity become {@code null}. */
+    static Double finiteScoreOrNull(double score) {
+        return Double.isFinite(score) ? score : null;
     }
 }
