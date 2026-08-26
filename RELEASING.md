@@ -173,7 +173,7 @@ git tag -a v0.2.0 -m "Release 0.2.0"
 git push origin v0.2.0
 ```
 
-Commit the version bump on `main` if it is not already committed. Use the same version string you published (current library line is **0.2.0**).
+Commit the version bump on `main` if it is not already committed. Use the same version string you published (latest published library line is **0.2.0**; the development tree may already be ahead, for example **0.2.1**).
 
 ### 6. Bump to the next development version (optional)
 

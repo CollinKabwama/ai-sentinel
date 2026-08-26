@@ -99,7 +99,7 @@ Add the starter dependency:
 </dependency>
 ```
 
-Published artifacts use the version in the parent `pom.xml` (currently **0.2.0**). For a local build not yet released, install with `mvn clean install` and use that same version.
+Published Maven Central line is **0.2.0** (tag `v0.2.0`). The parent `pom.xml` on this branch is **0.2.1** for ongoing development — for a local install not yet released, use that tree version after `mvn clean install`.
 
 Upgrade notes from **0.1.0**: [`docs/migration.md`](docs/migration.md). Full history: [`CHANGELOG.md`](CHANGELOG.md).
 
