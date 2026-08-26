@@ -170,10 +170,19 @@ class InvalidScoreSemanticsTest {
         assertThat(scorer.updates.get()).isZero();
         assertThat(metrics.invalidRejected.get()).isEqualTo(1);
         assertThat(metrics.nanClamped.get()).isZero();
-        assertThat(telemetry.events).extracting(TelemetryEvent::type)
-            .doesNotContain("ThreatScored", "AnomalyDetected");
+        assertThat(telemetry.events).extracting(TelemetryEvent::type).doesNotContain("AnomalyDetected");
+        assertThat(telemetry.events).extracting(TelemetryEvent::type).contains("ThreatScored");
+        TelemetryEvent threat = telemetry.events.stream()
+            .filter(e -> "ThreatScored".equals(e.type()))
+            .findFirst()
+            .orElseThrow();
+        assertThat(threat.payload().get("advisoryCode")).isEqualTo("REVIEW_SCORER_HEALTH");
         assertThat(decision.action()).isNotIn(
             EnforcementAction.THROTTLE, EnforcementAction.BLOCK, EnforcementAction.QUARANTINE);
+        assertThat(decision.explanation().advice().code().name()).isEqualTo("REVIEW_SCORER_HEALTH");
+        assertThat(decision.explanation().factors())
+            .extracting(f -> f.code().name())
+            .contains("INVALID_SCORE_SIGNAL");
     }
 
     @ParameterizedTest

@@ -341,9 +341,6 @@ public final class SentinelDecisionEngine {
 
         Set<EvaluationStatus> finalStatuses = Set.copyOf(statuses);
         metrics.recordEvaluationStatuses(finalStatuses);
-        telemetry.emit(TelemetryEvent.threatScored(
-            identityHash, features.endpoint(), policyScore, finalStatuses,
-            isolationForestScoreModeForTelemetry(ifModeForStatuses)));
         if (score > 0.5) {
             telemetry.emit(TelemetryEvent.anomalyDetected(identityHash, features.endpoint(), score));
         }
@@ -356,7 +353,16 @@ public final class SentinelDecisionEngine {
         }
 
         metrics.recordPolicyAction(action);
-        return new RiskDecision(action, score, policyScore, features, ctx, startupGraceActive, finalStatuses);
+        DecisionExplanationEvidence evidence = ctx.get(
+            ExplanationContextKeys.DECISION_EXPLANATION, DecisionExplanationEvidence.class);
+        RiskExplanation explanation = RiskExplanationDeriver.derive(
+            action, finalStatuses, evidence, ctx, score, policyScore);
+        metrics.recordRiskExplanation(explanation);
+        telemetry.emit(TelemetryEvent.threatScored(
+            identityHash, features.endpoint(), policyScore, finalStatuses,
+            isolationForestScoreModeForTelemetry(ifModeForStatuses), explanation));
+        return new RiskDecision(action, score, policyScore, features, ctx, startupGraceActive, finalStatuses,
+            explanation);
     }
 
     /**
@@ -391,6 +397,13 @@ public final class SentinelDecisionEngine {
         }
 
         metrics.recordPolicyAction(action);
+        DecisionExplanationEvidence evidence = ctx.get(
+            ExplanationContextKeys.DECISION_EXPLANATION, DecisionExplanationEvidence.class);
+        RiskExplanation explanation = RiskExplanationDeriver.derive(
+            action, finalStatuses, evidence, ctx, Double.NaN, Double.NaN);
+        metrics.recordRiskExplanation(explanation);
+        telemetry.emit(TelemetryEvent.threatScored(
+            identityHash, features.endpoint(), Double.NaN, finalStatuses, null, explanation));
         return new RiskDecision(
             action,
             Double.NaN,
@@ -398,7 +411,8 @@ public final class SentinelDecisionEngine {
             features,
             ctx,
             startupGraceActive,
-            finalStatuses);
+            finalStatuses,
+            explanation);
     }
 
     private void recordFailOpen(FailOpenReason reason, String endpoint) {

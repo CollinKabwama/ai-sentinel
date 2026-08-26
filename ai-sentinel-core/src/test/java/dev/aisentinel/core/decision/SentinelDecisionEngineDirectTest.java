@@ -148,7 +148,8 @@ class SentinelDecisionEngineDirectTest {
         assertThat(decision.hasStatus(EvaluationStatus.INVALID_SCORE)).isTrue();
         assertThat(decision.hasStatus(EvaluationStatus.COMPLETE)).isFalse();
         assertThat(scorer.updates).isZero();
-        assertThat(telemetry.events).extracting(TelemetryEvent::type).doesNotContain("ThreatScored");
+        assertThat(telemetry.events).extracting(TelemetryEvent::type).contains("ThreatScored");
+        assertThat(decision.explanation().advice().code().name()).isEqualTo("REVIEW_SCORER_HEALTH");
     }
 
     @Test
