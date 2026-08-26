@@ -80,8 +80,18 @@ public interface SentinelMetrics {
      */
     default void recordEvaluationStatuses(Collection<? extends Enum<?>> statuses) {}
 
-    /** Illegal raw score corrected before policy (NaN or negative). */
+    /**
+     * Legacy meter: historically incremented when NaN/negative scores were clamped to {@code 1.0}.
+     * Prefer {@link #recordInvalidScoreRejected()} for new call sites. Retained for meter continuity;
+     * Increment 1 no longer clamps invalid scores to maximum risk.
+     */
     default void recordNanOrNegativeScoreClamped() {}
+
+    /**
+     * Scorer returned NaN, {@code ±Infinity}, or a negative finite value; decision path rejected it as
+     * {@link dev.aisentinel.core.decision.EvaluationStatus#INVALID_SCORE} (not maximum risk).
+     */
+    default void recordInvalidScoreRejected() {}
 
     /** Exception during scoring/update. */
     default void recordScoringError() {}
