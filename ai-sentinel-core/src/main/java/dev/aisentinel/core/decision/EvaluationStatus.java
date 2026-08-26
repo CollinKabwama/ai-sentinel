@@ -6,7 +6,7 @@ package dev.aisentinel.core.decision;
  * A decision may carry multiple statuses (e.g. statistical live + model fallback).
  * {@link #COMPLETE} means no degradation or fallback occurred and must not be combined with
  * {@link #MODEL_FALLBACK_USED}, {@link #MODEL_UNAVAILABLE}, {@link #STATISTICAL_WARMUP},
- * or {@link #DEGRADED}.
+ * {@link #DEGRADED}, or {@link #INVALID_SCORE}.
  * {@link #BASELINE_UPDATE_SKIPPED} may appear alongside {@link #COMPLETE} or {@link #STATISTICAL_LIVE}.
  * <p>
  * <b>Operator-facing aliases</b> (see {@link OperatorEvaluationPhase}):
@@ -53,5 +53,15 @@ public enum EvaluationStatus {
      * Statistical Welford state for this identity|endpoint was reset on this request
      * (explicit operator relearn). The next observations re-enter {@link #STATISTICAL_WARMUP}.
      */
-    BASELINE_RELEARNED
+    BASELINE_RELEARNED,
+
+    /**
+     * The anomaly scorer returned a numeric result that cannot be interpreted as a valid risk score
+     * ({@code NaN}, {@code ±Infinity}, or a negative finite value). This is <em>not</em> high risk,
+     * not a scorer exception ({@link dev.aisentinel.core.metrics.FailOpenReason#SCORER_FAILURE}),
+     * and not optional-subsystem {@link #DEGRADED}. Policy must not run on the invalid scalar;
+     * the presented action is fail-open {@link dev.aisentinel.core.policy.EnforcementAction#ALLOW}
+     * unless existing quarantine state already applies.
+     */
+    INVALID_SCORE
 }

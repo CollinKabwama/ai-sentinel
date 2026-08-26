@@ -42,8 +42,9 @@ public final class DeterministicRequestRiskFusion implements RequestRiskFusion {
 
     /**
      * Defensive clamp for inputs to {@link #fuse}; NaN maps to 0 so fusion stays bounded.
-     * On the request path, anomaly and trust are already finite: {@link dev.aisentinel.core.SentinelPipeline} clamps the
-     * scorer first, and trust comes from {@link dev.aisentinel.core.identity.model.TrustScore}.
+     * On the request path, anomaly scores are validated by {@link dev.aisentinel.core.decision.SentinelDecisionEngine}
+     * before fusion ({@code INVALID_SCORE} skips fusion). Trust comes from
+     * {@link dev.aisentinel.core.identity.model.TrustScore} when present.
      */
     private static double clamp01(double v) {
         if (Double.isNaN(v) || v < 0) {

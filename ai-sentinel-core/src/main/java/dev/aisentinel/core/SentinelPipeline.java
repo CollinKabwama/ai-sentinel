@@ -4,6 +4,7 @@ import dev.aisentinel.core.baseline.BaselineLifecycle;
 import dev.aisentinel.core.baseline.BaselineUpdatePolicy;
 import dev.aisentinel.core.baseline.ConfigurableBaselineUpdatePolicy;
 import dev.aisentinel.core.decision.DecisionExplanationEvidence;
+import dev.aisentinel.core.decision.EvaluationStatus;
 import dev.aisentinel.core.decision.ExplanationContextKeys;
 import dev.aisentinel.core.decision.LastDecisionExplanation;
 import dev.aisentinel.core.decision.OperatorEvaluationPhase;
@@ -266,8 +267,10 @@ public final class SentinelPipeline {
             EnforcementAction action = decision.action();
             boolean proceed = enforcementHandler.apply(action, request, response, identityHash, features.endpoint());
 
-            offerTrainingCandidate(features, identityHash, action, decision.anomalyScore(), proceed,
-                decision.startupGraceActive(), ctx);
+            if (!decision.hasStatus(EvaluationStatus.INVALID_SCORE)) {
+                offerTrainingCandidate(features, identityHash, action, decision.anomalyScore(), proceed,
+                    decision.startupGraceActive(), ctx);
+            }
 
             returnValue = proceed;
             return returnValue;

@@ -11,8 +11,10 @@ import java.util.Set;
  * Outcome of {@link SentinelDecisionEngine#evaluate}: the action to enforce plus the scores that produced it.
  *
  * @param action             final action after policy, trust adjustment, warmup override, startup grace, and quarantine
- * @param anomalyScore       clamped raw scorer output in {@code [0, 1]} (NaN or negative becomes {@code 1.0})
- * @param policyScore        score handed to the {@link dev.aisentinel.core.policy.PolicyEngine} (fused when enabled)
+ * @param anomalyScore       scorer output after range clamp for finite {@code ≥ 0} values ({@code [0, 1]});
+ *                           when {@link EvaluationStatus#INVALID_SCORE} is present, may be {@code NaN} (not a risk level)
+ * @param policyScore        score handed to the {@link dev.aisentinel.core.policy.PolicyEngine} (fused when enabled);
+ *                           {@code NaN} when evaluation was {@link EvaluationStatus#INVALID_SCORE} (policy skipped)
  * @param features           features the decision was made from
  * @param context            snapshot <em>reference</em> to the per-request context (not a deep copy); callers must
  *                           treat it as read-only after the decision is published if they care about audit integrity

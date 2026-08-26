@@ -247,13 +247,14 @@ public final class SentinelDecisionEngine {
             metrics.recordScoringLatencyNanos(System.nanoTime() - scoreStart);
         }
 
-        // Safety net for custom AnomalyScorer beans that return NaN/negative without going through
-        // CompositeScorer. Default wiring clamps inside CompositeScorer first (and records this metric
-        // there), so this branch does not double-count under the stock CompositeScorer path.
-        if (Double.isNaN(rawScore) || rawScore < 0) {
-            metrics.recordNanOrNegativeScoreClamped();
+        // Authoritative invalid-score boundary: NaN / ±Infinity / negative ≠ maximum risk.
+        // Finite values > 1 are range-clamped below and take the normal policy path.
+        if (isInvalidScore(rawScore)) {
+            return buildInvalidScoreDecision(
+                identityHash, features, ctx, evaluationStatuses, optionalPathDegraded);
         }
-        double score = clampScore(rawScore);
+
+        double score = clampFiniteScore(rawScore);
 
         double policyScore = score;
         if (riskFusion.enabled()) {
@@ -358,6 +359,48 @@ public final class SentinelDecisionEngine {
         return new RiskDecision(action, score, policyScore, features, ctx, startupGraceActive, finalStatuses);
     }
 
+    /**
+     * Builds an {@link EvaluationStatus#INVALID_SCORE} decision: no threshold policy, no baseline update,
+     * presented {@link EnforcementAction#ALLOW}, unless existing quarantine already applies.
+     * Scores remain {@link Double#NaN} so they cannot be mistaken for legitimate low risk.
+     */
+    private RiskDecision buildInvalidScoreDecision(String identityHash,
+                                                   RequestFeatures features,
+                                                   RequestContext ctx,
+                                                   Set<EvaluationStatus> collectedStatuses,
+                                                   boolean optionalPathDegraded) {
+        metrics.recordInvalidScoreRejected();
+        EnumSet<EvaluationStatus> statuses = EnumSet.noneOf(EvaluationStatus.class);
+        if (collectedStatuses != null) {
+            statuses.addAll(collectedStatuses);
+        }
+        statuses.remove(EvaluationStatus.COMPLETE);
+        statuses.add(EvaluationStatus.INVALID_SCORE);
+        if (optionalPathDegraded) {
+            statuses.add(EvaluationStatus.DEGRADED);
+        }
+
+        Set<EvaluationStatus> finalStatuses = Set.copyOf(statuses);
+        metrics.recordEvaluationStatuses(finalStatuses);
+
+        EnforcementAction action = EnforcementAction.ALLOW;
+        boolean startupGraceActive = false;
+        // Existing quarantine remains authoritative; invalid scores must not create new quarantine.
+        if (enforcementHandler.isQuarantined(identityHash, features.endpoint())) {
+            action = EnforcementAction.QUARANTINE;
+        }
+
+        metrics.recordPolicyAction(action);
+        return new RiskDecision(
+            action,
+            Double.NaN,
+            Double.NaN,
+            features,
+            ctx,
+            startupGraceActive,
+            finalStatuses);
+    }
+
     private void recordFailOpen(FailOpenReason reason, String endpoint) {
         metrics.recordFailOpen(reason);
         telemetry.emit(TelemetryEvent.failOpen(reason, endpoint));
@@ -393,13 +436,28 @@ public final class SentinelDecisionEngine {
         return null;
     }
 
+    /** {@code NaN}, {@code ±Infinity}, or negative finite — not interpretable as risk. */
+    static boolean isInvalidScore(double score) {
+        return Double.isNaN(score) || Double.isInfinite(score) || score < 0;
+    }
+
     /**
-     * Prevents NaN or out-of-range scores from causing policy bypass; treat NaN as high risk.
-     * Fusion runs only after this clamp, so {@link dev.aisentinel.core.fusion.DeterministicRequestRiskFusion}'s internal
-     * {@code clamp01} treating NaN as 0 is not used for raw scorer output on the request path.
+     * Range-clamps a <em>valid</em> finite {@code ≥ 0} score into {@code [0, 1]}.
+     * Call only after {@link #isInvalidScore(double)} is false.
      */
-    static double clampScore(double score) {
-        if (Double.isNaN(score) || score < 0) return 1.0;
+    static double clampFiniteScore(double score) {
         return Math.min(1.0, score);
+    }
+
+    /**
+     * @deprecated Use {@link #isInvalidScore(double)} + {@link #clampFiniteScore(double)}.
+     * Legacy name retained for any reflective/test callers; invalid scores are no longer mapped to {@code 1.0}.
+     */
+    @Deprecated
+    static double clampScore(double score) {
+        if (isInvalidScore(score)) {
+            return Double.NaN;
+        }
+        return clampFiniteScore(score);
     }
 }

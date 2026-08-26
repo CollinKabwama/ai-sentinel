@@ -25,6 +25,7 @@ class MicrometerSentinelMetricsTest {
             dev.aisentinel.core.decision.EvaluationStatus.MODEL_FALLBACK_USED,
             dev.aisentinel.core.decision.EvaluationStatus.MODEL_UNAVAILABLE));
         m.recordNanOrNegativeScoreClamped();
+        m.recordInvalidScoreRejected();
         m.recordScoringError();
         m.recordPipelineLatencyNanos(1_000_000L);
         m.recordScoringLatencyNanos(500_000L);
@@ -39,6 +40,7 @@ class MicrometerSentinelMetricsTest {
         assertThat(registry.find("aisentinel.isolationforest.score.mode").tag("mode", "FALLBACK_NO_MODEL").counter().count()).isEqualTo(1.0);
         assertThat(registry.find("aisentinel.evaluation.status").tag("status", "MODEL_FALLBACK_USED").counter().count()).isEqualTo(1.0);
         assertThat(registry.find("aisentinel.nan.clamped.count").counter().count()).isEqualTo(1.0);
+        assertThat(registry.find("aisentinel.invalid.score.rejected").counter().count()).isEqualTo(1.0);
         assertThat(registry.find("aisentinel.errors.scoring.count").counter().count()).isEqualTo(1.0);
         assertThat(registry.find("aisentinel.latency.pipeline").timer().count()).isEqualTo(1L);
         assertThat(registry.find("aisentinel.model.retrain.success").counter().count()).isEqualTo(1.0);

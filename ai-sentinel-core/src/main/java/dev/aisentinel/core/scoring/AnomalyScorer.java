@@ -7,8 +7,9 @@ import dev.aisentinel.core.model.RequestFeatures;
  * <p>
  * Used on the <strong>request path</strong> inside {@link dev.aisentinel.core.SentinelPipeline}. Implementations must be
  * thread-safe for concurrent {@link #score} / {@link #update} calls and should avoid blocking I/O. Scores returned from
- * {@link #score} are expected in {@code [0.0, 1.0]} (higher = more anomalous); NaN or negative values may be clamped
- * downstream by the composite scorer.
+ * {@link #score} are expected in {@code [0.0, 1.0]} (higher = more anomalous). {@code NaN}, {@code ±Infinity},
+ * or negative finite values are invalid and are rejected by {@link dev.aisentinel.core.decision.SentinelDecisionEngine}
+ * as {@link dev.aisentinel.core.decision.EvaluationStatus#INVALID_SCORE} (not clamped to maximum risk).
  */
 public interface AnomalyScorer {
 

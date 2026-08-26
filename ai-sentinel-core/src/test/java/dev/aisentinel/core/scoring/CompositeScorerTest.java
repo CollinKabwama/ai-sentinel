@@ -24,7 +24,7 @@ class CompositeScorerTest {
         .build();
 
     @Test
-    void nanScoreReturnsOneNotBypass() {
+    void nanScorePropagatesForDecisionEngineInvalidClassification() {
         AtomicInteger nanClamped = new AtomicInteger();
         var composite = new CompositeScorer(new SentinelMetrics() {
             @Override
@@ -40,12 +40,12 @@ class CompositeScorerTest {
             @Override
             public void update(RequestFeatures features) {}
         }, 1.0);
-        assertThat(composite.score(FEATURES)).isEqualTo(1.0);
-        assertThat(nanClamped.get()).isEqualTo(1);
+        assertThat(Double.isNaN(composite.score(FEATURES))).isTrue();
+        assertThat(nanClamped.get()).isZero();
     }
 
     @Test
-    void negativeScoreReturnsOne() {
+    void negativeScorePropagatesForDecisionEngineInvalidClassification() {
         AtomicInteger nanClamped = new AtomicInteger();
         var composite = new CompositeScorer(new SentinelMetrics() {
             @Override
@@ -59,8 +59,36 @@ class CompositeScorerTest {
             @Override
             public void update(RequestFeatures features) {}
         }, 1.0);
+        assertThat(composite.score(FEATURES)).isEqualTo(-0.5);
+        assertThat(nanClamped.get()).isZero();
+    }
+
+    @Test
+    void positiveInfinityPropagatesAsInvalidNotClampedToOne() {
+        var composite = new CompositeScorer();
+        composite.addScorer(new AnomalyScorer() {
+            @Override
+            public double score(RequestFeatures features) {
+                return Double.POSITIVE_INFINITY;
+            }
+            @Override
+            public void update(RequestFeatures features) {}
+        }, 1.0);
+        assertThat(Double.isInfinite(composite.score(FEATURES))).isTrue();
+    }
+
+    @Test
+    void finiteAboveOneIsRangeClampedOnComposite() {
+        var composite = new CompositeScorer();
+        composite.addScorer(new AnomalyScorer() {
+            @Override
+            public double score(RequestFeatures features) {
+                return 1.5;
+            }
+            @Override
+            public void update(RequestFeatures features) {}
+        }, 1.0);
         assertThat(composite.score(FEATURES)).isEqualTo(1.0);
-        assertThat(nanClamped.get()).isEqualTo(1);
     }
 
     @Test
