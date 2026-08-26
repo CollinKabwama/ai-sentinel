@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html)
 for the published library line.
 
+## [Unreleased]
+
+Development line after **0.2.0** (tree version **0.2.1**). No published Central release yet for this line.
+
 ## [0.2.0] — 2026-08-09
 
 Operator-facing hardening of statistical learning, observability, and deployment guidance.
@@ -114,5 +118,6 @@ See also: [`docs/migration.md`](docs/migration.md) · [`docs/deployment.md`](doc
 Initial Maven Central library line: Spring Boot starter, framework-independent scoring core,
 local MONITOR/ENFORCE deployment, optional Isolation Forest and distributed integrations.
 
+[Unreleased]: https://github.com/CollinKabwama/ai-sentinel/compare/v0.2.0...HEAD
 [0.2.0]: https://github.com/CollinKabwama/ai-sentinel/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.1.0
