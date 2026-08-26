@@ -236,7 +236,22 @@ public final class StatisticalScorer implements AnomalyScorer {
             }
         }
         double s = sigmoid(maxCappedZ);
-        double out = Double.isNaN(s) ? 1.0 : Math.min(1.0, Math.max(0.0, s));
+        // Non-finite sigmoid output is an invalid score for the decision engine (not maximum risk).
+        if (Double.isNaN(s) || Double.isInfinite(s)) {
+            metrics.recordStatisticalScore(Double.NaN);
+            StatisticalScoreSnapshot invalidSnap = new StatisticalScoreSnapshot(
+                Double.NaN,
+                false,
+                StatisticalFeatureNames.nameAt(dominantIdx),
+                dominantObserved,
+                dominantMean,
+                dominantEffStd,
+                dominantRawAbsZ,
+                dominantCappedAbsZ
+            );
+            return new StatisticalScoreOutcome(Double.NaN, invalidSnap);
+        }
+        double out = Math.min(1.0, Math.max(0.0, s));
         metrics.recordStatisticalScore(out);
         StatisticalScoreSnapshot snap = new StatisticalScoreSnapshot(
             out,

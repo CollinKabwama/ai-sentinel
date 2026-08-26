@@ -11,12 +11,17 @@ import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Isolation Forest-based anomaly scorer. Uses a bounded training buffer and
- * async retrain to produce scores in [0,1]. When no model is loaded (or the model
- * returns an invalid score), returns a configurable fallback score for visibility
- * and {@link LastScoreMode} telemetry. {@link CompositeScorer} includes IF in the
- * weighted blend only when {@link LastScoreMode#MODEL} — fallback values do not dilute
- * the statistical composite. Isolation Forest exposes a single scalar; it does not
- * provide per-feature attribution.
+ * async retrain to produce scores in [0,1]. When no model is loaded, returns a
+ * configurable fallback score for visibility with {@link LastScoreMode#FALLBACK_NO_MODEL}.
+ * When a loaded model returns an invalid score (NaN, {@code ±Infinity}, or negative),
+ * the raw invalid value is <em>propagated</em> with {@link LastScoreMode#FALLBACK_INVALID}
+ * so the {@link dev.aisentinel.core.decision.SentinelDecisionEngine} authoritative boundary
+ * classifies it as {@code INVALID_SCORE} — it is never converted into a valid-looking
+ * risk score (independent-review P0: {@code +Infinity} must not become {@code 1.0}).
+ * {@link CompositeScorer} includes IF in the weighted blend only when
+ * {@link LastScoreMode#MODEL} — fallback/invalid values do not dilute the statistical
+ * composite. Isolation Forest exposes a single scalar; it does not provide per-feature
+ * attribution.
  */
 public final class IsolationForestScorer implements AnomalyScorer {
 
@@ -51,8 +56,15 @@ public final class IsolationForestScorer implements AnomalyScorer {
 
     /** How the most recent request-path {@link #score(RequestFeatures)} resolved. */
     public enum LastScoreMode {
+        /** Loaded model produced a valid finite score in {@code [0, ∞)}; finite {@code >1} is range-clamped to 1.0. */
         MODEL,
+        /** No model loaded; configured finite fallback score returned. */
         FALLBACK_NO_MODEL,
+        /**
+         * Loaded model returned NaN, {@code ±Infinity}, or a negative value. The raw invalid value
+         * is propagated (not replaced by the fallback) so the decision engine classifies it
+         * {@code INVALID_SCORE}. Excluded from the composite blend.
+         */
         FALLBACK_INVALID
     }
 
@@ -111,15 +123,18 @@ public final class IsolationForestScorer implements AnomalyScorer {
         if (recordRequestMetrics) {
             metrics.recordIsolationForestInferenceLatencyNanos(infNanos);
         }
-        if (Double.isNaN(s) || s < 0) {
+        // Reject ALL non-finite and negative model outputs. Propagate the raw invalid value —
+        // never the fallback, 0.0, 0.5, or 1.0 — so the decision engine's authoritative
+        // invalid-score boundary classifies it INVALID_SCORE. Without the isInfinite check,
+        // +Infinity previously slipped through and Math.min laundered it into a MODEL 1.0.
+        if (Double.isNaN(s) || Double.isInfinite(s) || s < 0) {
             LastScoreMode mode = LastScoreMode.FALLBACK_INVALID;
             lastScoreMode = mode;
-            double fb = config.getFallbackScore();
             if (recordRequestMetrics) {
-                metrics.recordIsolationForestScore(fb);
+                // Do not record the invalid value into the score histogram; mode counter only.
                 metrics.recordIsolationForestScoreMode(mode.name());
             }
-            return new IsolationForestScoreOutcome(fb, mode);
+            return new IsolationForestScoreOutcome(s, mode);
         }
         LastScoreMode mode = LastScoreMode.MODEL;
         lastScoreMode = mode;
@@ -141,8 +156,12 @@ public final class IsolationForestScorer implements AnomalyScorer {
         IsolationForestModel m = model;
         if (m != null) {
             double anomalyScore = scoreWithMode(features, false).score();
+            // An invalid gate score means the model cannot vet this sample; treat the gate as
+            // unavailable (train, same as the no-model path) rather than comparing against an
+            // invalid scalar (+Infinity would always reject; NaN would always accept).
+            boolean gateUsable = !Double.isNaN(anomalyScore) && !Double.isInfinite(anomalyScore) && anomalyScore >= 0;
             double rejectionThreshold = config.getTrainingRejectionScoreThreshold();
-            if (anomalyScore > rejectionThreshold) {
+            if (gateUsable && anomalyScore > rejectionThreshold) {
                 rejectedTrainingSampleCount.incrementAndGet();
                 return;
             }
