@@ -19,4 +19,11 @@ public interface ClusterQuarantineReader {
      * @return millis-since-epoch when quarantine lifts, or empty if not quarantined / unknown / error
      */
     OptionalLong quarantineUntil(String tenantId, String enforcementKey);
+
+    /**
+     * Drops any local positive/negative lookup cache entry for the exact key so a just-cleared
+     * cluster quarantine cannot be reasserted from stale cache. Default no-op.
+     */
+    default void invalidateQuarantineLookup(String tenantId, String enforcementKey) {
+    }
 }

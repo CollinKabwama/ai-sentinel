@@ -53,6 +53,13 @@ public final class BoundedQuarantineLookupCache {
         map.put(redisKey, new Entry(OptionalLong.empty(), exp));
     }
 
+    /** Removes a cached positive or negative entry for {@code redisKey} (no-op if absent). */
+    public void invalidate(String redisKey) {
+        if (redisKey != null) {
+            map.remove(redisKey);
+        }
+    }
+
     public int size() {
         return map.size();
     }

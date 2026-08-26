@@ -129,6 +129,20 @@ public final class RedisClusterQuarantineReader implements ClusterQuarantineRead
         return OptionalLong.of(until);
     }
 
+    @Override
+    public void invalidateQuarantineLookup(String tenantId, String enforcementKey) {
+        if (!cacheEnabled || cache == null) {
+            return;
+        }
+        var redis = properties.getDistributed().getRedis();
+        String redisKey = DistributedQuarantineKeyBuilder.redisKey(
+            redis.getKeyPrefix(),
+            tenantId != null && !tenantId.isBlank() ? tenantId : "default",
+            enforcementKey != null ? enforcementKey : "");
+        cache.invalidate(redisKey);
+        status.setApproximateCacheSize(cache.size());
+    }
+
     /**
      * Runs Redis GET off the request thread with a future timeout. The future timeout returns control to the caller;
      * it does not reliably interrupt blocking Lettuce work—use Redis client timeouts as the primary bound.

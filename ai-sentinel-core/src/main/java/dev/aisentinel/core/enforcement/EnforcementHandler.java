@@ -34,4 +34,18 @@ public interface EnforcementHandler {
     default boolean isQuarantined(String identityHash) {
         return isQuarantined(identityHash, "");
     }
+
+    /**
+     * Releases quarantine for {@code identityHash} / {@code endpoint} according to the handler's
+     * enforcement scope ({@code IDENTITY_GLOBAL} ignores endpoint; {@code IDENTITY_ENDPOINT} is exact).
+     * <p>
+     * Idempotent and targeted: a missing entry is a no-op success. Does not reset baselines, create
+     * exemptions, or suppress future valid quarantine decisions. Default is a no-op that returns
+     * {@code false} (no local entry removed).
+     *
+     * @return {@code true} if a local quarantine entry was present and removed; {@code false} if none
+     */
+    default boolean releaseQuarantine(String identityHash, String endpoint) {
+        return false;
+    }
 }

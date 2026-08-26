@@ -74,6 +74,18 @@ public record TelemetryEvent(
     }
 
     /**
+     * Operator (or automated) quarantine release. {@code hadLocalEntry} is true when a local map entry
+     * was removed; cluster clear is always attempted by the writer independently.
+     */
+    public static TelemetryEvent quarantineReleased(String identityHash, String endpoint, boolean hadLocalEntry) {
+        LinkedHashMap<String, Object> p = new LinkedHashMap<>();
+        p.put("identityHash", maskHash(identityHash));
+        p.put("endpoint", endpoint != null ? endpoint : "");
+        p.put("hadLocalEntry", hadLocalEntry);
+        return new TelemetryEvent("QuarantineReleased", System.currentTimeMillis(), Map.copyOf(p));
+    }
+
+    /**
      * Structured fail-open event. Does not claim enforcement succeeded — the request was allowed
      * after an error or optional-subsystem failure.
      */

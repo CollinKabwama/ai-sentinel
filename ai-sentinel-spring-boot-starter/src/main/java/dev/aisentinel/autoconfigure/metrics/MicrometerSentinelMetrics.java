@@ -61,6 +61,11 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Counter distributedQuarantineWriteDropped;
     private final Counter distributedQuarantineWriteSchedulerRejected;
     private final Timer distributedQuarantineWrite;
+    private final Counter quarantineReleasedHadLocal;
+    private final Counter quarantineReleasedMissing;
+    private final Counter distributedQuarantineClearAttempt;
+    private final Counter distributedQuarantineClearSuccess;
+    private final Counter distributedQuarantineClearFailure;
 
     private final Counter distributedThrottleEval;
     private final Counter distributedThrottleAllow;
@@ -202,6 +207,23 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         this.distributedQuarantineWrite = Timer.builder("aisentinel.distributed.quarantine.write")
             .description("Redis SET for cluster quarantine (async worker)")
             .publishPercentiles(0.5, 0.99)
+            .register(registry);
+        this.quarantineReleasedHadLocal = Counter.builder("aisentinel.quarantine.released")
+            .description("Quarantine release removed a local map entry")
+            .tag("had_local", "true")
+            .register(registry);
+        this.quarantineReleasedMissing = Counter.builder("aisentinel.quarantine.released")
+            .description("Quarantine release invoked with no local entry (idempotent)")
+            .tag("had_local", "false")
+            .register(registry);
+        this.distributedQuarantineClearAttempt = Counter.builder("aisentinel.distributed.quarantine.clear.attempt")
+            .description("Cluster quarantine Redis DEL / clear attempts")
+            .register(registry);
+        this.distributedQuarantineClearSuccess = Counter.builder("aisentinel.distributed.quarantine.clear.success")
+            .description("Cluster quarantine clear succeeded (including missing key)")
+            .register(registry);
+        this.distributedQuarantineClearFailure = Counter.builder("aisentinel.distributed.quarantine.clear.failure")
+            .description("Cluster quarantine clear failures")
             .register(registry);
 
         this.distributedThrottleEval = Counter.builder("aisentinel.distributed.throttle.evaluation")
@@ -441,6 +463,30 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     @Override
     public void recordInvalidScoreRejected() {
         invalidScoreRejected.increment();
+    }
+
+    @Override
+    public void recordQuarantineReleased(boolean hadLocalEntry) {
+        if (hadLocalEntry) {
+            quarantineReleasedHadLocal.increment();
+        } else {
+            quarantineReleasedMissing.increment();
+        }
+    }
+
+    @Override
+    public void recordDistributedQuarantineClearAttempt() {
+        distributedQuarantineClearAttempt.increment();
+    }
+
+    @Override
+    public void recordDistributedQuarantineClearSuccess() {
+        distributedQuarantineClearSuccess.increment();
+    }
+
+    @Override
+    public void recordDistributedQuarantineClearFailure() {
+        distributedQuarantineClearFailure.increment();
     }
 
     @Override

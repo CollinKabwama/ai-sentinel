@@ -41,8 +41,9 @@ public final class LastDecisionExplanation {
 
     /**
      * @param action                          final enforcement action name
-     * @param anomalyScore                    clamped anomaly score
-     * @param policyScore                     score handed to policy (may differ when fusion runs)
+ * @param anomalyScore                    anomaly score (may be {@code NaN} for INVALID_SCORE internally;
+ *                                         actuator presentation maps non-finite to JSON {@code null})
+ * @param policyScore                     score handed to policy (may differ when fusion runs; same NaN note)
      * @param policyScoreDiffersFromAnomaly   {@code true} when fusion (or similar) changed the policy input
      * @param evaluationStatuses               sorted status names
      * @param operatorPhases                  sorted operator phase labels
