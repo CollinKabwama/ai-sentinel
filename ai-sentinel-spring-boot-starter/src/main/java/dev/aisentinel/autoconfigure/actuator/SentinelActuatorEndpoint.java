@@ -6,6 +6,9 @@ import dev.aisentinel.autoconfigure.distributed.DistributedThrottleStatus;
 import dev.aisentinel.autoconfigure.distributed.training.TrainingPublishStatus;
 import dev.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
 import dev.aisentinel.core.decision.LastDecisionExplanation;
+import dev.aisentinel.core.decision.RiskExplanation;
+import dev.aisentinel.core.decision.RiskFactor;
+import dev.aisentinel.core.decision.SecurityAdvice;
 import dev.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import dev.aisentinel.distributed.quarantine.ClusterQuarantineReader;
 import dev.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
@@ -25,7 +28,9 @@ import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
 
 import org.springframework.beans.factory.ObjectProvider;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -292,7 +297,44 @@ public class SentinelActuatorEndpoint {
         }
         m.put("startupGraceActive", snap.startupGraceActive());
         m.put("evaluatedAtMillis", snap.evaluatedAtEpochMillis());
+        RiskExplanation explanation = snap.explanation();
+        if (explanation != null && !explanation.isEmpty()) {
+            m.put("riskFactors", riskFactorsPayload(explanation));
+            if (explanation.advice() != null) {
+                m.put("securityAdvice", securityAdvicePayload(explanation.advice()));
+            }
+        } else if (explanation != null) {
+            // Empty explanation: explicit empty list; omit advice key (absent vs empty advice).
+            m.put("riskFactors", List.of());
+        }
         return m;
+    }
+
+    private static List<Map<String, Object>> riskFactorsPayload(RiskExplanation explanation) {
+        List<Map<String, Object>> out = new ArrayList<>(explanation.factors().size());
+        for (RiskFactor factor : explanation.factors()) {
+            Map<String, Object> f = new LinkedHashMap<>();
+            f.put("code", factor.code().name());
+            f.put("category", factor.category().name());
+            f.put("severity", factor.severity().name());
+            f.put("contribution", finiteScoreOrNull(factor.contribution()));
+            f.put("confidence", finiteScoreOrNull(factor.confidence()));
+            f.put("evidenceRef", factor.evidenceRef());
+            f.put("explanation", factor.explanation());
+            f.put("source", factor.source());
+            out.add(f);
+        }
+        return out;
+    }
+
+    private static Map<String, Object> securityAdvicePayload(SecurityAdvice advice) {
+        Map<String, Object> a = new LinkedHashMap<>();
+        a.put("code", advice.code().name());
+        a.put("priority", advice.priority().name());
+        a.put("reason", advice.reason());
+        a.put("linkedFactorCodes", advice.linkedFactorCodes().stream().map(Enum::name).toList());
+        a.put("humanReviewRecommended", advice.humanReviewRecommended());
+        return a;
     }
 
     /** Presentation-only: finite scores pass through; NaN/±Infinity become {@code null}. */

@@ -41,9 +41,9 @@ public final class LastDecisionExplanation {
 
     /**
      * @param action                          final enforcement action name
- * @param anomalyScore                    anomaly score (may be {@code NaN} for INVALID_SCORE internally;
- *                                         actuator presentation maps non-finite to JSON {@code null})
- * @param policyScore                     score handed to policy (may differ when fusion runs; same NaN note)
+     * @param anomalyScore                    anomaly score (may be {@code NaN} for INVALID_SCORE internally;
+     *                                         actuator presentation maps non-finite to JSON {@code null})
+     * @param policyScore                     score handed to policy (may differ when fusion runs; same NaN note)
      * @param policyScoreDiffersFromAnomaly   {@code true} when fusion (or similar) changed the policy input
      * @param evaluationStatuses               sorted status names
      * @param operatorPhases                  sorted operator phase labels
@@ -54,6 +54,7 @@ public final class LastDecisionExplanation {
      * @param statisticalExplanation          dominant statistical signal, or {@code null}
      * @param startupGraceActive              whether startup grace forced MONITOR presentation
      * @param evaluatedAtEpochMillis          wall clock of the decision
+     * @param explanation                     structured risk factors / advice; never {@code null} (use empty)
      */
     public record Snapshot(
         String action,
@@ -68,7 +69,36 @@ public final class LastDecisionExplanation {
         Boolean isolationForestIncludedInBlend,
         StatisticalScoreSnapshot statisticalExplanation,
         boolean startupGraceActive,
-        long evaluatedAtEpochMillis
+        long evaluatedAtEpochMillis,
+        RiskExplanation explanation
     ) {
+        public Snapshot {
+            evaluationStatuses = evaluationStatuses == null ? List.of() : List.copyOf(evaluationStatuses);
+            operatorPhases = operatorPhases == null ? List.of() : List.copyOf(operatorPhases);
+            explanation = explanation == null ? RiskExplanation.empty() : explanation;
+        }
+
+        /**
+         * Compatibility constructor without structured explanation (empty explanation).
+         */
+        public Snapshot(
+            String action,
+            double anomalyScore,
+            double policyScore,
+            boolean policyScoreDiffersFromAnomaly,
+            List<String> evaluationStatuses,
+            List<String> operatorPhases,
+            String isolationForestScoreMode,
+            Double statisticalScore,
+            Double isolationForestScore,
+            Boolean isolationForestIncludedInBlend,
+            StatisticalScoreSnapshot statisticalExplanation,
+            boolean startupGraceActive,
+            long evaluatedAtEpochMillis
+        ) {
+            this(action, anomalyScore, policyScore, policyScoreDiffersFromAnomaly, evaluationStatuses, operatorPhases,
+                isolationForestScoreMode, statisticalScore, isolationForestScore, isolationForestIncludedInBlend,
+                statisticalExplanation, startupGraceActive, evaluatedAtEpochMillis, RiskExplanation.empty());
+        }
     }
 }

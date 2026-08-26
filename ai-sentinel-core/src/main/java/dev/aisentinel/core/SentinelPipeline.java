@@ -9,6 +9,7 @@ import dev.aisentinel.core.decision.ExplanationContextKeys;
 import dev.aisentinel.core.decision.LastDecisionExplanation;
 import dev.aisentinel.core.decision.OperatorEvaluationPhase;
 import dev.aisentinel.core.decision.RiskDecision;
+import dev.aisentinel.core.decision.RiskExplanation;
 import dev.aisentinel.core.decision.SentinelDecisionEngine;
 import dev.aisentinel.core.enforcement.EnforcementHandler;
 import dev.aisentinel.core.enforcement.EnforcementResponse;
@@ -314,7 +315,8 @@ public final class SentinelPipeline {
             isolationForestIncludedInBlend,
             statisticalExplanation,
             decision.startupGraceActive(),
-            System.currentTimeMillis()
+            System.currentTimeMillis(),
+            decision.explanation() != null ? decision.explanation() : RiskExplanation.empty()
         ));
     }
 
