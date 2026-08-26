@@ -20,6 +20,7 @@ import java.util.Set;
  *                           treat it as read-only after the decision is published if they care about audit integrity
  * @param startupGraceActive whether startup grace forced {@link EnforcementAction#MONITOR}
  * @param evaluationStatuses  immutable lifecycle / degradation markers (never {@code null})
+ * @param explanation        structured risk factors and optional advisory guidance; never selects enforcement
  */
 public record RiskDecision(
     EnforcementAction action,
@@ -28,16 +29,32 @@ public record RiskDecision(
     RequestFeatures features,
     RequestContext context,
     boolean startupGraceActive,
-    Set<EvaluationStatus> evaluationStatuses
+    Set<EvaluationStatus> evaluationStatuses,
+    RiskExplanation explanation
 ) {
     public RiskDecision {
         evaluationStatuses = evaluationStatuses == null
             ? Set.of()
             : Set.copyOf(evaluationStatuses);
+        explanation = explanation == null ? RiskExplanation.empty() : explanation;
     }
 
     /**
-     * Factory without evaluation statuses (empty set).
+     * Compatibility constructor without explanation (empty explanation).
+     */
+    public RiskDecision(EnforcementAction action,
+                        double anomalyScore,
+                        double policyScore,
+                        RequestFeatures features,
+                        RequestContext context,
+                        boolean startupGraceActive,
+                        Set<EvaluationStatus> evaluationStatuses) {
+        this(action, anomalyScore, policyScore, features, context, startupGraceActive, evaluationStatuses,
+            RiskExplanation.empty());
+    }
+
+    /**
+     * Factory without evaluation statuses or explanation (empty set / empty explanation).
      */
     public static RiskDecision of(EnforcementAction action,
                                   double anomalyScore,
@@ -45,10 +62,17 @@ public record RiskDecision(
                                   RequestFeatures features,
                                   RequestContext context,
                                   boolean startupGraceActive) {
-        return new RiskDecision(action, anomalyScore, policyScore, features, context, startupGraceActive, Set.of());
+        return new RiskDecision(action, anomalyScore, policyScore, features, context, startupGraceActive, Set.of(),
+            RiskExplanation.empty());
     }
 
     public boolean hasStatus(EvaluationStatus status) {
         return evaluationStatuses.contains(Objects.requireNonNull(status, "status"));
+    }
+
+    /** Copy with a replacement explanation; action and scores are unchanged. */
+    public RiskDecision withExplanation(RiskExplanation newExplanation) {
+        return new RiskDecision(action, anomalyScore, policyScore, features, context, startupGraceActive,
+            evaluationStatuses, newExplanation == null ? RiskExplanation.empty() : newExplanation);
     }
 }
