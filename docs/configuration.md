@@ -208,7 +208,7 @@ Legend: **Required?** = needed for a working filter once `enabled=true`. **Advan
 | `ai.sentinel.telemetry.log-sample-rate` | `100` | Sampling denominator for `SAMPLED` verbosity |
 | `ai.sentinel.distributed.tenant-id` | `default` | Tenant segment in shared Redis / registry paths (align with trainer) |
 | `ai.sentinel.distributed.cluster-quarantine-read-enabled` | `false` | Merge cluster quarantine into `isQuarantined` (local OR Redis view) |
-| `ai.sentinel.distributed.cluster-quarantine-write-enabled` | `false` | After local `QUARANTINE`, publish `until` to Redis (requires `distributed.enabled`, `redis.enabled`, template; async, fail-open) |
+| `ai.sentinel.distributed.cluster-quarantine-write-enabled` | `false` | After local `QUARANTINE`, publish `until` to Redis (requires `distributed.enabled`, `redis.enabled`, template; async, fail-open). `EnforcementHandler.releaseQuarantine` also best-effort `DEL`s the same key when write path is enabled. |
 | `ai.sentinel.distributed.cluster-throttle-enabled` | `false` | On the **THROTTLE** action path only, consult a Redis fixed-window counter per enforcement key (cluster-wide cap; fail-open if Redis fails; requires `distributed.enabled`, `redis.enabled`, template) |
 | `ai.sentinel.distributed.cluster-throttle-window` | `1s` | Wall-clock window length for the cluster throttle counter (validated ≥ 100ms) |
 | `ai.sentinel.distributed.cluster-throttle-max-requests-per-window` | `30` | Max requests cluster-wide per enforcement key per window when cluster throttle is enabled (validated ≥ 1) |

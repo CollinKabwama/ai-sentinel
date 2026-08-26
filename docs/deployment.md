@@ -106,6 +106,25 @@ integrate with enabled=true, mode=MONITOR
 
 `ENFORCE` does **not** automatically follow `MONITOR`. Some deployments should remain in MONITOR indefinitely.
 
+### False-positive recovery (quarantine lift)
+
+Quarantine release and baseline reset are **independent** operator actions:
+
+1. Detect a false-positive quarantine (actuator `lastDecision`, metrics, telemetry).
+2. Inspect the decision (`evaluationStatuses`, scores — invalid scores present as JSON `null` with `INVALID_SCORE`).
+3. Call `EnforcementHandler.releaseQuarantine(identityHash, endpoint)` on the Spring `enforcementHandler` /
+   `enforcementHandlerImpl` bean (scope-aware; idempotent; also best-effort clears Redis when cluster write is enabled).
+4. Optionally call `BaselineLifecycle.reset(identityHash, endpoint)` when subsequent traffic should relearn —
+   **only if** `relearn-mode` allows it. This does **not** lift quarantine by itself.
+5. Monitor recovery (quarantine count gauge, `aisentinel.quarantine.released`, clear success/failure meters).
+
+| Action | Clears quarantine? | Resets statistical baseline? |
+|--------|--------------------|------------------------------|
+| `releaseQuarantine` | Yes (local + best-effort cluster) | No |
+| `BaselineLifecycle.reset` | No | Yes (when relearn enabled) |
+
+There is **no** unauthenticated HTTP admin release endpoint. Inject the existing Spring beans from a secured operator tool or support path.
+
 ### What to evaluate in MONITOR
 
 * False-positive frequency of would-be `THROTTLE` / `BLOCK` / `QUARANTINE` (telemetry / metrics).
