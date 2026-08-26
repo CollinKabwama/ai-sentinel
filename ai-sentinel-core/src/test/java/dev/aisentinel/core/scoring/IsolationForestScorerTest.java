@@ -54,7 +54,7 @@ class IsolationForestScorerTest {
     }
 
     @Test
-    void invalidModelScoreUsesFallbackInvalidMode() throws Exception {
+    void invalidModelScorePropagatesRawValueWithFallbackInvalidMode() throws Exception {
         var buffer = new BoundedTrainingBuffer(10);
         var config = new IsolationForestConfig(0.42, 50, 10, 5, 42L, 1.0);
         var scorer = new IsolationForestScorer(buffer, config);
@@ -67,7 +67,8 @@ class IsolationForestScorerTest {
 
         var outcome = scorer.scoreWithMode(features(1, 0, 60, 0, 100));
         assertThat(outcome.mode()).isEqualTo(IsolationForestScorer.LastScoreMode.FALLBACK_INVALID);
-        assertThat(outcome.score()).isEqualTo(0.42);
+        // Raw NaN propagates for authoritative INVALID_SCORE classification; not replaced by fallback.
+        assertThat(Double.isNaN(outcome.score())).isTrue();
         assertThat(scorer.lastScoreMode()).isEqualTo(IsolationForestScorer.LastScoreMode.FALLBACK_INVALID);
     }
 
