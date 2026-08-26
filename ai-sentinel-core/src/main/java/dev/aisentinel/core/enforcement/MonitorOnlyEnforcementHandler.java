@@ -8,7 +8,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Wrapper that logs enforcement actions but never blocks.
+ * Wrapper that logs enforcement actions but never blocks and never mutates enforcement state.
+ * <p>
+ * Denying actions ({@code THROTTLE}/{@code BLOCK}/{@code QUARANTINE}) emit {@code MONITOR_WOULD_*}
+ * telemetry only — the delegate {@link #apply} path is not invoked, so local quarantine maps and
+ * cluster quarantine publishes are not written. {@link #isQuarantined} and {@link #releaseQuarantine}
+ * still delegate so existing ENFORCE-era state remains readable and operator-recoverable.
  */
 @Slf4j
 @RequiredArgsConstructor
@@ -30,5 +35,14 @@ public final class MonitorOnlyEnforcementHandler implements EnforcementHandler {
     @Override
     public boolean isQuarantined(String identityHash, String endpoint) {
         return delegate.isQuarantined(identityHash, endpoint);
+    }
+
+    /**
+     * Operator recovery still works in MONITOR: release is forwarded to the delegate so local/cluster
+     * state can be cleared without applying new enforcement writes.
+     */
+    @Override
+    public boolean releaseQuarantine(String identityHash, String endpoint) {
+        return delegate.releaseQuarantine(identityHash, endpoint);
     }
 }

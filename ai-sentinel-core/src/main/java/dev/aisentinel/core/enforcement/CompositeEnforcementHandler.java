@@ -1,5 +1,6 @@
 package dev.aisentinel.core.enforcement;
 
+import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.policy.EnforcementAction;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
 import dev.aisentinel.core.telemetry.TelemetryEvent;
@@ -34,12 +35,13 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
     private final ClusterQuarantineWriter clusterQuarantineWriter;
     private final ClusterThrottleStore clusterThrottleStore;
     private final String distributedTenantId;
+    private final SentinelMetrics metrics;
 
     public CompositeEnforcementHandler(int blockStatusCode, long quarantineDurationMs,
                                        double throttleRequestsPerSecond, TelemetryEmitter telemetry) {
         this(blockStatusCode, quarantineDurationMs, throttleRequestsPerSecond, telemetry, 100_000, 300_000L,
             EnforcementScope.IDENTITY_ENDPOINT, NoopClusterQuarantineWriter.INSTANCE,
-            NoopClusterThrottleStore.INSTANCE, "default");
+            NoopClusterThrottleStore.INSTANCE, "default", SentinelMetrics.NOOP);
     }
 
     public CompositeEnforcementHandler(int blockStatusCode, long quarantineDurationMs,
@@ -47,32 +49,32 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
                                        int maxKeys, long throttleTtlMs) {
         this(blockStatusCode, quarantineDurationMs, throttleRequestsPerSecond, telemetry, maxKeys, throttleTtlMs,
             EnforcementScope.IDENTITY_ENDPOINT, NoopClusterQuarantineWriter.INSTANCE,
-            NoopClusterThrottleStore.INSTANCE, "default");
+            NoopClusterThrottleStore.INSTANCE, "default", SentinelMetrics.NOOP);
     }
 
     public CompositeEnforcementHandler(int blockStatusCode, long quarantineDurationMs,
                                        double throttleRequestsPerSecond, TelemetryEmitter telemetry,
                                        int maxKeys, long throttleTtlMs, EnforcementScope enforcementScope) {
         this(blockStatusCode, quarantineDurationMs, throttleRequestsPerSecond, telemetry, maxKeys, throttleTtlMs,
-            enforcementScope, NoopClusterQuarantineWriter.INSTANCE, NoopClusterThrottleStore.INSTANCE, "default");
+            enforcementScope, NoopClusterQuarantineWriter.INSTANCE, NoopClusterThrottleStore.INSTANCE, "default",
+            SentinelMetrics.NOOP);
     }
 
     /**
-     * Same as {@link #CompositeEnforcementHandler(int, long, double, TelemetryEmitter, int, long, EnforcementScope, ClusterQuarantineWriter, ClusterThrottleStore, String)}
-     * with {@link NoopClusterThrottleStore}.
+     * Same as {@link #CompositeEnforcementHandler(int, long, double, TelemetryEmitter, int, long, EnforcementScope, ClusterQuarantineWriter, ClusterThrottleStore, String, SentinelMetrics)}
+     * with {@link NoopClusterThrottleStore} and {@link SentinelMetrics#NOOP}.
      */
     public CompositeEnforcementHandler(int blockStatusCode, long quarantineDurationMs,
                                        double throttleRequestsPerSecond, TelemetryEmitter telemetry,
                                        int maxKeys, long throttleTtlMs, EnforcementScope enforcementScope,
                                        ClusterQuarantineWriter clusterQuarantineWriter, String distributedTenantId) {
         this(blockStatusCode, quarantineDurationMs, throttleRequestsPerSecond, telemetry, maxKeys, throttleTtlMs,
-            enforcementScope, clusterQuarantineWriter, NoopClusterThrottleStore.INSTANCE, distributedTenantId);
+            enforcementScope, clusterQuarantineWriter, NoopClusterThrottleStore.INSTANCE, distributedTenantId,
+            SentinelMetrics.NOOP);
     }
 
     /**
-     * @param clusterQuarantineWriter optional cluster replication (defaults to noop); must not block the request thread
-     * @param clusterThrottleStore optional cluster throttle (defaults to noop); evaluated before local throttle bucket
-     * @param distributedTenantId tenant segment for {@link ClusterQuarantineWriter#publishQuarantine}
+     * Same as the full constructor with {@link SentinelMetrics#NOOP}.
      */
     public CompositeEnforcementHandler(int blockStatusCode, long quarantineDurationMs,
                                        double throttleRequestsPerSecond, TelemetryEmitter telemetry,
@@ -80,6 +82,24 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
                                        ClusterQuarantineWriter clusterQuarantineWriter,
                                        ClusterThrottleStore clusterThrottleStore,
                                        String distributedTenantId) {
+        this(blockStatusCode, quarantineDurationMs, throttleRequestsPerSecond, telemetry, maxKeys, throttleTtlMs,
+            enforcementScope, clusterQuarantineWriter, clusterThrottleStore, distributedTenantId,
+            SentinelMetrics.NOOP);
+    }
+
+    /**
+     * @param clusterQuarantineWriter optional cluster replication (defaults to noop); must not block the request thread
+     * @param clusterThrottleStore optional cluster throttle (defaults to noop); evaluated before local throttle bucket
+     * @param distributedTenantId tenant segment for {@link ClusterQuarantineWriter#publishQuarantine}
+     * @param metrics optional metrics (defaults to noop)
+     */
+    public CompositeEnforcementHandler(int blockStatusCode, long quarantineDurationMs,
+                                       double throttleRequestsPerSecond, TelemetryEmitter telemetry,
+                                       int maxKeys, long throttleTtlMs, EnforcementScope enforcementScope,
+                                       ClusterQuarantineWriter clusterQuarantineWriter,
+                                       ClusterThrottleStore clusterThrottleStore,
+                                       String distributedTenantId,
+                                       SentinelMetrics metrics) {
         this.blockStatusCode = blockStatusCode;
         this.quarantineDurationMs = quarantineDurationMs;
         this.throttleRequestsPerSecond = Math.max(0.1, throttleRequestsPerSecond);
@@ -96,6 +116,7 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
         this.distributedTenantId = distributedTenantId != null && !distributedTenantId.isBlank()
             ? distributedTenantId
             : "default";
+        this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
     }
 
     private String buildEnforcementStateKey(String identityHash, String endpoint) {
@@ -136,6 +157,27 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
             return v;
         });
         return until != null;
+    }
+
+    /**
+     * Targeted local quarantine release plus best-effort cluster clear for the same enforcement key.
+     * Idempotent: missing local entry returns {@code false} but still attempts cluster clear.
+     * Does not reset baselines or create exemptions.
+     */
+    @Override
+    public boolean releaseQuarantine(String identityHash, String endpoint) {
+        String key = buildEnforcementStateKey(identityHash, endpoint);
+        Long removed = quarantinedUntil.remove(key);
+        boolean hadLocal = removed != null;
+        try {
+            clusterQuarantineWriter.clearQuarantine(distributedTenantId, key);
+        } catch (RuntimeException e) {
+            log.debug("Cluster quarantine clear failed after local release; ignoring", e);
+            metrics.recordDistributedQuarantineClearFailure();
+        }
+        metrics.recordQuarantineReleased(hadLocal);
+        telemetry.emit(TelemetryEvent.quarantineReleased(identityHash, endpoint, hadLocal));
+        return hadLocal;
     }
 
     /** Current count of identities (or identity+endpoint keys) in quarantine (for actuator / monitor visibility). */

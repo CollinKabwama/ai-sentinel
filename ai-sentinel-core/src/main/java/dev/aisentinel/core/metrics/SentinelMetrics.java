@@ -93,6 +93,22 @@ public interface SentinelMetrics {
      */
     default void recordInvalidScoreRejected() {}
 
+    /**
+     * Operator (or automated) quarantine release was invoked.
+     *
+     * @param hadLocalEntry {@code true} when a local map entry was removed
+     */
+    default void recordQuarantineReleased(boolean hadLocalEntry) {}
+
+    /** Cluster quarantine clear/delete was attempted for an exact tenant+key. */
+    default void recordDistributedQuarantineClearAttempt() {}
+
+    /** Cluster quarantine clear/delete completed successfully (including missing-key idempotent success). */
+    default void recordDistributedQuarantineClearSuccess() {}
+
+    /** Cluster quarantine clear/delete failed (observable; local release still retained). */
+    default void recordDistributedQuarantineClearFailure() {}
+
     /** Exception during scoring/update. */
     default void recordScoringError() {}
 
