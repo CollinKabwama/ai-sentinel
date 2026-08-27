@@ -59,6 +59,26 @@ class EvaluationResponseContractTest {
     }
 
     @Test
+    void remoteFailureStatusMustRemainFailOpenAllowShape() {
+        EvaluationResponse blocking = new EvaluationResponse(
+            1, "c", EnforcementAction.BLOCK, List.of(EvaluationStatus.REMOTE_EVALUATION_FAILURE.name()),
+            null, null, false, false, "", List.of(), null);
+        assertThatThrownBy(() -> EvaluationResponseValidator.validate(blocking, "c"))
+            .isInstanceOf(EvaluationContractException.class)
+            .hasMessageContaining("REMOTE_EVALUATION_FAILURE");
+    }
+
+    @Test
+    void remoteFailureStatusRejectsRiskPayload() {
+        EvaluationResponse withScore = new EvaluationResponse(
+            1, "c", EnforcementAction.ALLOW, List.of(EvaluationStatus.REMOTE_EVALUATION_FAILURE.name()),
+            0.1, null, false, true, "", List.of(), null);
+        assertThatThrownBy(() -> EvaluationResponseValidator.validate(withScore, "c"))
+            .isInstanceOf(EvaluationContractException.class)
+            .hasMessageContaining("REMOTE_EVALUATION_FAILURE");
+    }
+
+    @Test
     void factorsAndAdviceAreImmutable() {
         RiskFactor factor = new RiskFactor(
             RiskFactorCode.PIPELINE_DEGRADED, RiskFactorCategory.SYSTEM, RiskFactorSeverity.MEDIUM,
