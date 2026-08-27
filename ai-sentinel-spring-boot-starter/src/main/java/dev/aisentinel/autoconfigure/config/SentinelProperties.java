@@ -33,7 +33,9 @@ public class SentinelProperties {
 
     private boolean enabled = true;
     private Mode mode = Mode.ENFORCE;
-    private List<String> excludePaths = List.of("/actuator/**", "/health", "/health/**", "/static/**", "/favicon.ico");
+    private List<String> excludePaths = List.of(
+        "/actuator/**", "/health", "/health/**", "/static/**", "/favicon.ico",
+        "/ai-sentinel/v1/evaluation");
     private int blockStatusCode = 429;
     private long quarantineDurationMs = 300_000;
     private double throttleRequestsPerSecond = 5.0;
@@ -102,6 +104,104 @@ public class SentinelProperties {
     /** Identity resolution and trust hooks: disabled by default; no change to API security behavior when off. */
     @Valid
     private Identity identity = new Identity();
+
+    /**
+     * Remote / local evaluation executor and optional authenticated evaluation endpoint
+     * ({@code ai.sentinel.evaluation.*}). Default remains local-only with no network calls.
+     */
+    @Valid
+    private Evaluation evaluation = new Evaluation();
+
+    @Data
+    public static class Evaluation {
+        public enum ExecutorMode {
+            LOCAL,
+            REMOTE,
+            REMOTE_WITH_LOCAL_FALLBACK
+        }
+
+        /** How the application obtains evaluation results. Default {@link ExecutorMode#LOCAL}. */
+        private ExecutorMode executorMode = ExecutorMode.LOCAL;
+
+        @Valid
+        private Server server = new Server();
+
+        @Valid
+        private Client client = new Client();
+
+        @jakarta.validation.constraints.AssertTrue(message =
+            "ai.sentinel.evaluation.server.api-key is required when evaluation.server.enabled=true")
+        public boolean isServerApiKeyPresentWhenEnabled() {
+            if (server == null || !server.isEnabled()) {
+                return true;
+            }
+            return server.getApiKey() != null && !server.getApiKey().isBlank();
+        }
+
+        @jakarta.validation.constraints.AssertTrue(message =
+            "ai.sentinel.evaluation.client.base-url and api-key are required for REMOTE modes")
+        public boolean isClientConfiguredForRemoteModes() {
+            if (executorMode == null || executorMode == ExecutorMode.LOCAL) {
+                return true;
+            }
+            if (client == null) {
+                return false;
+            }
+            return client.getBaseUrl() != null && !client.getBaseUrl().isBlank()
+                && client.getApiKey() != null && !client.getApiKey().isBlank();
+        }
+
+        @jakarta.validation.constraints.AssertTrue(message =
+            "ai.sentinel.evaluation.client.base-url must use https when require-https=true")
+        public boolean isHttpsRequiredWhenConfigured() {
+            if (client == null || client.getBaseUrl() == null || client.getBaseUrl().isBlank()) {
+                return true;
+            }
+            if (!client.isRequireHttps()) {
+                return true;
+            }
+            String url = client.getBaseUrl().trim().toLowerCase(java.util.Locale.ROOT);
+            return url.startsWith("https://") || url.startsWith("http://localhost")
+                || url.startsWith("http://127.0.0.1") || url.startsWith("http://[::1]");
+        }
+
+        @Data
+        public static class Server {
+            /** When true, exposes authenticated {@code POST} evaluation endpoint. */
+            private boolean enabled = false;
+            /** Absolute path for the evaluation endpoint. */
+            private String path = "/ai-sentinel/v1/evaluation";
+            /**
+             * Shared secret for {@code X-AI-Sentinel-Api-Key}. Inject via env/secret store;
+             * never commit production values.
+             */
+            private String apiKey = "";
+            /** Max accepted JSON body size in bytes. */
+            @Min(1024)
+            @Max(1_048_576)
+            private int maxRequestBytes = 262_144;
+        }
+
+        @Data
+        public static class Client {
+            /** Remote evaluation service base URL (no trailing slash required). */
+            private String baseUrl = "";
+            /** API key sent as {@code X-AI-Sentinel-Api-Key}. */
+            private String apiKey = "";
+            /** Relative path appended to {@link #baseUrl}. */
+            private String path = "/ai-sentinel/v1/evaluation";
+            @DurationMin(millis = 50)
+            @DurationMax(seconds = 30)
+            private Duration connectTimeout = Duration.ofMillis(500);
+            @DurationMin(millis = 50)
+            @DurationMax(seconds = 60)
+            private Duration readTimeout = Duration.ofSeconds(2);
+            /**
+             * When true (default), non-HTTPS URLs are rejected except loopback HTTP for local tests.
+             */
+            private boolean requireHttps = true;
+        }
+    }
 
     @Data
     public static class Statistical {
