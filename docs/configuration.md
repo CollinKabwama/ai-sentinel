@@ -165,6 +165,23 @@ Legend: **Required?** = needed for a working filter once `enabled=true`. **Advan
 |----------|---------|----------|-----------|-----------|
 | `ai.sentinel.telemetry.*` | `ANOMALY_ONLY` | observability | No | Yes |
 
+### Remote evaluation (optional)
+
+Default remains **local** evaluation with no network calls. Remote mode is additive.
+
+| Property | Default | Notes |
+|----------|---------|--------|
+| `ai.sentinel.evaluation.executor-mode` | `LOCAL` | `LOCAL`, `REMOTE`, or `REMOTE_WITH_LOCAL_FALLBACK` |
+| `ai.sentinel.evaluation.server.enabled` | `false` | When true, exposes authenticated `POST /ai-sentinel/v1/evaluation` |
+| `ai.sentinel.evaluation.server.api-key` | _(empty)_ | Required when server enabled; inject via env/secret store |
+| `ai.sentinel.evaluation.client.base-url` | _(empty)_ | Required for remote executor modes |
+| `ai.sentinel.evaluation.client.api-key` | _(empty)_ | Sent as `X-AI-Sentinel-Api-Key` (not end-user Authorization) |
+| `ai.sentinel.evaluation.client.connect-timeout` | `500ms` | Connect timeout |
+| `ai.sentinel.evaluation.client.read-timeout` | `2s` | Read timeout |
+| `ai.sentinel.evaluation.client.require-https` | `true` | Non-HTTPS rejected except loopback HTTP for local tests |
+
+Remote transport failures are **fail-open** with status `REMOTE_EVALUATION_FAILURE` (not high risk). There is **no automatic retry** of evaluation POSTs.
+
 **Obsolete / rejected:** `relearn-mode=AFTER_CONSECUTIVE_SKIPS` fails binding; `relearn-after-consecutive-skips` is ignored if present as an unused key.
 
 **Surprising default:** `mode=ENFORCE` while adoption docs recommend `MONITOR` — intentional compatibility; override for adoption.
