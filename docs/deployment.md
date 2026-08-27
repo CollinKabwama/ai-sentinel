@@ -329,6 +329,6 @@ Operators should validate Redis timeouts, degraded gauges, and peer visibility i
 | `DEGRADED` | Optional subsystem failed; decision still produced |
 | `FailOpenReason` | Why a request was allowed after an error |
 | `isolationForestScoreMode` | `MODEL` vs `FALLBACK_NO_MODEL` vs `FALLBACK_INVALID` |
-| `/actuator/sentinel` `lastDecision` | Last completed decision on **this JVM** (action, scores, phases, IF mode, statistical dominant signal) — not cluster history; no identity/endpoint |
+| `/actuator/sentinel` `lastDecision` | Last completed decision on **this JVM** (action, scores, phases, IF mode, statistical dominant signal, structured `riskFactors` / optional `securityAdvice`) — not cluster history; no identity/endpoint. Advice is operator guidance only and does not change enforcement. |
 
 See the full observability meter list in [`../ARCHITECTURE.md`](../ARCHITECTURE.md) § Observability.

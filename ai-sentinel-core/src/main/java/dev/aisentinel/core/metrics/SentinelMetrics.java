@@ -61,6 +61,12 @@ public interface SentinelMetrics {
     default void recordPolicyAction(EnforcementAction action) {}
 
     /**
+     * Low-cardinality risk-explanation summary (factor count / top factor code / advisory code).
+     * Implementations must not use free-form descriptions as metric labels.
+     */
+    default void recordRiskExplanation(dev.aisentinel.core.decision.RiskExplanation explanation) {}
+
+    /**
      * Request allowed despite pipeline error (fail-open). Aggregate counter for back-compat;
      * prefer {@link #recordFailOpen(FailOpenReason)} so operators can split by cause.
      */

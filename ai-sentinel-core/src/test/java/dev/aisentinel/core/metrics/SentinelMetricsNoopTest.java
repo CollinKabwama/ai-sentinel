@@ -58,6 +58,9 @@ class SentinelMetricsNoopTest {
         if (type == FailOpenReason.class) {
             return FailOpenReason.SCORER_FAILURE;
         }
+        if (type == dev.aisentinel.core.decision.RiskExplanation.class) {
+            return dev.aisentinel.core.decision.RiskExplanation.empty();
+        }
         if (type == String.class) {
             return "ALLOW_OR_MONITOR";
         }

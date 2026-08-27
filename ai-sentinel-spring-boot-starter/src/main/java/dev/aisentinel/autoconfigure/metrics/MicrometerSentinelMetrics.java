@@ -1,6 +1,10 @@
 package dev.aisentinel.autoconfigure.metrics;
 
+import dev.aisentinel.core.decision.AdvisoryCode;
 import dev.aisentinel.core.decision.EvaluationStatus;
+import dev.aisentinel.core.decision.RiskExplanation;
+import dev.aisentinel.core.decision.RiskFactor;
+import dev.aisentinel.core.decision.RiskFactorCode;
 import dev.aisentinel.core.metrics.FailOpenReason;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.policy.EnforcementAction;
@@ -29,6 +33,10 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Counter actionThrottle;
     private final Counter actionBlock;
     private final Counter actionQuarantine;
+    private final DistributionSummary riskFactorCount;
+    private final Map<String, Counter> topFactorCodeByName = new LinkedHashMap<>();
+    private final Map<String, Counter> advisoryCodeByName = new LinkedHashMap<>();
+    private final Map<String, Counter> advisoryPriorityByName = new LinkedHashMap<>();
 
     private final Timer latencyPipeline;
     private final Timer latencyScoring;
@@ -122,6 +130,27 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         this.actionThrottle = Counter.builder("aisentinel.action.throttle").register(registry);
         this.actionBlock = Counter.builder("aisentinel.action.block").register(registry);
         this.actionQuarantine = Counter.builder("aisentinel.action.quarantine").register(registry);
+        this.riskFactorCount = DistributionSummary.builder("aisentinel.risk.factor.count")
+            .description("Number of structured risk factors on a completed RiskDecision")
+            .register(registry);
+        for (RiskFactorCode code : RiskFactorCode.values()) {
+            topFactorCodeByName.put(code.name(), Counter.builder("aisentinel.risk.factor.top")
+                .description("Top risk factor code on a completed RiskDecision")
+                .tag("code", code.name())
+                .register(registry));
+        }
+        for (AdvisoryCode code : AdvisoryCode.values()) {
+            advisoryCodeByName.put(code.name(), Counter.builder("aisentinel.risk.advisory.code")
+                .description("Advisory code on a completed RiskDecision")
+                .tag("code", code.name())
+                .register(registry));
+        }
+        for (String priority : List.of("LOW", "MEDIUM", "HIGH")) {
+            advisoryPriorityByName.put(priority, Counter.builder("aisentinel.risk.advisory.priority")
+                .description("Advisory priority on a completed RiskDecision")
+                .tag("priority", priority)
+                .register(registry));
+        }
 
         this.latencyPipeline = Timer.builder("aisentinel.latency.pipeline")
             .description("End-to-end Sentinel pipeline latency")
@@ -420,6 +449,31 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
             case THROTTLE -> actionThrottle.increment();
             case BLOCK -> actionBlock.increment();
             case QUARANTINE -> actionQuarantine.increment();
+        }
+    }
+
+    @Override
+    public void recordRiskExplanation(RiskExplanation explanation) {
+        if (explanation == null) {
+            return;
+        }
+        riskFactorCount.record(explanation.factors().size());
+        RiskFactor top = explanation.topFactor();
+        if (top != null) {
+            Counter counter = topFactorCodeByName.get(top.code().name());
+            if (counter != null) {
+                counter.increment();
+            }
+        }
+        if (explanation.advice() != null) {
+            Counter codeCounter = advisoryCodeByName.get(explanation.advice().code().name());
+            if (codeCounter != null) {
+                codeCounter.increment();
+            }
+            Counter priorityCounter = advisoryPriorityByName.get(explanation.advice().priority().name());
+            if (priorityCounter != null) {
+                priorityCounter.increment();
+            }
         }
     }
 
