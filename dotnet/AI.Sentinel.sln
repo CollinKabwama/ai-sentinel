@@ -1,0 +1,45 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{1951CDE4-885A-4BAE-BD12-586CA2E0CBFB}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AI.Sentinel.AspNetCore", "src\AI.Sentinel.AspNetCore\AI.Sentinel.AspNetCore.csproj", "{4143D80A-9D9F-4B76-84B5-1A209DE399E7}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{F04EB2B5-AA9F-4EF0-BFD5-6C0482C04355}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AI.Sentinel.AspNetCore.Tests", "tests\AI.Sentinel.AspNetCore.Tests\AI.Sentinel.AspNetCore.Tests.csproj", "{2B737E51-E9A6-40EC-8BAE-5D127A88E051}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{6880208E-5A00-4554-BE70-D6983335FF64}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AI.Sentinel.AspNetCore.Sample", "samples\AI.Sentinel.AspNetCore.Sample\AI.Sentinel.AspNetCore.Sample.csproj", "{B0E9D43B-84FD-4F89-A64A-772FE52A4BD9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4143D80A-9D9F-4B76-84B5-1A209DE399E7}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4143D80A-9D9F-4B76-84B5-1A209DE399E7}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4143D80A-9D9F-4B76-84B5-1A209DE399E7}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4143D80A-9D9F-4B76-84B5-1A209DE399E7}.Release|Any CPU.Build.0 = Release|Any CPU
+		{2B737E51-E9A6-40EC-8BAE-5D127A88E051}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{2B737E51-E9A6-40EC-8BAE-5D127A88E051}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{2B737E51-E9A6-40EC-8BAE-5D127A88E051}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{2B737E51-E9A6-40EC-8BAE-5D127A88E051}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B0E9D43B-84FD-4F89-A64A-772FE52A4BD9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B0E9D43B-84FD-4F89-A64A-772FE52A4BD9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B0E9D43B-84FD-4F89-A64A-772FE52A4BD9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B0E9D43B-84FD-4F89-A64A-772FE52A4BD9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{4143D80A-9D9F-4B76-84B5-1A209DE399E7} = {1951CDE4-885A-4BAE-BD12-586CA2E0CBFB}
+		{2B737E51-E9A6-40EC-8BAE-5D127A88E051} = {F04EB2B5-AA9F-4EF0-BFD5-6C0482C04355}
+		{B0E9D43B-84FD-4F89-A64A-772FE52A4BD9} = {6880208E-5A00-4554-BE70-D6983335FF64}
+	EndGlobalSection
+EndGlobal
