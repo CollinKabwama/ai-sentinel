@@ -1,0 +1,20 @@
+{
+  "contractVersion": 1,
+  "correlationId": "fixture-req-principal",
+  "timestampEpochMillis": 1700000000000,
+  "method": "GET",
+  "path": "/api/orders",
+  "identityKey": "alice",
+  "identityType": "PRINCIPAL",
+  "sessionPresent": false,
+  "sessionNew": false,
+  "remoteAddress": "127.0.0.1",
+  "headers": {
+    "accept": "application/json"
+  },
+  "parameters": {},
+  "attributes": {
+    "traceId": "00-abc-def-01"
+  },
+  "trustSignals": {}
+}

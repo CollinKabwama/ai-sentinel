@@ -1,0 +1,13 @@
+{
+  "contractVersion": 1,
+  "correlationId": "fixture-quarantine",
+  "action": "QUARANTINE",
+  "evaluationStatuses": ["STATISTICAL_LIVE"],
+  "anomalyScore": 0.9,
+  "policyScore": 0.9,
+  "startupGraceActive": false,
+  "proceed": false,
+  "endpoint": "/api/hello",
+  "factors": [],
+  "advice": null
+}

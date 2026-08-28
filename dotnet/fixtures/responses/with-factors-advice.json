@@ -1,0 +1,30 @@
+{
+  "contractVersion": 1,
+  "correlationId": "fixture-advice",
+  "action": "MONITOR",
+  "evaluationStatuses": ["DEGRADED"],
+  "anomalyScore": 0.35,
+  "policyScore": 0.35,
+  "startupGraceActive": false,
+  "proceed": true,
+  "endpoint": "/api/hello",
+  "factors": [
+    {
+      "code": "PIPELINE_DEGRADED",
+      "category": "SYSTEM",
+      "severity": "MEDIUM",
+      "contribution": 1.0,
+      "confidence": 0.9,
+      "evidenceRef": "DEGRADED",
+      "explanation": "degraded",
+      "source": "status"
+    }
+  ],
+  "advice": {
+    "code": "OTHER_OPERATOR_REVIEW",
+    "priority": "MEDIUM",
+    "reason": "review",
+    "linkedFactorCodes": ["PIPELINE_DEGRADED"],
+    "humanReviewRecommended": true
+  }
+}

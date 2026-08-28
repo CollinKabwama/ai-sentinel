@@ -18,6 +18,9 @@ build/
 **/build/
 out/
 **/out/
+.dotnet/
+dotnet/**/bin/
+dotnet/**/obj/
 *.class
 *.jar
 *.war

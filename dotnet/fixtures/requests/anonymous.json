@@ -1,0 +1,17 @@
+{
+  "contractVersion": 1,
+  "correlationId": "fixture-req-anonymous",
+  "timestampEpochMillis": 1700000000000,
+  "method": "GET",
+  "path": "/api/public",
+  "identityKey": "",
+  "identityType": "ANONYMOUS",
+  "sessionPresent": false,
+  "sessionNew": false,
+  "headers": {
+    "accept": "application/json"
+  },
+  "parameters": {},
+  "attributes": {},
+  "trustSignals": {}
+}

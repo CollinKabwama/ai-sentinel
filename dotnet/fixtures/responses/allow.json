@@ -1,0 +1,13 @@
+{
+  "contractVersion": 1,
+  "correlationId": "fixture-allow",
+  "action": "ALLOW",
+  "evaluationStatuses": ["COMPLETE"],
+  "anomalyScore": 0.05,
+  "policyScore": 0.05,
+  "startupGraceActive": false,
+  "proceed": true,
+  "endpoint": "/api/hello",
+  "factors": [],
+  "advice": null
+}
