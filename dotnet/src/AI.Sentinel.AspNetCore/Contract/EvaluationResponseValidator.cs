@@ -30,7 +30,13 @@ public static class EvaluationResponseValidator
             throw new EvaluationContractException("response correlationId is required");
         }
 
-        if (!KnownActions.Contains(response.Action.ToString()))
+        if (response.Action == null)
+        {
+            throw new EvaluationContractException("response action is required");
+        }
+
+        var action = response.Action.Value;
+        if (!KnownActions.Contains(action.ToString()))
         {
             throw new EvaluationContractException("unknown response action");
         }
@@ -45,7 +51,7 @@ public static class EvaluationResponseValidator
             throw new EvaluationContractException("response policyScore must be finite or null");
         }
 
-        var proceedExpected = response.Action is EnforcementAction.ALLOW or EnforcementAction.MONITOR;
+        var proceedExpected = action is EnforcementAction.ALLOW or EnforcementAction.MONITOR;
         if (response.IsRemoteEvaluationFailure)
         {
             ValidateRemoteFailureShape(response);

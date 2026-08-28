@@ -109,6 +109,70 @@ public class RemoteEvaluationClientTests
         Assert.True(response.IsRemoteEvaluationFailure);
     }
 
+    [Fact]
+    public async Task MissingActionFailsOpen()
+    {
+        var body = """
+                   {"contractVersion":1,"correlationId":"c4-missing-action","evaluationStatuses":["COMPLETE"],"proceed":true,"endpoint":"/"}
+                   """;
+        var handler = new StubHttpMessageHandler(_ => HttpResponses.OkJson(body));
+        var (services, _) = SentinelTestServices.CreateClientServices(handler);
+        var client = services.GetRequiredService<IRemoteEvaluationClient>();
+
+        var response = await client.EvaluateAsync(new EvaluationRequest { CorrelationId = "c4-missing-action" });
+        Assert.True(response.IsRemoteEvaluationFailure);
+        Assert.Equal(EnforcementAction.ALLOW, response.Action);
+        Assert.True(response.Proceed);
+    }
+
+    [Fact]
+    public async Task NumericActionFailsOpen()
+    {
+        var body = """
+                   {"contractVersion":1,"correlationId":"c4-numeric-action","action":0,"evaluationStatuses":["COMPLETE"],"proceed":true,"endpoint":"/"}
+                   """;
+        var handler = new StubHttpMessageHandler(_ => HttpResponses.OkJson(body));
+        var (services, _) = SentinelTestServices.CreateClientServices(handler);
+        var client = services.GetRequiredService<IRemoteEvaluationClient>();
+
+        var response = await client.EvaluateAsync(new EvaluationRequest { CorrelationId = "c4-numeric-action" });
+        Assert.True(response.IsRemoteEvaluationFailure);
+        Assert.Equal(EnforcementAction.ALLOW, response.Action);
+        Assert.True(response.Proceed);
+    }
+
+    [Fact]
+    public async Task NullActionFailsOpen()
+    {
+        var body = """
+                   {"contractVersion":1,"correlationId":"c4-null-action","action":null,"evaluationStatuses":["COMPLETE"],"proceed":true,"endpoint":"/"}
+                   """;
+        var handler = new StubHttpMessageHandler(_ => HttpResponses.OkJson(body));
+        var (services, _) = SentinelTestServices.CreateClientServices(handler);
+        var client = services.GetRequiredService<IRemoteEvaluationClient>();
+
+        var response = await client.EvaluateAsync(new EvaluationRequest { CorrelationId = "c4-null-action" });
+        Assert.True(response.IsRemoteEvaluationFailure);
+        Assert.Equal(EnforcementAction.ALLOW, response.Action);
+        Assert.True(response.Proceed);
+    }
+
+    [Fact]
+    public async Task UnknownActionFailsOpen()
+    {
+        var body = """
+                   {"contractVersion":1,"correlationId":"c4-unknown-action","action":"DELETE_ACCOUNT","evaluationStatuses":["COMPLETE"],"proceed":true,"endpoint":"/"}
+                   """;
+        var handler = new StubHttpMessageHandler(_ => HttpResponses.OkJson(body));
+        var (services, _) = SentinelTestServices.CreateClientServices(handler);
+        var client = services.GetRequiredService<IRemoteEvaluationClient>();
+
+        var response = await client.EvaluateAsync(new EvaluationRequest { CorrelationId = "c4-unknown-action" });
+        Assert.True(response.IsRemoteEvaluationFailure);
+        Assert.Equal(EnforcementAction.ALLOW, response.Action);
+        Assert.True(response.Proceed);
+    }
+
     [Theory]
     [InlineData(HttpStatusCode.Unauthorized)]
     [InlineData(HttpStatusCode.Forbidden)]

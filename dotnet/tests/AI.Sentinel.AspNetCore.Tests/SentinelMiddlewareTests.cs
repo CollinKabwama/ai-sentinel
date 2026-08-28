@@ -1,11 +1,14 @@
 using System.Net;
 using System.Security.Claims;
 using AI.Sentinel.AspNetCore.Contract;
+using AI.Sentinel.AspNetCore.Mapping;
 using AI.Sentinel.AspNetCore.Middleware;
+using AI.Sentinel.AspNetCore.Options;
 using AI.Sentinel.AspNetCore.Remote;
 using AI.Sentinel.AspNetCore.Tests.Support;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -143,19 +146,47 @@ public class SentinelMiddlewareTests
         request.Headers.Add("X-Forwarded-Host", "evil.example");
         request.Headers.Add("X-Forwarded-Proto", "http");
         request.Headers.Add("X-AI-Sentinel-Api-Key", "inbound-secret");
+        request.Headers.TryAddWithoutValidation("Authorization", "Bearer secret");
+        request.Headers.TryAddWithoutValidation("Cookie", "session=secret");
+        request.Headers.Add("X-Custom-Secret", "custom-secret");
+        request.Headers.Add("X-Csrf-Token", "csrf-secret");
+        request.Headers.Add("X-Session-Token", "session-secret");
+        request.Headers.Add("X-Api-Key", "api-secret");
         request.Headers.Add("X-Request-ID", "safe-request-id");
+        request.Headers.UserAgent.ParseAdd("safe-agent");
 
         var response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(capturedRequest);
         Assert.Equal("safe-request-id", capturedRequest!.Headers["x-request-id"]);
+        Assert.Equal("safe-agent", capturedRequest.Headers["user-agent"]);
         Assert.DoesNotContain("x-forwarded-for", capturedRequest.Headers.Keys);
         Assert.DoesNotContain("forwarded", capturedRequest.Headers.Keys);
         Assert.DoesNotContain("x-real-ip", capturedRequest.Headers.Keys);
         Assert.DoesNotContain("x-forwarded-host", capturedRequest.Headers.Keys);
         Assert.DoesNotContain("x-forwarded-proto", capturedRequest.Headers.Keys);
         Assert.DoesNotContain("x-ai-sentinel-api-key", capturedRequest.Headers.Keys);
+        Assert.DoesNotContain("authorization", capturedRequest.Headers.Keys);
+        Assert.DoesNotContain("cookie", capturedRequest.Headers.Keys);
+        Assert.DoesNotContain("x-custom-secret", capturedRequest.Headers.Keys);
+        Assert.DoesNotContain("x-csrf-token", capturedRequest.Headers.Keys);
+        Assert.DoesNotContain("x-session-token", capturedRequest.Headers.Keys);
+        Assert.DoesNotContain("x-api-key", capturedRequest.Headers.Keys);
+    }
+
+    [Fact]
+    public void RequestMapperUsesConnectionRemoteAddress()
+    {
+        var context = new DefaultHttpContext();
+        context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.7");
+        var mapper = new DefaultEvaluationRequestMapper(
+            Microsoft.Extensions.Options.Options.Create(new AiSentinelOptions()),
+            new ClaimsIdentityResolver(Microsoft.Extensions.Options.Options.Create(new AiSentinelOptions())));
+
+        var request = mapper.Map(context, "corr-remote-address");
+
+        Assert.Equal("198.51.100.7", request.RemoteAddress);
     }
 
     [Fact]

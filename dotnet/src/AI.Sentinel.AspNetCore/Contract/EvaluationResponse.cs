@@ -12,8 +12,8 @@ public sealed class EvaluationResponse
     public string CorrelationId { get; set; } = string.Empty;
 
     [JsonPropertyName("action")]
-    [JsonConverter(typeof(JsonStringEnumConverter))]
-    public EnforcementAction Action { get; set; }
+    [JsonConverter(typeof(StrictEnforcementActionJsonConverter))]
+    public EnforcementAction? Action { get; set; }
 
     [JsonPropertyName("evaluationStatuses")]
     public List<string> EvaluationStatuses { get; set; } = new();

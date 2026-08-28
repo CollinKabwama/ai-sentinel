@@ -99,7 +99,7 @@ AI-Sentinel does **not** authenticate end users. It only consumes the principal 
 | `IdentityClaimType` | Claim used for `identityKey` (default NameIdentifier) |
 | `DenyStatusCode` | HTTP status when `proceed=false` (default 429) |
 | `RequireHttps` | Rejects non-HTTPS URLs except loopback HTTP for tests |
-| `IncludeSafeHeaders` | Includes bounded non-sensitive headers; excludes credentials and raw forwarding/proxy identity headers |
+| `IncludeSafeHeaders` | Includes only a small allowlist of bounded non-sensitive headers; excludes credentials, token-like headers, and raw forwarding/proxy identity headers |
 
 Server-owned settings (thresholds, MONITOR/ENFORCE mode, baselines, quarantine) remain on the Java service.
 

@@ -8,19 +8,16 @@ namespace AI.Sentinel.AspNetCore.Mapping;
 /// <summary>Maps ASP.NET request context into the frozen EvaluationRequest contract.</summary>
 public sealed class DefaultEvaluationRequestMapper : IEvaluationRequestMapper
 {
-    private static readonly HashSet<string> ExcludedHeaders = new(StringComparer.OrdinalIgnoreCase)
+    private static readonly HashSet<string> IncludedHeaders = new(StringComparer.OrdinalIgnoreCase)
     {
-        "authorization",
-        "cookie",
-        "set-cookie",
-        "x-ai-sentinel-api-key",
-        "x-api-key",
-        "api-key",
-        "x-forwarded-for",
-        "forwarded",
-        "x-real-ip",
-        "x-forwarded-host",
-        "x-forwarded-proto"
+        "accept",
+        "accept-language",
+        "content-type",
+        "traceparent",
+        "tracestate",
+        "user-agent",
+        "x-correlation-id",
+        "x-request-id"
     };
 
     private readonly AiSentinelOptions _options;
@@ -68,7 +65,7 @@ public sealed class DefaultEvaluationRequestMapper : IEvaluationRequestMapper
                 }
 
                 var normalized = header.Key.Trim().ToLowerInvariant();
-                if (normalized.Length == 0 || ExcludedHeaders.Contains(normalized))
+                if (normalized.Length == 0 || !IncludedHeaders.Contains(normalized))
                 {
                     continue;
                 }

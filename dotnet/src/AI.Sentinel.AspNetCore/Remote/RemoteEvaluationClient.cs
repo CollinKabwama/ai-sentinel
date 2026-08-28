@@ -119,7 +119,7 @@ public sealed class RemoteEvaluationClient : IRemoteEvaluationClient
             }
 
             outcome = RemoteEvaluationOutcome.SUCCESS;
-            _telemetry.RecordSuccess(response.Action.ToString(), response.EvaluationStatuses);
+            _telemetry.RecordSuccess(response.Action!.Value.ToString(), response.EvaluationStatuses);
             return response;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
