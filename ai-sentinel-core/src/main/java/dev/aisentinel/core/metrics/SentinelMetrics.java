@@ -243,4 +243,20 @@ public interface SentinelMetrics {
 
     /** Behavioral baseline update used in-memory path after Redis failure (fail-open). */
     default void recordTrustBaselineRedisFallback() {}
+
+    /** Remote evaluation HTTP attempt started. */
+    default void recordRemoteEvaluationAttempt() {}
+
+    /**
+     * Remote evaluation finished with a closed {@link RemoteEvaluationOutcome} code.
+     *
+     * @param outcome low-cardinality outcome name ({@link RemoteEvaluationOutcome#name()})
+     */
+    default void recordRemoteEvaluationOutcome(String outcome) {}
+
+    /** Wall-clock remote evaluation latency (success or failure). */
+    default void recordRemoteEvaluationLatencyNanos(long nanos) {}
+
+    /** Remote mode failed and local evaluation was used as fallback. */
+    default void recordRemoteLocalFallback() {}
 }

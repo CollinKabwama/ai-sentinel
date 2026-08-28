@@ -6,6 +6,7 @@ import dev.aisentinel.core.decision.RiskExplanation;
 import dev.aisentinel.core.decision.RiskFactor;
 import dev.aisentinel.core.decision.RiskFactorCode;
 import dev.aisentinel.core.metrics.FailOpenReason;
+import dev.aisentinel.core.metrics.RemoteEvaluationOutcome;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.policy.EnforcementAction;
 import io.micrometer.core.instrument.Counter;
@@ -105,6 +106,11 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Counter trustBaselineRedisSuccess;
     private final Counter trustBaselineRedisFailure;
     private final Counter trustBaselineRedisFallback;
+
+    private final Counter remoteEvaluationAttempt;
+    private final Map<String, Counter> remoteEvaluationOutcomeByName = new LinkedHashMap<>();
+    private final Timer remoteEvaluationLatency;
+    private final Counter remoteLocalFallback;
 
     private final Map<String, Counter> baselineUpdateAcceptedByMode = new LinkedHashMap<>();
     private final Map<String, Counter> baselineUpdateSkippedByMode = new LinkedHashMap<>();
@@ -330,6 +336,24 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
             .register(registry);
         this.trustBaselineRedisFallback = Counter.builder("aisentinel.identity.trust.baseline.redis.fallback")
             .description("Behavioral trust baseline used in-memory store after Redis failure")
+            .register(registry);
+
+        this.remoteEvaluationAttempt = Counter.builder("aisentinel.remote.evaluation.attempt")
+            .description("Remote evaluation HTTP attempts")
+            .register(registry);
+        for (RemoteEvaluationOutcome outcome : RemoteEvaluationOutcome.values()) {
+            remoteEvaluationOutcomeByName.put(outcome.name(),
+                Counter.builder("aisentinel.remote.evaluation.outcome")
+                    .description("Remote evaluation closed outcome")
+                    .tag("outcome", outcome.name())
+                    .register(registry));
+        }
+        this.remoteEvaluationLatency = Timer.builder("aisentinel.remote.evaluation.latency")
+            .description("Remote evaluation wall-clock latency")
+            .publishPercentiles(0.5, 0.9, 0.99)
+            .register(registry);
+        this.remoteLocalFallback = Counter.builder("aisentinel.remote.evaluation.local_fallback")
+            .description("Remote failed and local evaluation was used")
             .register(registry);
 
         for (String mode : List.of("ALWAYS", "ALLOW_ONLY", "ALLOW_OR_MONITOR", "SCORE_BELOW_THRESHOLD")) {
@@ -775,6 +799,34 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     @Override
     public void recordTrustBaselineRedisFallback() {
         trustBaselineRedisFallback.increment();
+    }
+
+    @Override
+    public void recordRemoteEvaluationAttempt() {
+        remoteEvaluationAttempt.increment();
+    }
+
+    @Override
+    public void recordRemoteEvaluationOutcome(String outcome) {
+        if (outcome == null) {
+            return;
+        }
+        Counter counter = remoteEvaluationOutcomeByName.get(outcome);
+        if (counter != null) {
+            counter.increment();
+        }
+    }
+
+    @Override
+    public void recordRemoteEvaluationLatencyNanos(long nanos) {
+        if (nanos >= 0L) {
+            remoteEvaluationLatency.record(nanos, java.util.concurrent.TimeUnit.NANOSECONDS);
+        }
+    }
+
+    @Override
+    public void recordRemoteLocalFallback() {
+        remoteLocalFallback.increment();
     }
 
     public Map<String, Object> scoreSummaryForActuator() {

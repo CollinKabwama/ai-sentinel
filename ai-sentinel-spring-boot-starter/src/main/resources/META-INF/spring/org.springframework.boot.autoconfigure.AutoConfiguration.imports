@@ -5,4 +5,5 @@ dev.aisentinel.autoconfigure.distributed.DistributedQuarantineAutoConfiguration
 dev.aisentinel.autoconfigure.distributed.training.KafkaTrainingTransportAutoConfiguration
 dev.aisentinel.autoconfigure.model.ModelRegistryAutoConfiguration
 dev.aisentinel.autoconfigure.config.SentinelAutoConfiguration
+dev.aisentinel.autoconfigure.evaluation.EvaluationAutoConfiguration
 dev.aisentinel.autoconfigure.actuator.SentinelEndpointAutoConfiguration

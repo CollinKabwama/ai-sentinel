@@ -224,6 +224,21 @@ public final class SentinelPipeline {
             : LastDecisionExplanation.NOOP;
     }
 
+    /** Feature extractor shared with local evaluation bridge / remote evaluation service. */
+    public FeatureExtractor featureExtractor() {
+        return featureExtractor;
+    }
+
+    /** Authoritative decision engine (baselines/quarantine state via shared scorer + enforcement handler). */
+    public SentinelDecisionEngine decisionEngine() {
+        return decisionEngine;
+    }
+
+    /** Identity resolver used on the request path. */
+    public IdentityContextResolver identityContextResolver() {
+        return identityContextResolver;
+    }
+
     /**
      * Runs identity resolution, feature extraction, decision evaluation, enforcement, and optional training publish.
      *
