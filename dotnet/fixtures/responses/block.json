@@ -1,0 +1,13 @@
+{
+  "contractVersion": 1,
+  "correlationId": "fixture-block",
+  "action": "BLOCK",
+  "evaluationStatuses": ["STATISTICAL_LIVE"],
+  "anomalyScore": 0.7,
+  "policyScore": 0.7,
+  "startupGraceActive": false,
+  "proceed": false,
+  "endpoint": "/api/hello",
+  "factors": [],
+  "advice": null
+}

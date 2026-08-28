@@ -1,0 +1,13 @@
+{
+  "contractVersion": 1,
+  "correlationId": "fixture-monitor",
+  "action": "MONITOR",
+  "evaluationStatuses": ["STATISTICAL_LIVE"],
+  "anomalyScore": 0.35,
+  "policyScore": 0.35,
+  "startupGraceActive": false,
+  "proceed": true,
+  "endpoint": "/api/hello",
+  "factors": [],
+  "advice": null
+}
