@@ -127,7 +127,7 @@ class EnforcementConcurrencyRegressionTest {
     @Test
     @Timeout(30)
     void expiryVersusNewWrite_freshQuarantineSurvives() throws Exception {
-        // Short duration so natural expiry can race with re-apply; R-100 compute path must keep fresh until.
+        // Short duration so natural expiry can race with re-apply; a concurrent refresh must keep quarantine active until the new until-time.
         CompositeEnforcementHandler handler = handler(50L, 1000, 5.0);
         String id = "expiry-race";
         int threads = 8;

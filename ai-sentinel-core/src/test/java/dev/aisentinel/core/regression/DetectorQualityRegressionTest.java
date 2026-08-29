@@ -26,7 +26,7 @@ import java.time.Duration;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Focused regressions for detector-quality remediations:
+ * Focused regressions for detector-quality invariants:
  * near-zero variance (role-aware floors / z-caps), identity-like feature exclusion,
  * and endpoint entropy vs concentration.
  */
