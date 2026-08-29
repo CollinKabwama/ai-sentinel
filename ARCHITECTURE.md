@@ -6,9 +6,9 @@ This document describes the **current** runtime architecture: a **Java** decisio
 
 1. **Security model** — identity/request context → behavioral signals → risk evaluation → policy → adaptive response → telemetry/learning  
 2. **Java core** (`ai-sentinel-core`) — implements that model without Spring, Servlet, or Reactor dependencies  
-3. **Current adapter** (`ai-sentinel-spring-boot-starter`) — Servlet filter and Spring Boot wiring; requires **Java 21**
+3. **Current adapters** — **Spring Boot / Servlet** starter (in-process filter) and optional **remote evaluation HTTP API**; reference **ASP.NET Core** client in [`dotnet/`](dotnet/) for non-Java hosts
 
-Framework-independent means free of Spring/Servlet/Reactor APIs inside the Java core — **not** language-independent, and not a claim that other runtime adapters are available today.
+Framework-independent means free of Spring/Servlet/Reactor APIs inside the Java core — **not** language-independent. Other language integrations consume the remote evaluation contract; they do not reimplement the engine.
 
 ---
 

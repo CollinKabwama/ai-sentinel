@@ -48,7 +48,24 @@ dotnet build
 dotnet test
 ```
 
-Shared wire fixtures live in `dotnet/fixtures/responses/` and are validated by both Java and .NET tests.
+Shared wire fixtures live in `dotnet/fixtures/` (`requests/` and `responses/`) and are validated by both Java and .NET tests.
+
+## Testing
+
+```bash
+cd dotnet
+dotnet test
+```
+
+Most tests use in-memory HTTP stubs. For a **live cross-runtime** check against a running Java evaluation service, set:
+
+```bash
+export AI_SENTINEL_E2E_SERVICE_URL=http://127.0.0.1:8080
+export AI_SENTINEL_E2E_API_KEY=your-test-key
+dotnet test --filter "FullyQualifiedName~LiveCrossRuntimeE2ETests"
+```
+
+The Java host must have `ai.sentinel.evaluation.server.enabled=true` and a matching API key. When the environment variables are unset, the live E2E test exits without failure (opt-in).
 
 ## Installation
 

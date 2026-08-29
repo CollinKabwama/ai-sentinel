@@ -10,6 +10,10 @@ for the published library line.
 
 Development line after **0.2.0** (tree version **0.2.1**). No published Central release yet for this line.
 
+### Added
+
+- **ASP.NET Core reference adapter** (`dotnet/`) — thin remote client for the Step-8/9 evaluation contract; middleware, sample app, cross-language fixtures, and opt-in live E2E test. No C# behavioral engine.
+
 ## [0.2.0] — 2026-08-09
 
 Operator-facing hardening of statistical learning, observability, and deployment guidance.
