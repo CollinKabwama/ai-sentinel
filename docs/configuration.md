@@ -182,6 +182,8 @@ Default remains **local** evaluation with no network calls. Remote mode is addit
 
 Remote transport failures are **fail-open** with status `REMOTE_EVALUATION_FAILURE` (not high risk). There is **no automatic retry** of evaluation POSTs.
 
+**ASP.NET Core clients:** the reference adapter in [`dotnet/README.md`](../dotnet/README.md) maps `AiSentinel:*` settings to the same endpoint and `X-AI-Sentinel-Api-Key` header. Server-side properties above apply to the Java host exposing the evaluation API.
+
 **Obsolete / rejected:** `relearn-mode=AFTER_CONSECUTIVE_SKIPS` fails binding; `relearn-after-consecutive-skips` is ignored if present as an unused key.
 
 **Surprising default:** `mode=ENFORCE` while adoption docs recommend `MONITOR` — intentional compatibility; override for adoption.

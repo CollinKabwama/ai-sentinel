@@ -8,7 +8,7 @@
 
 AI-Sentinel evaluates each request using privacy-oriented behavioral features (rates, entropy, payload shape, header fingerprints, IP buckets, and related signals). It combines statistical baselines with an optional **Isolation Forest** model, optionally blends **identity trust** with **anomaly risk**, and maps the outcome to actions: allow, monitor, throttle, block, or quarantine.
 
-**How it is packaged today:** there is no hosted scoring service. A servlet **filter** in the Spring Boot starter adapts each HTTP request into the decision core and runs the pipeline in-process. The decision core (`ai-sentinel-core`) is Java code that does **not** depend on Spring or Servlet APIs; the starter is the **current deployable adapter**, not the entire security architecture.
+**How it is packaged today:** the primary integration is an in-process servlet **filter** in the Spring Boot starter. The same behavioral engine can also be exposed as an authenticated **remote evaluation API** (`POST /ai-sentinel/v1/evaluation`) for out-of-process clients. A reference **ASP.NET Core** adapter consumes that API — see [`dotnet/README.md`](dotnet/README.md). There is no separate hosted SaaS scoring service in this repository.
 
 **Problem it addresses:** Static rules and coarse rate limits miss gradual or identity-specific abuse. AI-Sentinel complements authentication and infrastructure controls with **per-identity** behavioral signals and a single, configurable policy surface.
 
@@ -36,8 +36,15 @@ AI-Sentinel evaluates each request using privacy-oriented behavioral features (r
 | **ai-sentinel-spring-boot-starter** | **Current** Spring Boot / Servlet adapter: auto-configuration, `SentinelFilter`, `SentinelProperties`, actuator, Micrometer, optional Redis and Kafka integration |
 | **ai-sentinel-trainer** | Optional application: consumes training candidates, trains Isolation Forest models, publishes artifacts to a shared filesystem registry |
 | **ai-sentinel-demo** | Reference Spring Boot application and smoke tests |
+| **dotnet/** | Reference **ASP.NET Core** adapter (`AI.Sentinel.AspNetCore`) — remote client only; no C# scoring engine. See [`dotnet/README.md`](dotnet/README.md). |
 
 Runtime details, extension points, and distributed components are described in **[`ARCHITECTURE.md`](ARCHITECTURE.md)**.
+
+---
+
+## Cross-platform integration (ASP.NET Core)
+
+Non-Java applications can call the same Step-8/9 evaluation contract over HTTP when the Java service has remote evaluation enabled (`ai.sentinel.evaluation.server.enabled=true`). The [`dotnet/`](dotnet/) tree provides middleware, configuration, tests, and a sample app. **Java remains the authoritative engine**; the .NET library is a thin adapter with fail-open remote failure semantics and MONITOR-first guidance.
 
 ---
 
@@ -159,6 +166,7 @@ Spring Boot **`@ConditionalOnMissingBean`** is applied across the pipeline. You 
 | **ai-sentinel-spring-boot-starter** | Auto-configuration, servlet filter, `SentinelProperties`, actuator, Micrometer adapter |
 | **ai-sentinel-trainer** | Optional app: Kafka consumer for training candidates, IF training, filesystem registry publisher |
 | **ai-sentinel-demo** | Reference app (`/api/hello`), actuator, optional traffic simulator |
+| **dotnet/** | Reference ASP.NET Core remote adapter — see [`dotnet/README.md`](dotnet/README.md) |
 
 There is no `ai-sentinel-dashboard` module; use Prometheus, Grafana, or logs for dashboards.
 

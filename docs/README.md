@@ -6,6 +6,7 @@
 | `deployment.md` | Tracked deployment modes, adoption, and failure-mode profile |
 | `migration.md` | Tracked upgrade guide from the previous published line |
 | `testing.md` | Tracked characterization and release-gate testing |
+| [`../dotnet/README.md`](../dotnet/README.md) | ASP.NET Core reference adapter (remote client; not gitignored) |
 | `planning/` | Local engineering notes (gitignored) |
 | `detection/` | Local characterization evidence (gitignored) |
 | `archive/` | Local historical notes (gitignored) |
