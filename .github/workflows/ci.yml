@@ -46,3 +46,30 @@ jobs:
             **/target/surefire-reports/**
             **/target/failsafe-reports/**
           if-no-files-found: ignore
+
+  dotnet:
+    name: Build & test (.NET 8)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    defaults:
+      run:
+        working-directory: dotnet
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: dotnet/global.json
+
+      - name: Restore
+        run: dotnet restore AI.Sentinel.sln
+
+      - name: Build
+        run: dotnet build AI.Sentinel.sln --no-restore
+
+      - name: Test
+        run: dotnet test AI.Sentinel.sln --no-restore --no-build
