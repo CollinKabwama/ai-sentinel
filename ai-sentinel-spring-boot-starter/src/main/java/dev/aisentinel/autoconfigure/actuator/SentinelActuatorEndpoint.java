@@ -19,6 +19,7 @@ import dev.aisentinel.distributed.throttle.NoopClusterThrottleStore;
 import dev.aisentinel.distributed.training.NoopTrainingCandidatePublisher;
 import dev.aisentinel.distributed.training.TrainingCandidatePublisher;
 import dev.aisentinel.core.runtime.StartupGrace;
+import dev.aisentinel.core.scoring.CompositeScoreSnapshotSource;
 import dev.aisentinel.core.scoring.CompositeScorer;
 import dev.aisentinel.core.scoring.IsolationForestScorer;
 import dev.aisentinel.core.scoring.StatisticalScoreSnapshot;
@@ -49,7 +50,7 @@ public class SentinelActuatorEndpoint {
     private final IsolationForestScorer isolationForestScorer;
     private final StartupGrace startupGrace;
     private final MicrometerSentinelMetrics micrometerSentinelMetrics;
-    private final CompositeScorer compositeScorer;
+    private final CompositeScoreSnapshotSource compositeScoreSnapshotSource;
     private final LastDecisionExplanation lastDecisionExplanation;
     private final DistributedQuarantineStatus distributedQuarantineStatus;
     private final DistributedThrottleStatus distributedThrottleStatus;
@@ -97,7 +98,7 @@ public class SentinelActuatorEndpoint {
         this.isolationForestScorer = isolationForestScorer;
         this.startupGrace = startupGrace != null ? startupGrace : StartupGrace.NEVER;
         this.micrometerSentinelMetrics = micrometerSentinelMetrics;
-        this.compositeScorer = compositeScorer;
+        this.compositeScoreSnapshotSource = compositeScorer;
         this.lastDecisionExplanation = lastDecisionExplanation;
         this.distributedQuarantineStatus = distributedQuarantineStatus;
         this.distributedThrottleStatus = distributedThrottleStatus;
@@ -228,10 +229,10 @@ public class SentinelActuatorEndpoint {
     }
 
     private Map<String, Object> lastScoreComponentsPayload() {
-        if (compositeScorer == null) {
+        if (compositeScoreSnapshotSource == null) {
             return Map.of();
         }
-        CompositeScorer.CompositeScoreSnapshot snap = compositeScorer.getLastCompositeScoreSnapshot();
+        CompositeScorer.CompositeScoreSnapshot snap = compositeScoreSnapshotSource.getLastCompositeScoreSnapshot();
         if (snap == null) {
             return Map.of();
         }

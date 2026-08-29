@@ -17,6 +17,10 @@ Development line after **0.2.0** (tree version **0.2.1**). No published Central 
 ### Added
 
 - **ASP.NET Core reference adapter** (`dotnet/`) — thin remote client for the Step-8/9 evaluation contract; middleware, sample app, cross-language fixtures, and opt-in live E2E test. No C# behavioral engine.
+- **Evaluation status contributor SPI** — scorers may implement `EvaluationStatusContributor` so operational markers appear without status code knowing concrete scorer types.
+- **Composite score snapshot capability** — pipeline and actuator depend on `CompositeScoreSnapshotSource` rather than requiring the concrete `CompositeScorer` type for diagnostic snapshots.
+- **Feature schema contract** — `FeatureSchema` publishes layout version and explicit statistical / Isolation Forest / export dimensions and ordered names; training export/parser align on the same constants.
+- **Public API compatibility gate** — Maven profile `api-compatibility` runs japicmp for published modules against the configured Central baseline (default `0.2.0`).
 
 ### Changed
 

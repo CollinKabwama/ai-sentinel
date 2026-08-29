@@ -1,5 +1,7 @@
 package dev.aisentinel.distributed.training;
 
+import dev.aisentinel.core.model.FeatureSchema;
+
 import java.util.Arrays;
 import java.util.Objects;
 
@@ -75,8 +77,8 @@ public final class TrainingCandidateRecord {
         this.endpointSha256Hex = normalizeSha256Hex(endpointSha256Hex);
         this.enforcementKeySha256Hex = normalizeSha256Hex(enforcementKeySha256Hex);
         this.observedAtEpochMillis = observedAtEpochMillis;
-        this.isolationForestFeatures = copyFixed(isolationForestFeatures, 5);
-        this.statisticalFeatures = copyFixed(statisticalFeatures, 7);
+        this.isolationForestFeatures = copyFixed(isolationForestFeatures, FeatureSchema.ISOLATION_FOREST_DIMENSION);
+        this.statisticalFeatures = copyFixed(statisticalFeatures, FeatureSchema.EXPORT_DIMENSION);
         this.statisticalScore = statisticalScore;
         this.isolationForestScore = isolationForestScore;
         this.compositeScore = clampUnit(compositeScore);

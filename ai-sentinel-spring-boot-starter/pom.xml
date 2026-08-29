@@ -95,4 +95,56 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <profiles>
+        <profile>
+            <id>api-compatibility</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.github.siom79.japicmp</groupId>
+                        <artifactId>japicmp-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>japicmp-starter</id>
+                                <goals>
+                                    <goal>cmp</goal>
+                                </goals>
+                                <phase>verify</phase>
+                                <configuration>
+                                    <oldVersion>
+                                        <dependency>
+                                            <groupId>dev.aisentinel</groupId>
+                                            <artifactId>ai-sentinel-spring-boot-starter</artifactId>
+                                            <version>${aisentinel.api.compatibility.oldVersion}</version>
+                                        </dependency>
+                                    </oldVersion>
+                                    <newVersion>
+                                        <file>
+                                            <path>${project.build.directory}/${project.build.finalName}.${project.packaging}</path>
+                                        </file>
+                                    </newVersion>
+                                    <parameter>
+                                        <onlyModified>false</onlyModified>
+                                        <breakBuildOnBinaryIncompatibleModifications>true</breakBuildOnBinaryIncompatibleModifications>
+                                        <breakBuildOnSourceIncompatibleModifications>true</breakBuildOnSourceIncompatibleModifications>
+                                        <ignoreMissingClasses>true</ignoreMissingClasses>
+                                        <!--
+                                          Pre-existing consolidation change vs published 0.2.0: Spring @Bean
+                                          factory gained a SentinelMetrics parameter. Applications do not invoke
+                                          this method directly. Retarget aisentinel.api.compatibility.oldVersion
+                                          after the consolidation release and remove this exclude.
+                                        -->
+                                        <excludes>
+                                            <exclude>*.SentinelAutoConfiguration#enforcementHandlerImpl(dev.aisentinel.core.telemetry.TelemetryEmitter,dev.aisentinel.autoconfigure.config.SentinelProperties,org.springframework.beans.factory.ObjectProvider,org.springframework.beans.factory.ObjectProvider)</exclude>
+                                        </excludes>
+                                    </parameter>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

@@ -109,4 +109,57 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>api-compatibility</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>com.github.siom79.japicmp</groupId>
+                        <artifactId>japicmp-maven-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>japicmp-core</id>
+                                <goals>
+                                    <goal>cmp</goal>
+                                </goals>
+                                <phase>verify</phase>
+                                <configuration>
+                                    <oldVersion>
+                                        <dependency>
+                                            <groupId>dev.aisentinel</groupId>
+                                            <artifactId>ai-sentinel-core</artifactId>
+                                            <version>${aisentinel.api.compatibility.oldVersion}</version>
+                                        </dependency>
+                                    </oldVersion>
+                                    <newVersion>
+                                        <file>
+                                            <path>${project.build.directory}/${project.build.finalName}.${project.packaging}</path>
+                                        </file>
+                                    </newVersion>
+                                    <parameter>
+                                        <onlyModified>false</onlyModified>
+                                        <breakBuildOnBinaryIncompatibleModifications>true</breakBuildOnBinaryIncompatibleModifications>
+                                        <breakBuildOnSourceIncompatibleModifications>true</breakBuildOnSourceIncompatibleModifications>
+                                        <ignoreMissingClasses>true</ignoreMissingClasses>
+                                        <!--
+                                          Intentional consolidation break vs published 0.2.0:
+                                          one-argument quarantine lookup removed; use identity+endpoint form.
+                                          After the consolidation release is published, retarget
+                                          aisentinel.api.compatibility.oldVersion to that release and
+                                          remove this exclude.
+                                        -->
+                                        <excludes>
+                                            <exclude>*.EnforcementHandler#isQuarantined(java.lang.String)</exclude>
+                                        </excludes>
+                                    </parameter>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

@@ -130,6 +130,14 @@ mvn clean verify
 
 `mvn clean verify` is the same primary gate used for release validation ([`docs/testing.md`](docs/testing.md)). Without Docker, a small number of Testcontainers tests are skipped rather than failed.
 
+Optional **public API compatibility** check against the last published Central baseline (`0.2.0` by default; property `aisentinel.api.compatibility.oldVersion`):
+
+```bash
+mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am verify -DskipTests
+```
+
+CI runs this profile after the main reactor verify. After the next consolidation release is published, retarget the baseline property and drop the intentional excludes documented in `ai-sentinel-core/pom.xml` and `ai-sentinel-spring-boot-starter/pom.xml` (removed one-argument quarantine lookup; pre-existing Spring `@Bean` signature change for `enforcementHandlerImpl`).
+
 Running a single module in isolation only works when its dependencies are already installed with matching sources:
 
 ```bash

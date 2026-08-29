@@ -1,6 +1,10 @@
 package dev.aisentinel.core.scoring;
 
+import dev.aisentinel.core.decision.EvaluationStatus;
+import dev.aisentinel.core.decision.EvaluationStatusContributionContext;
+import dev.aisentinel.core.decision.EvaluationStatusContributor;
 import dev.aisentinel.core.metrics.SentinelMetrics;
+import dev.aisentinel.core.model.FeatureSchema;
 import dev.aisentinel.core.model.RequestFeatures;
 
 import java.util.Map;
@@ -19,7 +23,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * hash/IP features are excluded; near-zero variance is mitigated with role-aware resolution floors
  * and per-feature {@code |z|} caps rather than raising the global numerical {@code MIN_STD}.
  */
-public final class StatisticalScorer implements AnomalyScorer {
+public final class StatisticalScorer implements AnomalyScorer, EvaluationStatusContributor {
 
     /** Numerical floor only — prevents divide-by-zero; not the anti-FP mitigation. */
     private static final double MIN_STD = 1e-6;
@@ -59,6 +63,14 @@ public final class StatisticalScorer implements AnomalyScorer {
         2.0,  // parameterCount — unit/large flips alone cannot exceed THROTTLE band
         2.0   // payloadSizeBytes
     };
+
+    static {
+        if (STD_RESOLUTION.length != FeatureSchema.STATISTICAL_DIMENSION
+            || Z_CAP.length != FeatureSchema.STATISTICAL_DIMENSION) {
+            throw new ExceptionInInitializerError(
+                "StatisticalScorer dimension tables must match FeatureSchema.STATISTICAL_DIMENSION");
+        }
+    }
 
     private final Map<String, WelfordState> stateByKey = new ConcurrentHashMap<>();
     private final int maxKeys;
@@ -134,9 +146,22 @@ public final class StatisticalScorer implements AnomalyScorer {
         stateByKey.clear();
     }
 
+    @Override
+    public void contributeEvaluationStatuses(RequestFeatures features, EvaluationStatusContributionContext context) {
+        if (features == null) {
+            context.add(EvaluationStatus.DEGRADED);
+            return;
+        }
+        if (isWarmup(features)) {
+            context.add(EvaluationStatus.STATISTICAL_WARMUP);
+        } else {
+            context.add(EvaluationStatus.STATISTICAL_LIVE);
+        }
+    }
+
     /**
      * {@code true} when this identity|endpoint key lacks enough samples for live z-score scoring.
-     * Does not mutate state. Used by the decision engine for {@link dev.aisentinel.core.decision.EvaluationStatus}
+     * Does not mutate state. Used by the decision engine for {@link EvaluationStatus}
      * without expanding the pluggable {@link AnomalyScorer} SPI.
      */
     public boolean isWarmup(RequestFeatures features) {

@@ -77,14 +77,13 @@ public final class RequestFeatures {
 
     /**
      * Full export vector (training snapshots / diagnostics).
-     * Order: requestsPerWindow, endpointEntropy, tokenAgeSeconds, parameterCount,
-     * payloadSizeBytes, headerFingerprintHash, ipBucket.
+     * Order matches {@link FeatureSchema#EXPORT_FEATURE_NAMES} (schemaVersion {@link FeatureSchema#VERSION}).
      * <p>
      * Identity-like hash/IP dimensions are included for export compatibility; the online
      * statistical scorer uses {@link #toStatisticalArray()} instead.
      */
     public double[] toArray() {
-        return new double[] {
+        double[] out = new double[] {
             requestsPerWindow,
             endpointEntropy,
             tokenAgeSeconds,
@@ -93,6 +92,8 @@ public final class RequestFeatures {
             headerFingerprintHash,
             ipBucket
         };
+        FeatureSchema.requireExportDimension(out);
+        return out;
     }
 
     /**
@@ -100,11 +101,10 @@ public final class RequestFeatures {
      * Excludes identity-like {@code headerFingerprintHash} and {@code ipBucket}.
      * Includes {@link #endpointConcentration()} as a separate concentration signal alongside
      * Shannon {@link #endpointEntropy()}.
-     * Order: requestsPerWindow, endpointEntropy, endpointConcentration, tokenAgeSeconds,
-     * parameterCount, payloadSizeBytes
+     * Order matches {@link FeatureSchema#STATISTICAL_FEATURE_NAMES} (schemaVersion {@link FeatureSchema#VERSION}).
      */
     public double[] toStatisticalArray() {
-        return new double[] {
+        double[] out = new double[] {
             requestsPerWindow,
             endpointEntropy,
             endpointConcentration,
@@ -112,20 +112,25 @@ public final class RequestFeatures {
             parameterCount,
             payloadSizeBytes
         };
+        FeatureSchema.requireStatisticalDimension(out);
+        return out;
     }
 
     /**
      * Subset for Isolation Forest only: behavioral / magnitude features (no hash-derived ordinals).
-     * Order: requestsPerWindow, endpointEntropy, tokenAgeSeconds, parameterCount, payloadSizeBytes
+     * Order matches {@link FeatureSchema#ISOLATION_FOREST_FEATURE_NAMES}
+     * (schemaVersion {@link FeatureSchema#VERSION}).
      */
     public double[] toIsolationForestArray() {
-        return new double[] {
+        double[] out = new double[] {
             requestsPerWindow,
             endpointEntropy,
             tokenAgeSeconds,
             parameterCount,
             payloadSizeBytes
         };
+        FeatureSchema.requireIsolationForestDimension(out);
+        return out;
     }
 
     public static final class Builder {

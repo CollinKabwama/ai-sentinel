@@ -109,10 +109,14 @@ Run all commands from the **repository root** (the directory that contains the p
 git checkout main
 git pull
 mvn clean verify
+mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am verify -DskipTests
 ```
 
 Fix any test or build failures before continuing. Run `mvn clean verify` **twice**. Characterization
 and architecture gates are included in that command — see [`docs/testing.md`](docs/testing.md).
+The `api-compatibility` profile compares published library modules against
+`aisentinel.api.compatibility.oldVersion` (default **0.2.0**) via japicmp. After the consolidation
+release ships, retarget that property to the new baseline and remove the intentional quarantine-method exclude.
 
 Confirm MONITOR-first guidance is still accurate in [`docs/deployment.md`](docs/deployment.md) and
 that [`CHANGELOG.md`](CHANGELOG.md) / [`docs/migration.md`](docs/migration.md) match the tag you are
