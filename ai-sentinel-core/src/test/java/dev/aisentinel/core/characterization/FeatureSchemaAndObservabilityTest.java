@@ -10,6 +10,7 @@ import dev.aisentinel.core.http.HttpRequestView;
 import dev.aisentinel.core.http.MapHttpRequestView;
 import dev.aisentinel.core.identity.spi.NoopTrustEvaluator;
 import dev.aisentinel.core.metrics.SentinelMetrics;
+import dev.aisentinel.core.model.FeatureSchema;
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
 import dev.aisentinel.core.policy.EnforcementAction;
@@ -21,7 +22,6 @@ import dev.aisentinel.core.scoring.StatisticalFeatureNames;
 import dev.aisentinel.core.scoring.StatisticalScorer;
 import org.junit.jupiter.api.Test;
 
-import java.util.Locale;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,20 +40,15 @@ class FeatureSchemaAndObservabilityTest {
             .headerFingerprintHash(0).ipBucket(0).build();
 
         assertThat(f.toStatisticalArray()).hasSize(StatisticalFeatureNames.NAMES.length);
-        assertThat(f.toStatisticalArray()).hasSize(6);
-        assertThat(f.toIsolationForestArray()).hasSize(5);
-        assertThat(f.toArray()).hasSize(7);
-        System.out.printf(Locale.ROOT,
-            "feature lengths stat=%d if=%d full=%d names=%d%n",
-            f.toStatisticalArray().length, f.toIsolationForestArray().length,
-            f.toArray().length, StatisticalFeatureNames.NAMES.length);
+        assertThat(f.toStatisticalArray()).hasSize(FeatureSchema.STATISTICAL_DIMENSION);
+        assertThat(f.toIsolationForestArray()).hasSize(FeatureSchema.ISOLATION_FOREST_DIMENSION);
+        assertThat(f.toArray()).hasSize(FeatureSchema.EXPORT_DIMENSION);
+        assertThat(FeatureSchema.VERSION).isEqualTo(1);
     }
 
     @Test
-    void statisticalScorer_handlesShorterThanExpectedFeatureVectorViaMinDim() {
-        // Build features normally — RequestFeatures always produces fixed arrays.
-        // Document that there is no public API to inject wrong-length arrays into scorers;
-        // mismatch risk lives at training serialization (hardcoded STAT_FEATURE_LEN / IF_FEATURE_LEN).
+    void statisticalScorer_handlesFixedLengthFeatureVectorsFromRequestFeatures() {
+        // RequestFeatures always produces schema-sized arrays; training export uses FeatureSchema dims.
         StatisticalScorer scorer = new StatisticalScorer(1000, 60_000L, 2, 0.4);
         RequestFeatures f = RequestFeatures.builder()
             .identityHash("h").endpoint("/e").timestampMillis(1)
@@ -64,12 +59,10 @@ class FeatureSchemaAndObservabilityTest {
         scorer.update(f);
         double s = scorer.score(f);
         assertThat(Double.isFinite(s)).isTrue();
-        System.out.printf(Locale.ROOT,
-            "RequestFeatures fixes lengths; training publisher hardcodes 7/5 — schema versioning gap remains%n");
     }
 
     @Test
-    void customScorerWithoutKnownTypesStillYieldsCompleteStatus() throws Exception {
+    void customScorerWithoutContributorYieldsCompleteStatus() throws Exception {
         AnomalyScorer custom = new AnomalyScorer() {
             @Override
             public double score(RequestFeatures features) {
@@ -80,7 +73,6 @@ class FeatureSchemaAndObservabilityTest {
             public void update(RequestFeatures features) {
             }
         };
-        // EvaluationStatusCollector is package-private; exercise via engine evaluate path
         SentinelDecisionEngine engine = new SentinelDecisionEngine(
             custom,
             new ThresholdPolicyEngine(0.2, 0.4, 0.6, 0.8),
@@ -102,9 +94,6 @@ class FeatureSchemaAndObservabilityTest {
                 .headerFingerprintHash(0).ipBucket(0).build(),
             new RequestContext());
         Set<EvaluationStatus> statuses = d.evaluationStatuses();
-        System.out.printf(Locale.ROOT, "customScorer statuses=%s action=%s score=%.4f%n",
-            statuses, d.action(), d.anomalyScore());
-        // Custom scorers get COMPLETE when collector cannot attach STATISTICAL_* / MODEL_* markers
         assertThat(statuses).contains(EvaluationStatus.COMPLETE);
         assertThat(statuses).doesNotContain(EvaluationStatus.STATISTICAL_LIVE);
     }

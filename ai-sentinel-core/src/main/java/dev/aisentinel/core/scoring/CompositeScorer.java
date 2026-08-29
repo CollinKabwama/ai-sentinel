@@ -1,7 +1,12 @@
 package dev.aisentinel.core.scoring;
 
+import dev.aisentinel.core.decision.EvaluationStatusContributionContext;
+import dev.aisentinel.core.decision.EvaluationStatus;
+import dev.aisentinel.core.decision.EvaluationStatusContributor;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.model.RequestFeatures;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -22,7 +27,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Child scorers are held in a {@link CopyOnWriteArrayList} so {@link #score}/{@link #update}
  * always iterate a stable snapshot even if {@link #addScorer} runs concurrently.
  */
-public final class CompositeScorer implements AnomalyScorer {
+public final class CompositeScorer implements AnomalyScorer, CompositeScoreSnapshotSource, EvaluationStatusContributor {
+
+    private static final Logger log = LoggerFactory.getLogger(CompositeScorer.class);
 
     private final List<WeightedScorer> scorers = new CopyOnWriteArrayList<>();
     private final SentinelMetrics metrics;
@@ -61,8 +68,24 @@ public final class CompositeScorer implements AnomalyScorer {
      * <p>
      * <strong>Diagnostic only:</strong> last scorer invocation globally — not request-scoped.
      */
+    @Override
     public CompositeScoreSnapshot getLastCompositeScoreSnapshot() {
         return lastSnapshot;
+    }
+
+    @Override
+    public void contributeEvaluationStatuses(RequestFeatures features, EvaluationStatusContributionContext context) {
+        for (AnomalyScorer child : scorersView()) {
+            if (!(child instanceof EvaluationStatusContributor contributor)) {
+                continue;
+            }
+            try {
+                contributor.contributeEvaluationStatuses(features, context);
+            } catch (RuntimeException e) {
+                log.warn("Child evaluation status contributor failed; treating as degraded: {}", e.toString());
+                context.add(EvaluationStatus.DEGRADED);
+            }
+        }
     }
 
     /**

@@ -32,6 +32,7 @@ import dev.aisentinel.core.metrics.FailOpenReason;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.scoring.AnomalyScorer;
+import dev.aisentinel.core.scoring.CompositeScoreSnapshotSource;
 import dev.aisentinel.core.scoring.CompositeScorer;
 import dev.aisentinel.core.scoring.StatisticalScoreSnapshot;
 import dev.aisentinel.core.fusion.FusedRisk;
@@ -56,7 +57,7 @@ import lombok.extern.slf4j.Slf4j;
 public final class SentinelPipeline {
 
     private final FeatureExtractor featureExtractor;
-    private final CompositeScorer compositeScorerOrNull;
+    private final CompositeScoreSnapshotSource compositeScoreSnapshotSourceOrNull;
     private final EnforcementHandler enforcementHandler;
     private final SentinelDecisionEngine decisionEngine;
     private final SentinelMetrics metrics;
@@ -204,7 +205,7 @@ public final class SentinelPipeline {
                             BaselineLifecycle baselineLifecycle,
                             LastDecisionExplanation lastDecisionExplanation) {
         this.featureExtractor = featureExtractor;
-        this.compositeScorerOrNull = compositeScorerOrNull;
+        this.compositeScoreSnapshotSourceOrNull = compositeScorerOrNull;
         this.enforcementHandler = enforcementHandler;
         this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
         this.decisionEngine = new SentinelDecisionEngine(scorer, policyEngine, enforcementHandler, telemetry,
@@ -349,9 +350,9 @@ public final class SentinelPipeline {
             if (evidence != null) {
                 statisticalScore = evidence.statisticalScore();
                 isolationForestScore = evidence.isolationForestScore();
-            } else if (compositeScorerOrNull != null) {
+            } else if (compositeScoreSnapshotSourceOrNull != null) {
                 // Diagnostic fallback only when no request-scoped evidence (custom scorer path).
-                var snap = compositeScorerOrNull.getLastCompositeScoreSnapshot();
+                var snap = compositeScoreSnapshotSourceOrNull.getLastCompositeScoreSnapshot();
                 if (snap != null) {
                     double st = snap.statistical();
                     statisticalScore = Double.isNaN(st) ? null : st;

@@ -25,6 +25,21 @@ gate: packaging and some module checks only run under `verify`.
 When Docker is unavailable, Testcontainers-backed distributed checks are **skipped** (typically five
 tests in the starter module). Skips are expected in that environment; failures and errors are not.
 
+### Public API compatibility
+
+Published modules (`ai-sentinel-core`, `ai-sentinel-spring-boot-starter`) can be checked against the
+last Central baseline with japicmp:
+
+```bash
+mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am verify -DskipTests
+```
+
+CI runs this after the reactor verify. The baseline version is
+`aisentinel.api.compatibility.oldVersion` (default `0.2.0`). Narrow excludes (documented in module
+POMs) cover the removed one-argument `EnforcementHandler.isQuarantined(String)` and a pre-existing
+Spring `@Bean` signature change on `SentinelAutoConfiguration.enforcementHandlerImpl`; both should be
+removed when the consolidation release becomes the next baseline.
+
 Expected shape (may grow if tests are added):
 
 | Module | Typical tests | Notes |

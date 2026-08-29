@@ -37,6 +37,9 @@ jobs:
       - name: Build and test (reactor)
         run: mvn -B -ntp verify
 
+      - name: Public API compatibility (vs published baseline)
+        run: mvn -B -ntp -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am verify -DskipTests
+
       - name: Upload test reports (on failure)
         if: failure()
         uses: actions/upload-artifact@v4

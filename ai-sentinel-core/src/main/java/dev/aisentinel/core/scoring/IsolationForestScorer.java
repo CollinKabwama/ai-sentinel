@@ -1,5 +1,8 @@
 package dev.aisentinel.core.scoring;
 
+import dev.aisentinel.core.decision.EvaluationStatus;
+import dev.aisentinel.core.decision.EvaluationStatusContributionContext;
+import dev.aisentinel.core.decision.EvaluationStatusContributor;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.model.RequestFeatures;
 import dev.aisentinel.model.ModelArtifactMetadata;
@@ -23,7 +26,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * composite. Isolation Forest exposes a single scalar; it does not provide per-feature
  * attribution.
  */
-public final class IsolationForestScorer implements AnomalyScorer {
+public final class IsolationForestScorer implements AnomalyScorer, EvaluationStatusContributor {
 
     /** Which path last activated the in-memory IF model (observability; registry and local retrain are mutually exclusive in production). */
     public enum ActiveModelSource {
@@ -91,6 +94,28 @@ public final class IsolationForestScorer implements AnomalyScorer {
     /** Result mode of the last {@link #score(RequestFeatures)} call on this instance (diagnostic — last invocation globally). */
     public LastScoreMode lastScoreMode() {
         return lastScoreMode;
+    }
+
+    @Override
+    public void contributeEvaluationStatuses(RequestFeatures features, EvaluationStatusContributionContext context) {
+        LastScoreMode mode = resolveMode(context.isolationForestScoreModeOrNull());
+        if (mode == LastScoreMode.FALLBACK_NO_MODEL) {
+            context.add(EvaluationStatus.MODEL_UNAVAILABLE);
+            context.add(EvaluationStatus.MODEL_FALLBACK_USED);
+        } else if (mode == LastScoreMode.FALLBACK_INVALID) {
+            context.add(EvaluationStatus.MODEL_FALLBACK_USED);
+        }
+    }
+
+    private LastScoreMode resolveMode(String modeNameOrNull) {
+        if (modeNameOrNull == null || modeNameOrNull.isBlank()) {
+            return lastScoreMode();
+        }
+        try {
+            return LastScoreMode.valueOf(modeNameOrNull);
+        } catch (IllegalArgumentException e) {
+            return lastScoreMode();
+        }
     }
 
     /**

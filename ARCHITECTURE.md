@@ -279,6 +279,9 @@ Dedicated distributed meters (`aisentinel.distributed.*`, `aisentinel.identity.t
 |----------|------------------|
 | Features | `FeatureExtractor` |
 | Scoring | `AnomalyScorer` / register additional scorers only via custom `CompositeScorer` bean |
+| Evaluation status | Optional `EvaluationStatusContributor` on scorers to emit operational markers without concrete-type switches in status collection |
+| Composite diagnostics | `CompositeScoreSnapshotSource` for actuator / training snapshot access without requiring the concrete `CompositeScorer` type |
+| Feature layout | `FeatureSchema` version + dimensions (statistical / Isolation Forest / export); order is part of the model contract |
 | Policy | `PolicyEngine` |
 | Trust-aware policy | `TrustPolicyAdjuster` |
 | Risk fusion | `RequestRiskFusion` |
