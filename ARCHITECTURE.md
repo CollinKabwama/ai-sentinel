@@ -35,6 +35,7 @@ ai-sentinel/
 ├── ai-sentinel-spring-boot-starter/  # Current Servlet filter, auto-config, actuator, Micrometer
 ├── ai-sentinel-trainer/              # Optional app: Kafka consumer, IF training, filesystem registry publisher
 ├── ai-sentinel-demo/                 # Reference Spring Boot application
+├── dotnet/                           # Reference ASP.NET Core remote adapter (no C# scoring engine)
 └── scripts/                          # Optional Python traffic / training helpers
 ```
 
@@ -121,7 +122,7 @@ RequestFeatures extract(HttpRequestView request, String identityHash, RequestCon
 | `parameterCount` | **Query/form** `getParameterMap().size()` only — not JSON body field count (JSON APIs often yield `0`) |
 | `payloadSizeBytes` | Body size |
 | `headerFingerprintHash` | Stable hash of selected header names/presence (identity-like) |
-| `ipBucket` | Coarse IP bucket (identity-like) |
+| `ipBucket` | Coarse IP bucket from **`HttpRequestView.getRemoteAddr()`** (servlet: container remote address). **Not** derived from raw `X-Forwarded-For` / `Forwarded` headers in the default extractor. Separate from identity resolution, which may use **`ClientIpResolver`** when proxies are trusted. |
 
 There is no **`FeatureProvider` SPI** in the codebase; extend by supplying your own `@Bean` `FeatureExtractor`.
 
@@ -134,6 +135,8 @@ There is no **`FeatureProvider` SPI** in the codebase; extend by supplying your 
 **`StatisticalScorer`** maintains Welford mean/variance per key (bounded maps + TTL), converts z-scores to a bounded score, and applies **warmup** (`warmupMinSamples`, `warmupScore`) when data is sparse. Online updates are **gated** by `BaselineUpdatePolicy` (default: learn from risk-derived `ALLOW`/`MONITOR` only; always learn during statistical warmup). Flow: score → decide risk → conditionally call `AnomalyScorer.update(...)`. With default composite wiring, an accepted update fans out to statistical state and optional Isolation Forest training-buffer handling (IF retains its own rejection gates).
 
 Statistical Welford state and the rolling `BaselineStore` request window share **`ai.sentinel.baseline-ttl`** / **`baseline-max-keys`**. Idle keys expire on the score/update (scorer) and get/increment (store) paths via a **throttled** full-map sweep (at most once per second per instance) so statistical history cannot outlive the request-window lifetime without paying O(n) on every request. When cardinality exceeds `baseline-max-keys`, capacity eviction is **serialized** and removes oldest-access keys after the newcomer is touched (so the insert is not self-evicted). Per-key bucket chains serialize prune/count with increments. Controlled reset is opt-in via `BaselineLifecycle` / `ai.sentinel.statistical.relearn-mode` (default `DISABLED`, or `EXPLICIT_ONLY`): reset clears per-key Welford state so the identity re-enters warmup; it does **not** switch learning to unconditional always-update. Automatic skip-triggered relearn is not offered.
+
+**Idle TTL is not automatic relearning.** Continuous elevated traffic keeps keys “hot,” so idle expiry does not resolve sticky elevation after a permanent workload step-up under gated learning. See operator guidance in [`docs/deployment.md`](docs/deployment.md#legitimate-workload-transitions-and-gated-learning).
 
 It consumes `RequestFeatures.toStatisticalArray()` — six behavioral dimensions
 (`requestsPerWindow`, Shannon `endpointEntropy`, `endpointConcentration`,

@@ -256,6 +256,16 @@ Remote transport failures are **fail-open** with status `REMOTE_EVALUATION_FAILU
 | `ai.sentinel.model-registry.filesystem-root` | _(empty)_ | Registry root shared with `ai-sentinel-trainer` output (`{root}/{tenant}/active.json` + `artifacts/`) |
 | `ai.sentinel.model-registry.poll-interval` | `5m` | Poll interval (validated 10s–24h) |
 
+**Registry disk retention:** Publishing (trainer `FilesystemArtifactPublisher`) adds versioned artifact files and rewrites `active.json`. **Old version files are not deleted by the library.** Operators prune obsolete artifacts after confirming rollback needs. See [`deployment.md`](deployment.md#model-registry-disk-retention).
+
+### Feature trust boundary (behavioral signals vs identity)
+
+Behavioral features (parameter counts, payload size from `Content-Length`, header-name fingerprint lengths, `ipBucket` from **`remoteAddr`**, optional token-age headers) can be influenced by **client-controlled request characteristics**. That is expected for behavioral observation — these fields are **not** authenticated identity assertions.
+
+* **Java default extractor `ipBucket`:** uses `HttpRequestView.getRemoteAddr()` only. Spoofed `X-Forwarded-For` / `Forwarded` do **not** change `ipBucket` in the default path.
+* **Java identity IP (separate path):** `SentinelFilter` may resolve client IP via **`ClientIpResolver`** when proxies are trusted — do not conflate with `ipBucket`.
+* **ASP.NET reference adapter:** identity from authenticated principal; `remoteAddress` from `Connection.RemoteIpAddress`; only an allowlisted set of non-credential headers is forwarded (Authorization/Cookie/proxy-IP headers excluded). Configure ASP.NET `ForwardedHeadersMiddleware` separately if the host needs proxy-derived client IPs.
+
 ### Statistical warmup lifecycle
 
 1. New identity|endpoint key → `EvaluationStatus.STATISTICAL_WARMUP` until enough samples (`warmup-min-samples`, with live scoring also requiring `n ≥ 2`).
@@ -317,6 +327,8 @@ Gated learning can freeze a baseline during a sustained elevated-risk shift. Rel
 **Automatic skip-triggered relearn was removed.** An earlier `AFTER_CONSECUTIVE_SKIPS` mode let the same elevated traffic both force a reset and train post-reset warmup, defeating gated-learning contamination protection. Configurations still setting `AFTER_CONSECUTIVE_SKIPS` fail at property binding (unknown enum value). Property `relearn-after-consecutive-skips` is obsolete and ignored if present as an unused key.
 
 Reset clears statistical state for the key so the next observations re-enter `STATISTICAL_WARMUP` (warmup still learns; live gating resumes afterward). Successful explicit resets increment `aisentinel.baseline.relearn{reason=EXPLICIT}`.
+
+**Gating vs idle TTL:** Idle expiry on `BaselineStore` / statistical maps bounds unused keys. It does **not** relearn a baseline while elevated traffic continues after a permanent legitimate transition. Operator guidance: [`deployment.md`](deployment.md#legitimate-workload-transitions-and-gated-learning).
 
 **Operational responsibility:** perform an explicit reset only when subsequent traffic is expected to represent legitimate behavior. No unauthenticated HTTP reset endpoint is exposed.
 

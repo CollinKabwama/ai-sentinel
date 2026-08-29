@@ -43,6 +43,7 @@ When your PR **deprecates** functionality (but keeps it working for a transition
 | **ai-sentinel-spring-boot-starter** | **Current** Spring Boot / Servlet adapter: auto-configuration, servlet filter, `SentinelProperties`, actuator, Micrometer, optional distributed and model-registry beans. |
 | **ai-sentinel-trainer** | Optional standalone Spring Boot app: consumes training candidates (Kafka when enabled), trains IF, publishes to a filesystem model registry. See [`ai-sentinel-trainer/README.md`](ai-sentinel-trainer/README.md). |
 | **ai-sentinel-demo** | Reference Spring Boot app for local runs and smoke tests. |
+| **dotnet/** | Reference ASP.NET Core remote adapter (`AI.Sentinel.AspNetCore`) — consumes remote evaluation HTTP API; no C# scoring engine. See [`dotnet/README.md`](dotnet/README.md). |
 
 ---
 
@@ -92,8 +93,9 @@ Maintainers merge `dev` → `main` and tag releases. Contributors do not manage 
 
 ## Prerequisites
 
-- **Java 21** — required by the root `pom.xml` (`<java.version>21</java.version>`). Newer JDKs may work locally; align with CI when in doubt.
+- **Java 21** — required by the root `pom.xml` (`<java.version>21</java.version>`) and CI (Temurin 21). This is the **supported/tested** baseline. Newer JDKs (for example JDK 25) are not part of the CI matrix; local Mockito/JaCoCo failures outside JDK 21 are environment issues, not a claim that the production engine requires those JDKs.
 - **Maven 3.8+**
+- **.NET 8 SDK** — optional; required only to build/test [`dotnet/`](dotnet/).
 - **Docker** — optional; needed for Testcontainers-based tests in `ai-sentinel-spring-boot-starter` (those tests are skipped when Docker is unavailable).
 
 ---
@@ -118,7 +120,7 @@ Characterization and release-gate testing: [`docs/testing.md`](docs/testing.md).
 ## Running the tests
 
 Prefer the **reactor root** so modules resolve each other from the reactor build (not a stale jar in `~/.m2`).
-Requires **Java 21+** (see Prerequisites).
+Requires the supported/tested **Java 21** baseline (see Prerequisites).
 
 ```bash
 mvn test
