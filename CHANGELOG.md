@@ -10,9 +10,17 @@ for the published library line.
 
 Development line after **0.2.0** (tree version **0.2.1**). No published Central release yet for this line.
 
+### Breaking
+
+- Removed deprecated `EnforcementHandler.isQuarantined(String identityHash)`. Quarantine lookup requires both identity and endpoint: `isQuarantined(String identityHash, String endpoint)`. Source callers and already compiled binaries invoking the removed one-argument interface method must migrate and recompile. See [`docs/migration.md`](docs/migration.md#quarantine-lookup-requires-identity-and-endpoint).
+
 ### Added
 
 - **ASP.NET Core reference adapter** (`dotnet/`) — thin remote client for the Step-8/9 evaluation contract; middleware, sample app, cross-language fixtures, and opt-in live E2E test. No C# behavioral engine.
+
+### Changed
+
+- Redis trust baseline key encoding reuses a thread-local SHA-256 digest instead of allocating a new `MessageDigest` on every encode. Redis key format and trust semantics are unchanged.
 
 ### Documentation
 
@@ -21,6 +29,7 @@ Development line after **0.2.0** (tree version **0.2.1**). No published Central 
 - Documented gated baseline learning vs legitimate permanent workload transitions; idle TTL is not automatic relearning; explicit `BaselineLifecycle.reset` when enabled.
 - Clarified behavioral feature trust boundary (client-influenced features vs authenticated identity; Java `ipBucket` from `remoteAddr`).
 - Stated Java **21** as the supported/tested build/CI baseline.
+- Documented migration from identity-only quarantine lookup to the endpoint-aware form.
 
 ## [0.2.0] — 2026-08-09
 

@@ -12,7 +12,11 @@ import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.script.RedisScript;
 
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -63,6 +67,66 @@ class RedisFailOpenBehavioralBaselineStoreTest {
         assertThat(failure.get()).isEqualTo(2);
         assertThat(fallback.get()).isEqualTo(2);
         store.destroy();
+    }
+
+    @Test
+    void redisKeyIsDeterministicForSameLogicalKeyAndPrefix() {
+        String a = RedisFailOpenBehavioralBaselineStore.redisKey("aisentinel:trust:bl:", "p:alice");
+        String b = RedisFailOpenBehavioralBaselineStore.redisKey("aisentinel:trust:bl:", "p:alice");
+        String other = RedisFailOpenBehavioralBaselineStore.redisKey("aisentinel:trust:bl:", "p:bob");
+        assertThat(a).isEqualTo(b);
+        assertThat(a).isNotEqualTo(other);
+        assertThat(a).startsWith("aisentinel:trust:bl:");
+        assertThat(a.length()).isEqualTo("aisentinel:trust:bl:".length() + 64);
+    }
+
+    @Test
+    void redisKeyMatchesLegacySha256Utf8EncodingForRepresentativeInputs() {
+        List<String> prefixes = List.of("aisentinel:trust:bl:", "tenant-a:", "");
+        List<String> logicalKeys = List.of(
+            "p:alice",
+            "",
+            "p:álîçé",
+            "p:" + "x".repeat(1024),
+            "p:user|endpoint:/api/v1/a?x=1&y=2",
+            "s:session:with:delimiters");
+
+        for (String prefix : prefixes) {
+            for (String logicalKey : logicalKeys) {
+                assertThat(RedisFailOpenBehavioralBaselineStore.redisKey(prefix, logicalKey))
+                    .isEqualTo(legacyRedisKey(prefix, logicalKey));
+            }
+        }
+    }
+
+    @Test
+    void redisKeyEncodingRemainsIsolatedUnderConcurrentCalls() throws Exception {
+        int threads = 16;
+        int opsPerThread = 200;
+        ConcurrentHashMap<String, String> expected = new ConcurrentHashMap<>();
+        expected.put("p:alice", RedisFailOpenBehavioralBaselineStore.redisKey("pfx:", "p:alice"));
+        expected.put("p:bob", RedisFailOpenBehavioralBaselineStore.redisKey("pfx:", "p:bob"));
+        expected.put("s:sess", RedisFailOpenBehavioralBaselineStore.redisKey("pfx:", "s:sess"));
+
+        AtomicInteger mismatches = new AtomicInteger();
+        Thread[] workers = new Thread[threads];
+        for (int t = 0; t < threads; t++) {
+            workers[t] = new Thread(() -> {
+                String[] keys = {"p:alice", "p:bob", "s:sess"};
+                for (int i = 0; i < opsPerThread; i++) {
+                    String logical = keys[i % keys.length];
+                    String encoded = RedisFailOpenBehavioralBaselineStore.redisKey("pfx:", logical);
+                    if (!expected.get(logical).equals(encoded)) {
+                        mismatches.incrementAndGet();
+                    }
+                }
+            });
+            workers[t].start();
+        }
+        for (Thread worker : workers) {
+            worker.join();
+        }
+        assertThat(mismatches.get()).isZero();
     }
 
     @Test
@@ -197,6 +261,16 @@ class RedisFailOpenBehavioralBaselineStoreTest {
         p.getIdentity().getTrust().getDistributed().setEnabled(true);
         p.getIdentity().getTrust().getDistributed().setKeyPrefix("t:");
         return p;
+    }
+
+    private static String legacyRedisKey(String prefix, String logicalKey) {
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            byte[] digest = md.digest(logicalKey.getBytes(StandardCharsets.UTF_8));
+            return prefix + HexFormat.of().formatHex(digest);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 MessageDigest is required for trust baseline Redis keys", e);
+        }
     }
 
     private static StringRedisTemplate templateExecuteAlwaysThrows() {
