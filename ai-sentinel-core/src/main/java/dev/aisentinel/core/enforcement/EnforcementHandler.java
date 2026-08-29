@@ -19,20 +19,13 @@ public interface EnforcementHandler {
 
     /**
      * Whether the identity (and endpoint) is under active quarantine for {@code isQuarantined} checks.
+     * Quarantine state is endpoint-scoped for {@code IDENTITY_ENDPOINT} enforcement; callers must supply
+     * both identity and endpoint.
      *
      * @param endpoint request path or normalized endpoint; used when enforcement scope is per-endpoint
      */
     default boolean isQuarantined(String identityHash, String endpoint) {
         return false;
-    }
-
-    /**
-     * @deprecated use {@link #isQuarantined(String, String)}. The pipeline and decision engine call only the
-     * two-argument form; overriding this overload alone has no effect on quarantine checks.
-     */
-    @Deprecated
-    default boolean isQuarantined(String identityHash) {
-        return isQuarantined(identityHash, "");
     }
 
     /**

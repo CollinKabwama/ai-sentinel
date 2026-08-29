@@ -108,6 +108,35 @@ switch to `RiskDecision.of(...)` or pass an `evaluationStatuses` set.
 
 ---
 
+## Quarantine lookup requires identity and endpoint
+
+Applies to the **unreleased** development line after **0.2.0** (will ship in the next published major/minor that documents this break).
+
+The deprecated identity-only quarantine check has been removed from `EnforcementHandler`.
+
+| Previous | Current |
+|----------|---------|
+| `isQuarantined(String identityHash)` | **Removed** |
+| — | `isQuarantined(String identityHash, String endpoint)` |
+
+**Who is affected:** source callers that invoked the one-argument overload must pass the request endpoint. Already compiled binaries that invoke the removed interface method may fail at runtime after upgrade until recompiled.
+
+**Who is not affected:** typical starter consumers, callers already using the two-argument form, and custom `EnforcementHandler` implementations that merely implement the interface without calling the removed method. The removed member was a default method, so the break is for callers of that descriptor rather than implementers by itself.
+
+**Migration:**
+
+```java
+// Before (removed)
+handler.isQuarantined(identityHash);
+
+// After
+handler.isQuarantined(identityHash, endpoint);
+```
+
+Pass the same endpoint used for enforcement (request path / normalized endpoint). Do not substitute a blank or wildcard endpoint merely to restore the old call shape — quarantine may be endpoint-scoped.
+
+---
+
 ## Related docs
 
 | Doc | Use when |

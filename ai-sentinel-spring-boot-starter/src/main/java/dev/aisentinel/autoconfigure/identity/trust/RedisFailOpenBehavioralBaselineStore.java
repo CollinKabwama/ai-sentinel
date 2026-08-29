@@ -101,6 +101,18 @@ public final class RedisFailOpenBehavioralBaselineStore implements BehavioralBas
     private final ObjectMapper json = new ObjectMapper().setSerializationInclusion(JsonInclude.Include.NON_NULL);
     private final ExecutorService redisCommandExecutor;
 
+    /**
+     * Per-thread SHA-256 for Redis key encoding. {@link MessageDigest} is not thread-safe; reuse avoids
+     * allocating a new instance on every trust baseline update while keeping digests isolated per thread.
+     */
+    private static final ThreadLocal<MessageDigest> SHA256 = ThreadLocal.withInitial(() -> {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 MessageDigest is required for trust baseline Redis keys", e);
+        }
+    });
+
     public RedisFailOpenBehavioralBaselineStore(StringRedisTemplate redis,
                                                 IdentityBehavioralBaselineStore fallback,
                                                 SentinelProperties sentinelProperties,
@@ -204,13 +216,10 @@ public final class RedisFailOpenBehavioralBaselineStore implements BehavioralBas
     }
 
     static String redisKey(String prefix, String logicalKey) {
-        try {
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] digest = md.digest(logicalKey.getBytes(StandardCharsets.UTF_8));
-            return prefix + HexFormat.of().formatHex(digest);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 MessageDigest is required for trust baseline Redis keys", e);
-        }
+        MessageDigest md = SHA256.get();
+        md.reset();
+        byte[] digest = md.digest(logicalKey.getBytes(StandardCharsets.UTF_8));
+        return prefix + HexFormat.of().formatHex(digest);
     }
 
     private BehavioralBaselineEntry fromJson(String raw) throws JsonProcessingException {
