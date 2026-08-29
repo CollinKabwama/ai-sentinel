@@ -14,6 +14,14 @@ Development line after **0.2.0** (tree version **0.2.1**). No published Central 
 
 - **ASP.NET Core reference adapter** (`dotnet/`) — thin remote client for the Step-8/9 evaluation contract; middleware, sample app, cross-language fixtures, and opt-in live E2E test. No C# behavioral engine.
 
+### Documentation
+
+- Clarified deployable surfaces: Java 21 core + Spring Boot/Servlet, remote evaluation API, and ASP.NET Core reference adapter (not a native .NET engine).
+- Documented filesystem model-registry retention: new publishes do not delete prior artifact files; operators prune obsolete versions.
+- Documented gated baseline learning vs legitimate permanent workload transitions; idle TTL is not automatic relearning; explicit `BaselineLifecycle.reset` when enabled.
+- Clarified behavioral feature trust boundary (client-influenced features vs authenticated identity; Java `ipBucket` from `remoteAddr`).
+- Stated Java **21** as the supported/tested build/CI baseline.
+
 ## [0.2.0] — 2026-08-09
 
 Operator-facing hardening of statistical learning, observability, and deployment guidance.

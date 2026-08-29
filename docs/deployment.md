@@ -106,6 +106,38 @@ integrate with enabled=true, mode=MONITOR
 
 `ENFORCE` does **not** automatically follow `MONITOR`. Some deployments should remain in MONITOR indefinitely.
 
+### Legitimate workload transitions and gated learning
+
+Default statistical learning uses **`ALLOW_OR_MONITOR`**: after a risk decision, the baseline updates only for `ALLOW` / `MONITOR` (and always during warmup). Elevated actions (`THROTTLE` / `BLOCK` / `QUARANTINE`) do **not** train the baseline. That protects against **baseline poisoning** from anomalous traffic.
+
+**Operational consequence:** a **legitimate permanent workload change** (deploy, batch job, new steady traffic level) can remain elevated relative to the prior baseline for as long as gated learning refuses to absorb the new pattern. Elevated risk indicates **behavioral deviation**, not proof of malicious activity.
+
+**What does *not* automatically clear sticky elevation while traffic continues:**
+
+* Idle **TTL** on `BaselineStore` / statistical keys — continuous requests keep keys active, so idle expiry does not act as relearning.
+* Publishing a new Isolation Forest model — independent of statistical Welford state.
+* Quarantine **release** alone — clears enforcement state only (see table below).
+
+**Supported recovery today (when enabled):**
+
+1. Confirm the new workload is legitimate (MONITOR telemetry / metrics / business context).
+2. Ensure `ai.sentinel.statistical.relearn-mode=EXPLICIT_ONLY` if you intend to use reset.
+3. Call `BaselineLifecycle.reset(identityHash, endpoint)` so the key re-enters warmup and subsequent traffic may train a new baseline.
+4. Keep `relearn-mode=DISABLED` (default) if you want no operator reset path.
+
+There is **no** automatic skip-triggered relearn. Automatic continuous adaptation after elevated risk remains an **architecture/product decision** and must not be assumed for production **ENFORCE** readiness. Prefer MONITOR until operators understand transition handling for their traffic.
+
+### Model registry disk retention
+
+Trainer publish writes new versioned files under `{filesystem-root}/{tenant}/artifacts/` and updates `{tenant}/active.json` to point at the active version. **Previous `{version}.meta.json` / `{version}.payload.bin` files remain on disk** until an operator deletes them. The library does **not** implement automatic disk cleanup.
+
+**Operator practice:**
+
+* Treat accumulation as expected for explicit train/publish cycles (not an unbounded request-path leak).
+* Keep recent versions if you need rollback; remove only artifacts no longer referenced by `active.json` and outside your retention window.
+* Size the shared filesystem for expected publish frequency × artifact size.
+* Serving nodes only **read** the registry (`FilesystemModelRegistry` + optional refresh); they do not prune.
+
 ### False-positive recovery (quarantine lift)
 
 Quarantine release and baseline reset are **independent** operator actions:
@@ -132,7 +164,8 @@ There is **no** unauthenticated HTTP admin release endpoint. Inject the existing
 * `DEGRADED` and `MODEL_FALLBACK` / `isolationForestScoreMode` frequency.
 * `FailOpenReason` distribution (`aisentinel.failopen.reason`).
 * Identity and endpoint patterns; `EnforcementScope` blast radius.
-* Whether explicit baseline reset (`BaselineLifecycle` / `relearn-mode`) is understood.
+* Whether explicit baseline reset (`BaselineLifecycle` / `relearn-mode`) is understood — including legitimate permanent workload transitions under gated learning (see above).
+* Registry disk retention procedure when using the filesystem model registry.
 * Redis degradation gauges and timeouts when distributed features are enabled.
 * Compatibility of denial status/bodies with your API clients (validated in a non-production ENFORCE trial if you proceed).
 

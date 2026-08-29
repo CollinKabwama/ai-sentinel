@@ -1,6 +1,6 @@
 # AI-Sentinel
 
-**Zero-trust API defense** — continuous identity-keyed behavioral risk evaluation and adaptive application response. The currently available implementation is an **in-process Java 21 Spring Boot/Servlet** library.
+**Zero-trust–oriented API defense** — continuous identity-keyed behavioral risk evaluation and adaptive application response. The Java decision core is framework-independent; the primary in-process integration is a **Java 21 Spring Boot/Servlet** library. The same engine can be reached over an authenticated **remote evaluation HTTP API**, with a reference **ASP.NET Core** client under [`dotnet/`](dotnet/).
 
 ---
 
@@ -71,7 +71,7 @@ Request
 
 ## Quickstart
 
-**Prerequisites:** Java 21, Maven 3.8+ (Python optional for `scripts/`).
+**Prerequisites:** **Java 21** (Maven `<java.version>` and CI Temurin 21 — the supported/tested baseline). Local use of newer JDKs (for example JDK 25) is not a supported build matrix; Mockito/JaCoCo issues have been observed outside JDK 21. Maven 3.8+. Optional: .NET 8 SDK for `dotnet/` tests; Python for `scripts/`.
 
 1. **Build** — `git clone <repository-url> && cd ai-sentinel && mvn clean install`
 2. **Demo API** — `mvn -pl ai-sentinel-demo spring-boot:run` → `http://localhost:8080/api/hello` and `http://localhost:8080/actuator/sentinel`
@@ -185,7 +185,8 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 - **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository).
 - **Trainer `eventId` dedup** is JVM-local; multiple trainer instances are not coordinated without external design.
 - **Multi-JVM / Docker validation** — cluster quarantine Testcontainers runs when Docker is available (single-JVM + second Redis client). Multi-process / multi-host proof remains an operator responsibility; see the coverage matrix in [`docs/deployment.md`](docs/deployment.md).
-- **Registry disk** — no automatic artifact cleanup; operators manage retention.
+- **Registry disk** — Publishing a new Isolation Forest artifact writes new `{version}.meta.json` / `{version}.payload.bin` files and updates `active.json`. **Prior version files are not deleted automatically.** Operators prune obsolete artifacts after confirming rollback needs; see [`docs/deployment.md`](docs/deployment.md#model-registry-disk-retention).
+- **Gated baseline learning** — Default `ALLOW_OR_MONITOR` skips learning on elevated risk actions (protects against baseline poisoning). A **legitimate permanent workload change** can therefore remain elevated relative to the prior baseline until an explicit `BaselineLifecycle.reset` (when `relearn-mode=EXPLICIT_ONLY`) or equivalent operational action. Idle TTL does **not** clear sticky elevation while elevated traffic continues. See [`docs/deployment.md`](docs/deployment.md#legitimate-workload-transitions-and-gated-learning).
 - **Isolation Forest** returns one scalar score — no per-feature attribution (SHAP/LIME are out of scope).
 - **IF enabled without a loaded model** — fallback score is visible in telemetry/actuator, but the composite blend uses the statistical score only until mode is `MODEL`.
 - **Characterization test fidelity** — sudden-step detector scenarios use controlled `RequestFeatures` (not full extractor E2E). Production `requestsPerWindow` is a rolling bucket count that increments per request (~`1, 2, 3, …`), so a synthetic `10 → 100` step cannot be produced through the extractor alone.

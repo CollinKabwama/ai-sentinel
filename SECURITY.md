@@ -36,9 +36,9 @@ Maintainers will acknowledge receipt when possible and coordinate a fix and disc
 ## Known limitations
 
 - **Not a full WAF or IAM product** — AI-Sentinel complements auth and infrastructure controls; it does not replace them.
-- **Current deployable path is Java 21 + Spring Boot / Servlet** — the decision core is free of Spring/Servlet APIs, but the only shipped application integration today is the servlet starter. Other runtime adapters are not available in this repository.
+- **Current deployable surfaces** — Java **21** decision core (framework-independent: no Spring/Servlet APIs) plus Spring Boot / Servlet starter. Optional authenticated **remote evaluation HTTP API** for out-of-process clients. A reference **ASP.NET Core** adapter under [`dotnet/`](dotnet/) consumes that API (thin remote client; not a native .NET scoring engine). Framework-independent does **not** mean language-independent.
 - **Distributed features depend on Redis/Kafka** — Misconfiguration, credential leaks, or broker compromise are outside this library’s scope; follow standard practices for secrets and network policy.
-- **Filesystem model registry** — Uses a shared filesystem layout; OS permissions and shared mounts are your responsibility.
+- **Filesystem model registry** — Shared filesystem layout (`active.json` pointer + versioned artifacts). Publishing a new model does **not** delete prior artifact files; operators manage disk retention (see [`docs/deployment.md`](docs/deployment.md#model-registry-disk-retention)). OS permissions and shared mounts are your responsibility.
 - **Trainer dedup is JVM-local** — Duplicate `eventId` handling does not survive process restarts or multiple trainer instances without external coordination.
 - **No fail-closed profile** — Availability-first failure modes are intentional today; do not assume denial on component failure.
 
