@@ -1,6 +1,8 @@
 package dev.aisentinel.autoconfigure.evaluation;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.ObjectReader;
 import dev.aisentinel.core.contract.EvaluationContractException;
 import dev.aisentinel.core.contract.EvaluationFailureResponses;
 import dev.aisentinel.core.contract.EvaluationRequest;
@@ -26,6 +28,9 @@ import java.util.Objects;
  * <p>
  * No automatic retries (evaluation may mutate server baseline/quarantine state).
  * Transport failures yield {@link EvaluationFailureResponses#remoteFailure(String)} — not fabricated risk.
+ * Response JSON ignores unknown additive properties via an isolated reader copy so a caller-supplied
+ * {@link ObjectMapper} with fail-on-unknown-properties enabled does not break forward-compatible responses.
+ * The caller mapper itself is never mutated.
  */
 public final class RemoteEvaluationClient {
 
@@ -33,6 +38,7 @@ public final class RemoteEvaluationClient {
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+    private final ObjectReader evaluationResponseReader;
     private final SentinelMetrics metrics;
     private final String apiKey;
     private final String evaluationPath;
@@ -49,6 +55,10 @@ public final class RemoteEvaluationClient {
         this.apiKey = apiKey;
         this.evaluationPath = normalizePath(evaluationPath);
         this.objectMapper = Objects.requireNonNull(objectMapper, "objectMapper");
+        // Isolated copy: do not configure/mutate the caller-provided mapper.
+        ObjectMapper responseMapper = this.objectMapper.copy();
+        responseMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        this.evaluationResponseReader = responseMapper.readerFor(EvaluationResponse.class);
         this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
 
         Duration connect = connectTimeout != null ? connectTimeout : Duration.ofMillis(500);
@@ -90,7 +100,7 @@ public final class RemoteEvaluationClient {
             }
             EvaluationResponse response;
             try {
-                response = objectMapper.readValue(raw, EvaluationResponse.class);
+                response = evaluationResponseReader.readValue(raw);
             } catch (Exception parseEx) {
                 outcome = RemoteEvaluationOutcome.MALFORMED_RESPONSE;
                 return fail(request.correlationId(), outcome);

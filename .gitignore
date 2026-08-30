@@ -7,6 +7,9 @@ docs/*
 !docs/testing.md
 !docs/README.md
 
+# Local independent-review / agent assessment artifacts
+review/
+
 # Local artifacts
 *.pptx
 BIPM_Hybrid_Final.pptx

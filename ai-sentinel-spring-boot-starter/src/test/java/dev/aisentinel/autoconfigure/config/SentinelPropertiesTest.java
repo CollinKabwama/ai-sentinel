@@ -21,7 +21,7 @@ class SentinelPropertiesTest {
         contextRunner.run(context -> {
             SentinelProperties props = context.getBean(SentinelProperties.class);
             assertThat(props.isEnabled()).isTrue();
-            assertThat(props.getMode()).isEqualTo(SentinelProperties.Mode.ENFORCE);
+            assertThat(props.getMode()).isEqualTo(SentinelProperties.Mode.MONITOR);
             assertThat(props.getBlockStatusCode()).isEqualTo(429);
             assertThat(props.getBaselineTtl()).isEqualTo(Duration.ofMinutes(5));
             assertThat(props.getIsolationForest().isEnabled()).isFalse();

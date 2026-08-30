@@ -1,11 +1,23 @@
-# Migrating to AI-Sentinel 0.2.0
+# Migrating to AI-Sentinel 0.2.0 / preparing for 0.3.0
 
-This guide covers upgrading from **0.1.0** to **0.2.0**.
+This guide covers upgrading from **0.1.0** to **0.2.0**, plus **0.3.0** configuration-default notes for the development line.
 
-**Recommended first deployment mode remains `MONITOR`.** Do not enable `ENFORCE` based on
+**Recommended first deployment mode remains `MONITOR`.** From **0.3.0**, `MONITOR` is also the **library default**. Do not enable `ENFORCE` based on
 synthetic suites alone — see [`deployment.md`](deployment.md).
 
 For the full user-facing change list, see the root [`CHANGELOG.md`](../CHANGELOG.md).
+
+---
+
+## 0.3.0 configuration default change (behavioral)
+
+| Property | 0.2.x default | 0.3.0 default | Required user action |
+|----------|---------------|---------------|----------------------|
+| `ai.sentinel.mode` | `ENFORCE` | `MONITOR` | If you relied on **implicit** enforcement under 0.2.x, set `ai.sentinel.mode=ENFORCE` explicitly to retain client denial. |
+
+This is a **behavioral / configuration default** change (not a Java method signature break). Explicit `MONITOR`, `ENFORCE`, and `OFF` bindings are unchanged.
+
+Remote Java clients also ignore unknown additive `EvaluationResponse` JSON fields without mutating a caller-supplied `ObjectMapper` (forward-compatible responses).
 
 ---
 
@@ -19,9 +31,11 @@ For the full user-facing change list, see the root [`CHANGELOG.md`](../CHANGELOG
 </dependency>
 ```
 
+> For the 0.3.0 line, use the published `0.3.0` version when available; until then the development tree remains `0.2.1`.
+
 ---
 
-## Behavior and configuration matrix
+## Behavior and configuration matrix (0.1.0 → 0.2.0)
 
 | Change | Previous (0.1.0) | New (0.2.0) | Required user action |
 |--------|------------------|-------------|----------------------|
@@ -43,7 +57,7 @@ For the full user-facing change list, see the root [`CHANGELOG.md`](../CHANGELOG
 | Property | Default | Notes |
 |----------|---------|--------|
 | `ai.sentinel.enabled` | `true` | |
-| `ai.sentinel.mode` | `ENFORCE` | **Surprising default** — override to `MONITOR` for adoption |
+| `ai.sentinel.mode` | `MONITOR` (0.3.0+); was `ENFORCE` on 0.2.x | Explicit `ENFORCE` required for client denial; see 0.3.0 section above |
 | `ai.sentinel.warmup-min-samples` | `2` | |
 | `ai.sentinel.warmup-score` | `0.4` | Telemetry / fusion only |
 | `ai.sentinel.warmup-action` | `MONITOR` | `ALLOW` or `MONITOR` only |
@@ -97,7 +111,7 @@ switch to `RiskDecision.of(...)` or pass an `evaluationStatuses` set.
 ## Suggested upgrade checklist
 
 1. Bump the starter dependency to `0.2.0`.
-2. Set `ai.sentinel.mode=MONITOR` unless you already meet ENFORCE preconditions.
+2. Leave `ai.sentinel.mode=MONITOR` (0.3.0 default) unless you already meet ENFORCE preconditions and intentionally set `ENFORCE`.
 3. Leave `baseline-update-policy=ALLOW_OR_MONITOR` and `warmup-action=MONITOR` unless you have a
    deliberate reason to change them.
 4. Remove obsolete relearn settings if present.
