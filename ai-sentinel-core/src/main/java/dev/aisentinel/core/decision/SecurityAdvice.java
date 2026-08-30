@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Compact advisory payload distinct from {@link EnforcementAction}.
+ * Compact advisory payload distinct from {@link dev.aisentinel.core.policy.EnforcementAction}.
  *
  * @param code                     advisory vocabulary code
  * @param priority                 operator priority (does not change enforcement)

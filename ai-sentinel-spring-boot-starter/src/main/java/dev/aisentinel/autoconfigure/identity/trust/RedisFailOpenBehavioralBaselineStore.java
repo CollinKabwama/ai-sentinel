@@ -31,7 +31,7 @@ import java.util.concurrent.TimeUnit;
  * (same semantics as {@link IdentityBehavioralBaselineStore} on errors).
  * <p>
  * Updates are applied atomically server-side via Lua (read-merge-write). The caller waits at most
- * {@link SentinelProperties.TrustDistributed#getCommandTimeout()} on a {@link CompletableFuture}; that does not
+ * the configured identity trust distributed command timeout on a {@link CompletableFuture}; that does not
  * cancel in-flight Lettuce I/O—configure {@code spring.data.redis.timeout} to align with this budget.
  */
 @Slf4j

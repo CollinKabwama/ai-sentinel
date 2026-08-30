@@ -23,8 +23,8 @@ import java.util.concurrent.TimeoutException;
 /**
  * Redis-backed {@link ClusterQuarantineReader} with bounded local cache, bounded Redis wait, and fail-open behavior.
  * <p>
- * <strong>Timeouts:</strong> The caller waits at most {@link SentinelProperties.Distributed.Redis#getLookupTimeout()} on
- * a {@link CompletableFuture}. That does not cancel in-flight Lettuce I/O; configure
+ * <strong>Timeouts:</strong> The caller waits at most the configured distributed Redis lookup timeout on a
+ * {@link CompletableFuture}. That does not cancel in-flight Lettuce I/O; configure
  * {@code spring.data.redis.timeout} (and client resources) so network/command timeouts align with this budget.
  * See README (distributed quarantine Redis timeouts).
  */

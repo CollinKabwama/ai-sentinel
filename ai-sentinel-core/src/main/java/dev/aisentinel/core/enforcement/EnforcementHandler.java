@@ -9,11 +9,12 @@ import dev.aisentinel.core.policy.EnforcementAction;
  * Runs on the request path. Local maps (throttle/quarantine) are the <strong>source of truth</strong> for
  * {@link #apply}; optional cluster merges are additive in {@link dev.aisentinel.distributed.enforcement.ClusterAwareEnforcementHandler}.
  * Implementations must not block indefinitely on remote I/O.
- *
- * @return {@code true} if the filter chain should continue; {@code false} if the response was already committed
  */
 public interface EnforcementHandler {
 
+    /**
+     * @return {@code true} if the filter chain should continue; {@code false} if the response was already committed
+     */
     boolean apply(EnforcementAction action, HttpRequestView request, EnforcementResponse response,
                   String identityHash, String endpoint);
 
