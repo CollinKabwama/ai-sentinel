@@ -138,7 +138,7 @@ public final class CompositeScorer implements AnomalyScorer, CompositeScoreSnaps
         }
         if (totalWeight <= 0) {
             if (invalidScore != null) {
-                long now = System.currentTimeMillis();
+                long now = features.effectiveTimestampMillis();
                 CompositeScoreSnapshot snap = new CompositeScoreSnapshot(
                     statistical, isolationForest, invalidScore, now,
                     isolationForestIncludedInBlend, isolationForestScoreMode);
@@ -150,7 +150,7 @@ public final class CompositeScorer implements AnomalyScorer, CompositeScoreSnaps
             return new CompositeScoreOutcome(0.0, null, statisticalSnapshot);
         }
         double raw = sum / totalWeight;
-        long now = System.currentTimeMillis();
+        long now = features.effectiveTimestampMillis();
         // Pass NaN / ±Infinity / negative through to the decision engine (INVALID_SCORE).
         // Do not convert them to 1.0 — that conflated evaluation failure with maximum risk.
         // Finite values > 1 are range-clamped below (not INVALID_SCORE).

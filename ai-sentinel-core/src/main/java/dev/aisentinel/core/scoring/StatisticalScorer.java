@@ -5,6 +5,7 @@ import dev.aisentinel.core.decision.EvaluationStatusContributionContext;
 import dev.aisentinel.core.decision.EvaluationStatusContributor;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.model.FeatureSchema;
+import dev.aisentinel.core.model.IdentityEndpointKey;
 import dev.aisentinel.core.model.RequestFeatures;
 
 import java.util.Map;
@@ -72,7 +73,7 @@ public final class StatisticalScorer implements AnomalyScorer, EvaluationStatusC
         }
     }
 
-    private final Map<String, WelfordState> stateByKey = new ConcurrentHashMap<>();
+    private final Map<IdentityEndpointKey, WelfordState> stateByKey = new ConcurrentHashMap<>();
     private final int maxKeys;
     private final long ttlMs;
     private final int warmupMinSamples;
@@ -137,8 +138,7 @@ public final class StatisticalScorer implements AnomalyScorer, EvaluationStatusC
      * @return {@code true} when a key was present and removed
      */
     public boolean reset(String identityHash, String endpoint) {
-        String key = identityHash + "|" + endpoint;
-        return stateByKey.remove(key) != null;
+        return stateByKey.remove(IdentityEndpointKey.forEndpoint(identityHash, endpoint)) != null;
     }
 
     /** Removes all Welford state (tests / full restart simulation). */
@@ -165,8 +165,8 @@ public final class StatisticalScorer implements AnomalyScorer, EvaluationStatusC
      * without expanding the pluggable {@link AnomalyScorer} SPI.
      */
     public boolean isWarmup(RequestFeatures features) {
-        String key = features.identityHash() + "|" + features.endpoint();
-        expireIdle(System.currentTimeMillis());
+        IdentityEndpointKey key = features.identityEndpointKey();
+        expireIdle(features.effectiveTimestampMillis());
         return isWarmupWithoutExpire(key);
     }
 
@@ -212,8 +212,8 @@ public final class StatisticalScorer implements AnomalyScorer, EvaluationStatusC
 
     private StatisticalScoreOutcome scoreInternal(RequestFeatures features) {
         double[] x = features.toStatisticalArray();
-        String key = features.identityHash() + "|" + features.endpoint();
-        long now = System.currentTimeMillis();
+        IdentityEndpointKey key = features.identityEndpointKey();
+        long now = features.effectiveTimestampMillis();
         expireIdle(now);
 
         if (isWarmupWithoutExpire(key)) {
@@ -298,8 +298,8 @@ public final class StatisticalScorer implements AnomalyScorer, EvaluationStatusC
     @Override
     public void update(RequestFeatures features) {
         double[] x = features.toStatisticalArray();
-        String key = features.identityHash() + "|" + features.endpoint();
-        long now = System.currentTimeMillis();
+        IdentityEndpointKey key = features.identityEndpointKey();
+        long now = features.effectiveTimestampMillis();
         expireIdle(now);
 
         stateByKey.compute(key, (k, s) -> {
@@ -331,7 +331,7 @@ public final class StatisticalScorer implements AnomalyScorer, EvaluationStatusC
         stateByKey.entrySet().removeIf(e -> e.getValue().lastAccessMs() < cutoff);
     }
 
-    private boolean isWarmupWithoutExpire(String key) {
+    private boolean isWarmupWithoutExpire(IdentityEndpointKey key) {
         WelfordState state = stateByKey.get(key);
         if (state == null) {
             return true;
@@ -348,9 +348,9 @@ public final class StatisticalScorer implements AnomalyScorer, EvaluationStatusC
         long cutoff = now - ttlMs;
         stateByKey.entrySet().removeIf(e -> e.getValue().lastAccessMs() < cutoff);
         while (stateByKey.size() > maxKeys) {
-            String victim = null;
+            IdentityEndpointKey victim = null;
             long oldest = Long.MAX_VALUE;
-            for (Map.Entry<String, WelfordState> e : stateByKey.entrySet()) {
+            for (Map.Entry<IdentityEndpointKey, WelfordState> e : stateByKey.entrySet()) {
                 long la = e.getValue().lastAccessMs();
                 if (la < oldest) {
                     oldest = la;

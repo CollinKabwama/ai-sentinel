@@ -17,4 +17,10 @@ class EnforcementKeysTest {
         assertThat(EnforcementKeys.enforcementKey(EnforcementScope.IDENTITY_GLOBAL, "a", "/x"))
             .isEqualTo("a");
     }
+
+    @Test
+    void enforcementStateKeyMatchesStringForm() {
+        assertThat(EnforcementKeys.enforcementStateKey(EnforcementScope.IDENTITY_ENDPOINT, "a", "/x").storageKey())
+            .isEqualTo("a|/x");
+    }
 }

@@ -217,7 +217,8 @@ public final class SentinelDecisionEngine {
                 StatisticalScorer.StatisticalScoreOutcome outcome = statisticalScorer.scoreWithExplanation(features);
                 rawScore = outcome.score();
                 ctx.put(ExplanationContextKeys.DECISION_EXPLANATION,
-                    DecisionExplanationEvidence.fromStatistical(outcome.score(), outcome.snapshot()));
+                    DecisionExplanationEvidence.fromStatistical(
+                        outcome.score(), outcome.snapshot(), features.effectiveTimestampMillis()));
             } else if (scorer instanceof IsolationForestScorer isolationForestScorer) {
                 IsolationForestScorer.IsolationForestScoreOutcome outcome =
                     isolationForestScorer.scoreWithMode(features);
@@ -229,7 +230,7 @@ public final class SentinelDecisionEngine {
                     outcome.mode() == IsolationForestScorer.LastScoreMode.MODEL,
                     outcome.mode().name(),
                     null,
-                    System.currentTimeMillis()
+                    features.effectiveTimestampMillis()
                 ));
             } else {
                 rawScore = scorer.score(features);

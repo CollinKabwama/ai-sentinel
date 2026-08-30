@@ -317,6 +317,9 @@ public final class SentinelPipeline {
         StatisticalScoreSnapshot statisticalExplanation = evidence != null ? evidence.statisticalExplanation() : null;
         var statuses = decision.evaluationStatuses().stream().map(Enum::name).sorted().toList();
         var phases = OperatorEvaluationPhase.fromStatuses(decision.evaluationStatuses()).stream().sorted().toList();
+        long evaluatedAt = evidence != null && evidence.scoredAtEpochMillis() > 0
+            ? evidence.scoredAtEpochMillis()
+            : System.currentTimeMillis();
         // Completion-order publication: whoever finishes last overwrites (volatile publish of immutable snapshot).
         lastDecisionExplanation.record(new LastDecisionExplanation.Snapshot(
             decision.action().name(),
@@ -331,7 +334,7 @@ public final class SentinelPipeline {
             isolationForestIncludedInBlend,
             statisticalExplanation,
             decision.startupGraceActive(),
-            System.currentTimeMillis(),
+            evaluatedAt,
             decision.explanation() != null ? decision.explanation() : RiskExplanation.empty()
         ));
     }
