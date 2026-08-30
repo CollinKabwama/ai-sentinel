@@ -104,7 +104,7 @@ Legend: **Required?** = needed for a working filter once `enabled=true`. **Advan
 | Property | Default | Category | Required? | Advanced? |
 |----------|---------|----------|-----------|-----------|
 | `ai.sentinel.enabled` | `true` | core | Yes | No |
-| `ai.sentinel.mode` | `ENFORCE` | core | Yes | No — prefer `MONITOR` for adoption |
+| `ai.sentinel.mode` | `MONITOR` | core | Yes | No — default observe/learn; set `ENFORCE` only deliberately |
 | `ai.sentinel.exclude-paths` | actuator/health/static/favicon | HTTP adapter | No | No |
 | `ai.sentinel.filter-order` | late (`MAX-100`) | HTTP adapter | No | Yes |
 | `ai.sentinel.trusted-proxies` | empty | HTTP adapter | No | Yes |
@@ -186,7 +186,7 @@ Remote transport failures are **fail-open** with status `REMOTE_EVALUATION_FAILU
 
 **Obsolete / rejected:** `relearn-mode=AFTER_CONSECUTIVE_SKIPS` fails binding; `relearn-after-consecutive-skips` is ignored if present as an unused key.
 
-**Surprising default:** `mode=ENFORCE` while adoption docs recommend `MONITOR` — intentional compatibility; override for adoption.
+**Default mode:** `mode=MONITOR` (observe and learn; no client denial). Explicit `mode=ENFORCE` is required for client-facing denial.
 
 ---
 
@@ -195,7 +195,7 @@ Remote transport failures are **fail-open** with status `REMOTE_EVALUATION_FAILU
 | Property | Default | Notes |
 |----------|---------|--------|
 | `ai.sentinel.enabled` | `true` | Master switch |
-| `ai.sentinel.mode` | `ENFORCE` | `OFF` (full filter bypass), `MONITOR` (score/learn/observe; **no client denial**), `ENFORCE` (client denial enabled). **Recommended adoption mode is `MONITOR`** even though the property default is `ENFORCE` — see [`deployment.md`](deployment.md). |
+| `ai.sentinel.mode` | `MONITOR` | `OFF` (full filter bypass), `MONITOR` (score/learn/observe; **no client denial** — **default**), `ENFORCE` (client denial enabled; requires explicit configuration). See [`deployment.md`](deployment.md). |
 | `ai.sentinel.exclude-paths` | actuator, health, static, favicon | Comma-separated Ant-style patterns |
 | `ai.sentinel.block-status-code` | `429` | HTTP status written on BLOCK / throttle-exhaust / quarantine responses |
 | `ai.sentinel.quarantine-duration-ms` | `300000` | Local quarantine TTL in milliseconds |

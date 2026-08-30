@@ -101,7 +101,7 @@ class SentinelActuatorEndpointTest {
         assertThat(info.get("lastDecisionScope")).isEqualTo("lastCompletedDecisionOnThisJvm");
         assertThat(info.get("lastDecision")).isEqualTo(Map.of());
         assertThat(info.get("enabled")).isEqualTo(true);
-        assertThat(info.get("mode")).isEqualTo("ENFORCE");
+        assertThat(info.get("mode")).isEqualTo("MONITOR");
         assertThat(info.get("isolationForestEnabled")).isEqualTo(false);
         assertThat(info.get("quarantineCount")).isEqualTo(0);
     }

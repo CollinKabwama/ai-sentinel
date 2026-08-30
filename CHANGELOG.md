@@ -10,6 +10,14 @@ for the published library line.
 
 Development line after **0.2.0** (tree version **0.2.1**). No published Central release yet for this line.
 
+### Changed
+
+- **Default operating mode is `MONITOR`** — `ai.sentinel.mode` defaults to observe/learn with no client denial. Explicit `ai.sentinel.mode=ENFORCE` is required for client-facing denial. Upgrades from 0.2.x that relied on the previous implicit `ENFORCE` default must set `ENFORCE` explicitly. See [`docs/migration.md`](docs/migration.md).
+- **Remote `EvaluationResponse` forward compatibility** — Java `RemoteEvaluationClient` ignores unknown additive JSON response fields via an isolated reader copy (caller `ObjectMapper` is not mutated). Malformed known fields still fail open.
+- Redis trust baseline key encoding reuses a thread-local SHA-256 digest instead of allocating a new `MessageDigest` on every encode. Redis key format and trust semantics are unchanged.
+- Request-path scoring and feature extraction reuse the timestamp captured during feature extraction instead of calling `System.currentTimeMillis()` repeatedly on the same request.
+- Telemetry emission reuses Micrometer counters per event type and builds JSON log payloads without stream collectors.
+
 ### Breaking
 
 - Removed deprecated `EnforcementHandler.isQuarantined(String identityHash)`. Quarantine lookup requires both identity and endpoint: `isQuarantined(String identityHash, String endpoint)`. Source callers and already compiled binaries invoking the removed one-argument interface method must migrate and recompile. See [`docs/migration.md`](docs/migration.md#quarantine-lookup-requires-identity-and-endpoint).
@@ -23,12 +31,6 @@ Development line after **0.2.0** (tree version **0.2.1**). No published Central 
 - **Public API compatibility gate** — Maven profile `api-compatibility` runs japicmp for published modules against the configured Central baseline (default `0.2.0`).
 - **Structured identity|endpoint keys** — hot-path scorer, baseline, and enforcement maps use `IdentityEndpointKey` instead of per-call string concatenation; wire/storage shape is unchanged.
 
-### Changed
-
-- Redis trust baseline key encoding reuses a thread-local SHA-256 digest instead of allocating a new `MessageDigest` on every encode. Redis key format and trust semantics are unchanged.
-- Request-path scoring and feature extraction reuse the timestamp captured during feature extraction instead of calling `System.currentTimeMillis()` repeatedly on the same request.
-- Telemetry emission reuses Micrometer counters per event type and builds JSON log payloads without stream collectors.
-
 ### Documentation
 
 - Clarified deployable surfaces: Java 21 core + Spring Boot/Servlet, remote evaluation API, and ASP.NET Core reference adapter (not a native .NET engine).
@@ -37,6 +39,7 @@ Development line after **0.2.0** (tree version **0.2.1**). No published Central 
 - Clarified behavioral feature trust boundary (client-influenced features vs authenticated identity; Java `ipBucket` from `remoteAddr`).
 - Stated Java **21** as the supported/tested build/CI baseline.
 - Documented migration from identity-only quarantine lookup to the endpoint-aware form.
+- Documented 0.3.0 default-mode change (`MONITOR`) and remote response unknown-field tolerance.
 
 ## [0.2.0] — 2026-08-09
 

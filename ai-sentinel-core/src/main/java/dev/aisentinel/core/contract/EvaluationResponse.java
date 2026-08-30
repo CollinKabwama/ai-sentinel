@@ -11,6 +11,9 @@ import java.util.Objects;
  * Scores use nullable {@link Double}: non-finite internal scores become {@code null}
  * (never {@code 0.0}/{@code 1.0} stand-ins). {@code INVALID_SCORE} appears in statuses.
  * Factors and advice are descriptive only and never select enforcement.
+ * <p>
+ * Wire clients must treat unknown additive JSON properties as ignorable for forward
+ * compatibility; malformed known fields and contract-version mismatches still fail.
  *
  * @param contractVersion      {@link EvaluationContract#CONTRACT_VERSION}
  * @param correlationId        echo of request correlation id

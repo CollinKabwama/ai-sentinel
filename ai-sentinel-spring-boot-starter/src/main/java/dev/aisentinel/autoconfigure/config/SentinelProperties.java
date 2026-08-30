@@ -32,7 +32,11 @@ public class SentinelProperties {
     public enum Mode { OFF, MONITOR, ENFORCE }
 
     private boolean enabled = true;
-    private Mode mode = Mode.ENFORCE;
+    /**
+     * Operating mode. Default {@link Mode#MONITOR} (observe and learn; no client denial).
+     * Explicit {@link Mode#ENFORCE} is required to enable client-facing denial.
+     */
+    private Mode mode = Mode.MONITOR;
     private List<String> excludePaths = List.of(
         "/actuator/**", "/health", "/health/**", "/static/**", "/favicon.ico",
         "/ai-sentinel/v1/evaluation");

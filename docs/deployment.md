@@ -5,7 +5,7 @@ This guide states **actual** `OFF` / `MONITOR` / `ENFORCE` behavior from the **c
 **Recommended initial deployment mode: `MONITOR`.**  
 Do not enable `ENFORCE` based on synthetic regression suites alone. Application-specific monitoring, tuning, and operational validation are required first.
 
-Property defaults (verified): `ai.sentinel.enabled=true`, `ai.sentinel.mode=ENFORCE`. The library default is enforcement-capable; **operators should override to `MONITOR` during adoption.**
+Property defaults (verified): `ai.sentinel.enabled=true`, `ai.sentinel.mode=MONITOR`. **Client denial requires explicit `ai.sentinel.mode=ENFORCE`** after MONITOR validation.
 
 Full property tables: [`configuration.md`](configuration.md). Upgrade from the previous published
 line (`0.1.0`): [`migration.md`](migration.md). Validation gates: [`testing.md`](testing.md).
@@ -118,14 +118,15 @@ Default statistical learning uses **`ALLOW_OR_MONITOR`**: after a risk decision,
 * Publishing a new Isolation Forest model — independent of statistical Welford state.
 * Quarantine **release** alone — clears enforcement state only (see table below).
 
-**Supported recovery today (when enabled):**
+**Supported recovery today:**
 
 1. Confirm the new workload is legitimate (MONITOR telemetry / metrics / business context).
-2. Ensure `ai.sentinel.statistical.relearn-mode=EXPLICIT_ONLY` if you intend to use reset.
-3. Call `BaselineLifecycle.reset(identityHash, endpoint)` so the key re-enters warmup and subsequent traffic may train a new baseline.
-4. Keep `relearn-mode=DISABLED` (default) if you want no operator reset path.
+2. **Primary per-key operator path:** ensure `ai.sentinel.statistical.relearn-mode=EXPLICIT_ONLY`, then call `BaselineLifecycle.reset(identityHash, endpoint)` so the key re-enters warmup and subsequent traffic may train a new baseline. With default `relearn-mode=DISABLED`, reset is a no-op.
+3. **Process restart** clears local in-memory Welford / baseline maps (re-warmup). Redis-backed quarantine/trust may outlive local statistical state.
+4. **Idle TTL** after traffic stops may expire unused keys; continuous elevated traffic refreshes access and does not clear sticky elevation.
+5. **Deliberate policy change** (for example `ALWAYS`) allows continuous learning to absorb a new plateau — an operational choice, not automatic relearning.
 
-There is **no** automatic skip-triggered relearn. Automatic continuous adaptation after elevated risk remains an **architecture/product decision** and must not be assumed for production **ENFORCE** readiness. Prefer MONITOR until operators understand transition handling for their traffic.
+There is **no** automatic skip-triggered relearn and **no** shadow/candidate baseline in the current line. Automatic continuous adaptation after elevated risk remains an **architecture/product decision** and must not be assumed for production **ENFORCE** readiness. Prefer MONITOR until operators understand transition handling for their traffic.
 
 ### Model registry disk retention
 
