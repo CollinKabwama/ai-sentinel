@@ -1,6 +1,7 @@
 package dev.aisentinel.core.model;
 
 import java.util.Objects;
+import java.util.function.LongSupplier;
 
 /**
  * Privacy-aware feature vector extracted from an incoming request.
@@ -27,6 +28,8 @@ public final class RequestFeatures {
     private final String identityHash;
     private final String endpoint;
     private final long timestampMillis;
+    private final long effectiveTimestampMillis;
+    private final IdentityEndpointKey identityEndpointKey;
     private final double requestsPerWindow;
     private final double endpointEntropy;
     private final double endpointConcentration;
@@ -40,6 +43,8 @@ public final class RequestFeatures {
         this.identityHash = Objects.requireNonNull(b.identityHash, "identityHash");
         this.endpoint = Objects.requireNonNull(b.endpoint, "endpoint");
         this.timestampMillis = b.timestampMillis;
+        this.effectiveTimestampMillis = b.timestampMillis > 0 ? b.timestampMillis : b.fallbackClock.getAsLong();
+        this.identityEndpointKey = IdentityEndpointKey.forEndpoint(identityHash, endpoint);
         this.requestsPerWindow = b.requestsPerWindow;
         this.endpointEntropy = b.endpointEntropy;
         this.endpointConcentration = b.endpointConcentration;
@@ -57,6 +62,18 @@ public final class RequestFeatures {
     public String identityHash() { return identityHash; }
     public String endpoint() { return endpoint; }
     public long timestampMillis() { return timestampMillis; }
+
+    /** Structured identity|endpoint key for hot-path maps (no per-call string concatenation). */
+    public IdentityEndpointKey identityEndpointKey() {
+        return identityEndpointKey;
+    }
+
+    /**
+     * Request-path wall clock captured during extraction; falls back to system time when unset.
+     */
+    public long effectiveTimestampMillis() {
+        return effectiveTimestampMillis;
+    }
     public double requestsPerWindow() { return requestsPerWindow; }
     public double endpointEntropy() { return endpointEntropy; }
 
@@ -145,6 +162,7 @@ public final class RequestFeatures {
         private long payloadSizeBytes;
         private long headerFingerprintHash;
         private int ipBucket;
+        private LongSupplier fallbackClock = System::currentTimeMillis;
 
         public Builder identityHash(String v) { identityHash = v; return this; }
         public Builder endpoint(String v) { endpoint = v; return this; }
@@ -157,6 +175,11 @@ public final class RequestFeatures {
         public Builder payloadSizeBytes(long v) { payloadSizeBytes = v; return this; }
         public Builder headerFingerprintHash(long v) { headerFingerprintHash = v; return this; }
         public Builder ipBucket(int v) { ipBucket = v; return this; }
+
+        Builder fallbackClock(LongSupplier v) {
+            fallbackClock = Objects.requireNonNull(v, "fallbackClock");
+            return this;
+        }
 
         public RequestFeatures build() {
             return new RequestFeatures(this);

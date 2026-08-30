@@ -1,6 +1,7 @@
 package dev.aisentinel.core.enforcement;
 
 import dev.aisentinel.core.metrics.SentinelMetrics;
+import dev.aisentinel.core.model.IdentityEndpointKey;
 import dev.aisentinel.core.policy.EnforcementAction;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
 import dev.aisentinel.core.telemetry.TelemetryEvent;
@@ -26,8 +27,8 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
     private final int blockStatusCode;
     private final long quarantineDurationMs;
     private final double throttleRequestsPerSecond;
-    private final Map<String, AtomicLong> throttleTokens = new ConcurrentHashMap<>();
-    private final Map<String, Long> quarantinedUntil = new ConcurrentHashMap<>();
+    private final Map<IdentityEndpointKey, AtomicLong> throttleTokens = new ConcurrentHashMap<>();
+    private final Map<IdentityEndpointKey, Long> quarantinedUntil = new ConcurrentHashMap<>();
     private final TelemetryEmitter telemetry;
     private final int maxKeys;
     private final long throttleTtlMs;
@@ -119,11 +120,8 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
         this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
     }
 
-    private String buildEnforcementStateKey(String identityHash, String endpoint) {
-        if (enforcementScope == EnforcementScope.IDENTITY_GLOBAL) {
-            return identityHash;
-        }
-        return identityHash + "|" + (endpoint != null ? endpoint : "");
+    private IdentityEndpointKey buildEnforcementStateKey(String identityHash, String endpoint) {
+        return EnforcementKeys.enforcementStateKey(enforcementScope, identityHash, endpoint);
     }
 
     @Override
@@ -149,7 +147,7 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
 
     @Override
     public boolean isQuarantined(String identityHash, String endpoint) {
-        String key = buildEnforcementStateKey(identityHash, endpoint);
+        IdentityEndpointKey key = buildEnforcementStateKey(identityHash, endpoint);
         long now = System.currentTimeMillis();
         Long until = quarantinedUntil.compute(key, (k, v) -> {
             if (v == null) return null;
@@ -166,11 +164,11 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
      */
     @Override
     public boolean releaseQuarantine(String identityHash, String endpoint) {
-        String key = buildEnforcementStateKey(identityHash, endpoint);
+        IdentityEndpointKey key = buildEnforcementStateKey(identityHash, endpoint);
         Long removed = quarantinedUntil.remove(key);
         boolean hadLocal = removed != null;
         try {
-            clusterQuarantineWriter.clearQuarantine(distributedTenantId, key);
+            clusterQuarantineWriter.clearQuarantine(distributedTenantId, key.storageKey());
         } catch (RuntimeException e) {
             log.debug("Cluster quarantine clear failed after local release; ignoring", e);
             metrics.recordDistributedQuarantineClearFailure();
@@ -196,8 +194,8 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
     }
 
     public boolean tryAcquireThrottlePermit(String identityHash, String endpoint) {
-        String key = buildEnforcementStateKey(identityHash, endpoint);
-        if (!clusterThrottleStore.tryAcquire(distributedTenantId, key)) {
+        IdentityEndpointKey key = buildEnforcementStateKey(identityHash, endpoint);
+        if (!clusterThrottleStore.tryAcquire(distributedTenantId, key.storageKey())) {
             return false;
         }
         evictThrottleIfNeeded();
@@ -229,7 +227,7 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
             return;
         }
         long cutoffNs = System.nanoTime() - throttleTtlMs * 1_000_000;
-        for (Map.Entry<String, AtomicLong> e : List.copyOf(throttleTokens.entrySet())) {
+        for (Map.Entry<IdentityEndpointKey, AtomicLong> e : List.copyOf(throttleTokens.entrySet())) {
             if (throttleTokens.size() <= maxKeys) {
                 break;
             }
@@ -250,9 +248,9 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
             // advances nextAllowed to (now + refillNs), so the smallest value approximates the least
             // recently touched bucket (map-iteration order, used previously, has no relationship to
             // recency at all and could evict an actively-hammered key on every pass).
-            Map.Entry<String, AtomicLong> victim = null;
+            Map.Entry<IdentityEndpointKey, AtomicLong> victim = null;
             long victimValue = Long.MAX_VALUE;
-            for (Map.Entry<String, AtomicLong> e : throttleTokens.entrySet()) {
+            for (Map.Entry<IdentityEndpointKey, AtomicLong> e : throttleTokens.entrySet()) {
                 long v = e.getValue().get();
                 if (v < victimValue) {
                     victimValue = v;
@@ -262,7 +260,7 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
             if (victim == null) {
                 break;
             }
-            String victimKey = victim.getKey();
+            IdentityEndpointKey victimKey = victim.getKey();
             // AtomicLong has no value-based equals(); the same instance is mutated in place by
             // concurrent tryAcquireThrottlePermit calls, so remove(key, atomicLongRef) matches on
             // object identity and would succeed even if the bucket was refreshed a moment ago.
@@ -299,9 +297,9 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
         quarantinedUntil.entrySet().removeIf(e -> e.getValue() < now);
         int staleRetries = 0;
         while (quarantinedUntil.size() > maxKeys) {
-            String victim = null;
+            IdentityEndpointKey victim = null;
             Long minUntil = null;
-            for (Map.Entry<String, Long> e : quarantinedUntil.entrySet()) {
+            for (Map.Entry<IdentityEndpointKey, Long> e : quarantinedUntil.entrySet()) {
                 if (minUntil == null || e.getValue() < minUntil) {
                     minUntil = e.getValue();
                     victim = e.getKey();
@@ -343,11 +341,11 @@ public final class CompositeEnforcementHandler implements EnforcementHandler {
     private void applyQuarantine(EnforcementResponse response, String identityHash, String endpoint) {
         log.debug("Quarantining identityHash={} for endpoint={} durationMs={}", maskHash(identityHash), endpoint, quarantineDurationMs);
         evictQuarantineIfNeeded();
-        String key = buildEnforcementStateKey(identityHash, endpoint);
+        IdentityEndpointKey key = buildEnforcementStateKey(identityHash, endpoint);
         long until = System.currentTimeMillis() + quarantineDurationMs;
         quarantinedUntil.put(key, until);
         try {
-            clusterQuarantineWriter.publishQuarantine(distributedTenantId, key, until);
+            clusterQuarantineWriter.publishQuarantine(distributedTenantId, key.storageKey(), until);
         } catch (RuntimeException e) {
             log.debug("Cluster quarantine publish failed after local quarantine applied; ignoring", e);
         }

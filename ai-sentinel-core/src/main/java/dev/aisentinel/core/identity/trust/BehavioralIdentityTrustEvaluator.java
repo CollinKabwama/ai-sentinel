@@ -37,7 +37,7 @@ public final class BehavioralIdentityTrustEvaluator implements TrustEvaluator {
     public TrustEvaluation evaluate(IdentityContext identity, HttpRequestView request, RequestFeatures features,
                                     RequestContext ctx) {
         String key = baselineKey(identity, features.identityHash());
-        long now = features.timestampMillis() > 0 ? features.timestampMillis() : System.currentTimeMillis();
+        long now = features.effectiveTimestampMillis();
 
         BehavioralBaselineEntry before = baselineStore.updateAndGetPrevious(
             key,

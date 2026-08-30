@@ -1,7 +1,9 @@
 package dev.aisentinel.distributed.enforcement;
 
 import dev.aisentinel.core.enforcement.EnforcementHandler;
+import dev.aisentinel.core.enforcement.EnforcementKeys;
 import dev.aisentinel.core.enforcement.EnforcementScope;
+import dev.aisentinel.core.model.IdentityEndpointKey;
 import dev.aisentinel.core.policy.EnforcementAction;
 import dev.aisentinel.distributed.quarantine.ClusterQuarantineReader;
 import dev.aisentinel.distributed.quarantine.NoopClusterQuarantineReader;
@@ -29,7 +31,7 @@ public final class ClusterAwareEnforcementHandler implements EnforcementHandler 
     private final ClusterQuarantineReader clusterReader;
     private final String tenantId;
     private final EnforcementScope enforcementScope;
-    private final ConcurrentHashMap<String, Long> recentlyReleasedUntil = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<IdentityEndpointKey, Long> recentlyReleasedUntil = new ConcurrentHashMap<>();
 
     public ClusterAwareEnforcementHandler(EnforcementHandler delegate,
                                           ClusterQuarantineReader clusterReader,
@@ -55,11 +57,11 @@ public final class ClusterAwareEnforcementHandler implements EnforcementHandler 
         if (delegate.isQuarantined(identityHash, endpoint)) {
             return true;
         }
-        String key = buildEnforcementStateKey(identityHash, endpoint);
+        IdentityEndpointKey key = buildEnforcementStateKey(identityHash, endpoint);
         if (isRecentlyReleased(key)) {
             return false;
         }
-        OptionalLong until = clusterReader.quarantineUntil(tenantId, key);
+        OptionalLong until = clusterReader.quarantineUntil(tenantId, key.storageKey());
         long now = System.currentTimeMillis();
         return until.isPresent() && until.getAsLong() > now;
     }
@@ -71,17 +73,17 @@ public final class ClusterAwareEnforcementHandler implements EnforcementHandler 
     @Override
     public boolean releaseQuarantine(String identityHash, String endpoint) {
         boolean removed = delegate.releaseQuarantine(identityHash, endpoint);
-        String key = buildEnforcementStateKey(identityHash, endpoint);
+        IdentityEndpointKey key = buildEnforcementStateKey(identityHash, endpoint);
         rememberRelease(key);
         try {
-            clusterReader.invalidateQuarantineLookup(tenantId, key);
+            clusterReader.invalidateQuarantineLookup(tenantId, key.storageKey());
         } catch (RuntimeException ignored) {
             // fail-open: local release already applied
         }
         return removed;
     }
 
-    private boolean isRecentlyReleased(String key) {
+    private boolean isRecentlyReleased(IdentityEndpointKey key) {
         Long suppressUntil = recentlyReleasedUntil.get(key);
         if (suppressUntil == null) {
             return false;
@@ -94,16 +96,16 @@ public final class ClusterAwareEnforcementHandler implements EnforcementHandler 
         return true;
     }
 
-    private void rememberRelease(String key) {
+    private void rememberRelease(IdentityEndpointKey key) {
         if (recentlyReleasedUntil.size() >= MAX_RELEASE_SUPPRESSIONS) {
             long now = System.currentTimeMillis();
-            for (Iterator<Map.Entry<String, Long>> it = recentlyReleasedUntil.entrySet().iterator(); it.hasNext();) {
+            for (Iterator<Map.Entry<IdentityEndpointKey, Long>> it = recentlyReleasedUntil.entrySet().iterator(); it.hasNext();) {
                 if (it.next().getValue() <= now) {
                     it.remove();
                 }
             }
             while (recentlyReleasedUntil.size() >= MAX_RELEASE_SUPPRESSIONS) {
-                Iterator<String> it = recentlyReleasedUntil.keySet().iterator();
+                Iterator<IdentityEndpointKey> it = recentlyReleasedUntil.keySet().iterator();
                 if (!it.hasNext()) {
                     break;
                 }
@@ -114,11 +116,8 @@ public final class ClusterAwareEnforcementHandler implements EnforcementHandler 
         recentlyReleasedUntil.put(key, System.currentTimeMillis() + RELEASE_SUPPRESSION_TTL_MS);
     }
 
-    private String buildEnforcementStateKey(String identityHash, String endpoint) {
-        if (enforcementScope == EnforcementScope.IDENTITY_GLOBAL) {
-            return identityHash;
-        }
-        return identityHash + "|" + (endpoint != null ? endpoint : "");
+    private IdentityEndpointKey buildEnforcementStateKey(String identityHash, String endpoint) {
+        return EnforcementKeys.enforcementStateKey(enforcementScope, identityHash, endpoint);
     }
 
     public EnforcementHandler getDelegate() {

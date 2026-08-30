@@ -21,10 +21,13 @@ Development line after **0.2.0** (tree version **0.2.1**). No published Central 
 - **Composite score snapshot capability** — pipeline and actuator depend on `CompositeScoreSnapshotSource` rather than requiring the concrete `CompositeScorer` type for diagnostic snapshots.
 - **Feature schema contract** — `FeatureSchema` publishes layout version and explicit statistical / Isolation Forest / export dimensions and ordered names; training export/parser align on the same constants.
 - **Public API compatibility gate** — Maven profile `api-compatibility` runs japicmp for published modules against the configured Central baseline (default `0.2.0`).
+- **Structured identity|endpoint keys** — hot-path scorer, baseline, and enforcement maps use `IdentityEndpointKey` instead of per-call string concatenation; wire/storage shape is unchanged.
 
 ### Changed
 
 - Redis trust baseline key encoding reuses a thread-local SHA-256 digest instead of allocating a new `MessageDigest` on every encode. Redis key format and trust semantics are unchanged.
+- Request-path scoring and feature extraction reuse the timestamp captured during feature extraction instead of calling `System.currentTimeMillis()` repeatedly on the same request.
+- Telemetry emission reuses Micrometer counters per event type and builds JSON log payloads without stream collectors.
 
 ### Documentation
 
