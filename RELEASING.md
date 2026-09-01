@@ -115,8 +115,8 @@ mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am
 Fix any test or build failures before continuing. Run `mvn clean verify` **twice**. Characterization
 and architecture gates are included in that command — see [`docs/testing.md`](docs/testing.md).
 The `api-compatibility` profile compares published library modules against
-`aisentinel.api.compatibility.oldVersion` (default **0.2.0**) via japicmp. After the consolidation
-release ships, retarget that property to the new baseline and remove the intentional quarantine-method exclude.
+`aisentinel.api.compatibility.oldVersion` (default **0.2.0** until **0.3.0** ships) via japicmp. After **0.3.0**
+is published, retarget that property to the new baseline and remove the intentional quarantine-method exclude.
 
 Confirm MONITOR-first guidance is still accurate in [`docs/deployment.md`](docs/deployment.md) and
 that [`CHANGELOG.md`](CHANGELOG.md) / [`docs/migration.md`](docs/migration.md) match the tag you are
@@ -177,7 +177,7 @@ git tag -a v0.3.0 -m "Release 0.3.0"
 git push origin v0.3.0
 ```
 
-Commit the version bump on `main` if it is not already committed. Use the same version string you published (candidate packaging uses **0.3.0**; latest published library line before this release is **0.2.0**).
+Commit the version bump on `main` if it is not already committed. Use the same version string you publish (**0.3.0** on `dev`; latest published Maven Central release before this tag is **0.2.0**).
 
 ### 6. Bump to the next development version (optional)
 

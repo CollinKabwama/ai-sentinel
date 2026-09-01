@@ -1,6 +1,6 @@
 # Migrating to AI-Sentinel 0.3.0
 
-This guide covers upgrading from the published **0.2.0** line, or unreleased **0.2.1** development trees, to **0.3.0**. Notes for **0.1.0 → 0.2.0** remain below for operators still on the earlier line.
+This guide covers upgrading from the published **0.2.0** line, or unreleased **0.2.1** development trees, to **0.3.0** on `dev`. Notes for **0.1.0 → 0.2.0** remain below for operators still on the earlier line.
 
 **Recommended first deployment mode remains `MONITOR`.** From **0.3.0**, `MONITOR` is also the **library default**. Do not enable `ENFORCE` based on
 synthetic suites alone — see [`deployment.md`](deployment.md).
