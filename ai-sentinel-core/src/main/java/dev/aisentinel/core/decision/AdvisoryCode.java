@@ -1,7 +1,8 @@
 package dev.aisentinel.core.decision;
 
 /**
- * Operator/system advisory recommendation. Distinct from {@link EnforcementAction}.
+ * Operator/system advisory recommendation. Distinct from
+ * {@link dev.aisentinel.core.policy.EnforcementAction}.
  * Answers "what should an operator consider?" — never "what must enforcement do now?"
  */
 public enum AdvisoryCode {

@@ -13,7 +13,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Writes the same layout {@link dev.aisentinel.autoconfigure.model.FilesystemModelRegistry} reads.
+ * Writes the same filesystem model-registry layout read by serving nodes.
  */
 public final class FilesystemArtifactPublisher {
 

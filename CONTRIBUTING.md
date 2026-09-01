@@ -109,7 +109,7 @@ java -version   # expect 21
 mvn clean install
 ```
 
-To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter` at the version in the parent `pom.xml` (currently **0.2.1** on the development line; published Maven Central release is **0.2.0**). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
+To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter` at the version in the parent `pom.xml` (currently **0.3.0** on the release-candidate line; published Maven Central includes **0.2.0**). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
 
 Characterization and release-gate testing: [`docs/testing.md`](docs/testing.md). Upgrading from the previous published line: [`docs/migration.md`](docs/migration.md). Docs index and reading order: [`docs/README.md`](docs/README.md).
 

@@ -102,13 +102,13 @@ Add the starter dependency:
 <dependency>
     <groupId>dev.aisentinel</groupId>
     <artifactId>ai-sentinel-spring-boot-starter</artifactId>
-    <version>0.2.0</version>
+    <version>0.3.0</version>
 </dependency>
 ```
 
-Published Maven Central line is **0.2.0** (tag `v0.2.0`). The parent `pom.xml` on this branch is **0.2.1** for ongoing development — for a local install not yet released, use that tree version after `mvn clean install`.
+This branch prepares the **0.3.0** library line (first stable baseline). Published Maven Central releases to date include **0.2.0** (tag `v0.2.0`). After `mvn clean install`, consume the tree version `0.3.0` from your local repository.
 
-Upgrade notes from **0.1.0**: [`docs/migration.md`](docs/migration.md). Full history: [`CHANGELOG.md`](CHANGELOG.md).
+Upgrade notes from **0.2.0 / unreleased 0.2.1**: [`docs/migration.md`](docs/migration.md). Full history: [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
@@ -180,7 +180,7 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 
 ## Current limitations
 
-- **Early release (0.2.0)** — suitable for evaluation and integration; treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
+- **Early release lineage** — 0.2.0 established the published library line; **0.3.0** is the first stable baseline. Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
 - **MONITOR default** — Default `ai.sentinel.mode=MONITOR` (observe/learn; no client denial). Explicit `ENFORCE` enables client denial only after ENFORCE preconditions. Full mode matrix, restart behavior, and the availability-first **failure-mode profile**: [`docs/deployment.md`](docs/deployment.md). Statistical warmup is a lifecycle state (`EvaluationStatus.STATISTICAL_WARMUP`), not evidence of abuse; default warmup action is `MONITOR`. Default baseline learning skips `THROTTLE`/`BLOCK`/`QUARANTINE` risk (`ALLOW_OR_MONITOR`).
 - **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository).
 - **Trainer `eventId` dedup** is JVM-local; multiple trainer instances are not coordinated without external design.

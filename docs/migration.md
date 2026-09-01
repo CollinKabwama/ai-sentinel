@@ -1,23 +1,11 @@
-# Migrating to AI-Sentinel 0.2.0 / preparing for 0.3.0
+# Migrating to AI-Sentinel 0.3.0
 
-This guide covers upgrading from **0.1.0** to **0.2.0**, plus **0.3.0** configuration-default notes for the development line.
+This guide covers upgrading from the published **0.2.0** line, or unreleased **0.2.1** development trees, to **0.3.0**. Notes for **0.1.0 → 0.2.0** remain below for operators still on the earlier line.
 
 **Recommended first deployment mode remains `MONITOR`.** From **0.3.0**, `MONITOR` is also the **library default**. Do not enable `ENFORCE` based on
 synthetic suites alone — see [`deployment.md`](deployment.md).
 
 For the full user-facing change list, see the root [`CHANGELOG.md`](../CHANGELOG.md).
-
----
-
-## 0.3.0 configuration default change (behavioral)
-
-| Property | 0.2.x default | 0.3.0 default | Required user action |
-|----------|---------------|---------------|----------------------|
-| `ai.sentinel.mode` | `ENFORCE` | `MONITOR` | If you relied on **implicit** enforcement under 0.2.x, set `ai.sentinel.mode=ENFORCE` explicitly to retain client denial. |
-
-This is a **behavioral / configuration default** change (not a Java method signature break). Explicit `MONITOR`, `ENFORCE`, and `OFF` bindings are unchanged.
-
-Remote Java clients also ignore unknown additive `EvaluationResponse` JSON fields without mutating a caller-supplied `ObjectMapper` (forward-compatible responses).
 
 ---
 
@@ -27,11 +15,59 @@ Remote Java clients also ignore unknown additive `EvaluationResponse` JSON field
 <dependency>
   <groupId>dev.aisentinel</groupId>
   <artifactId>ai-sentinel-spring-boot-starter</artifactId>
-  <version>0.2.0</version>
+  <version>0.3.0</version>
 </dependency>
 ```
 
-> For the 0.3.0 line, use the published `0.3.0` version when available; until then the development tree remains `0.2.1`.
+---
+
+## 0.2.0 / unreleased 0.2.1 → 0.3.0 (required reading)
+
+### 1. Public API break — quarantine lookup
+
+The deprecated identity-only quarantine check has been removed from `EnforcementHandler`.
+
+| Previous | Current |
+|----------|---------|
+| `isQuarantined(String identityHash)` | **Removed** |
+| — | `isQuarantined(String identityHash, String endpoint)` |
+
+**Who is affected:** source callers that invoked the one-argument overload must pass the request endpoint. Already compiled binaries that invoke the removed interface method may fail at runtime after upgrade until recompiled.
+
+**Who is not affected:** typical starter consumers, callers already using the two-argument form, and custom `EnforcementHandler` implementations that merely implement the interface without calling the removed method.
+
+```java
+// Before (removed)
+handler.isQuarantined(identityHash);
+
+// After
+handler.isQuarantined(identityHash, endpoint);
+```
+
+Pass the same endpoint used for enforcement (request path / normalized endpoint). Do not substitute a blank or wildcard endpoint merely to restore the old call shape — quarantine may be endpoint-scoped.
+
+### 2. Behavioral / configuration default — operating mode
+
+| Property | 0.2.0 / unreleased 0.2.1 default | 0.3.0 default | Required user action |
+|----------|---------------|---------------|----------------------|
+| `ai.sentinel.mode` | `ENFORCE` | `MONITOR` | If you relied on **implicit** enforcement under 0.2.0 or an unreleased 0.2.1 development tree, set `ai.sentinel.mode=ENFORCE` explicitly to retain client denial. |
+
+This is a **behavioral / configuration default** change (not a Java method signature break). Explicit `MONITOR`, `ENFORCE`, and `OFF` bindings are unchanged.
+
+### 3. Remote response forward compatibility
+
+Java `RemoteEvaluationClient` ignores unknown additive `EvaluationResponse` JSON fields without mutating a caller-supplied `ObjectMapper`. Malformed known fields still fail open (`ALLOW`, `proceed=true`, no fabricated scores/factors/advice).
+
+### 4. Suggested upgrade checklist
+
+1. Bump the starter dependency to `0.3.0`.
+2. If you previously relied on the 0.2.0 / unreleased 0.2.1 implicit `ENFORCE` default, set `ai.sentinel.mode=ENFORCE` explicitly; otherwise leave the new `MONITOR` default.
+3. Migrate any one-argument `isQuarantined` callers to the two-argument form.
+4. Leave `baseline-update-policy=ALLOW_OR_MONITOR` and `warmup-action=MONITOR` unless you have a deliberate reason to change them.
+5. Re-run integration tests and the characterization release gate ([`testing.md`](testing.md)).
+6. Review Actuator `lastDecision` / evaluation phases in a staging environment before ENFORCE.
+
+You do **not** need to adopt deferred roadmap items (additional detectors, WebFlux, fail-closed profiles, formal SLA tooling) to upgrade.
 
 ---
 
@@ -52,12 +88,12 @@ Remote Java clients also ignore unknown additive `EvaluationResponse` JSON field
 
 ---
 
-## Configuration defaults to review
+## Configuration defaults to review (0.3.0)
 
 | Property | Default | Notes |
 |----------|---------|--------|
 | `ai.sentinel.enabled` | `true` | |
-| `ai.sentinel.mode` | `MONITOR` (0.3.0+); was `ENFORCE` on 0.2.x | Explicit `ENFORCE` required for client denial; see 0.3.0 section above |
+| `ai.sentinel.mode` | `MONITOR` | Was `ENFORCE` on 0.2.0 / unreleased 0.2.1; explicit `ENFORCE` required for client denial |
 | `ai.sentinel.warmup-min-samples` | `2` | |
 | `ai.sentinel.warmup-score` | `0.4` | Telemetry / fusion only |
 | `ai.sentinel.warmup-action` | `MONITOR` | `ALLOW` or `MONITOR` only |
@@ -73,7 +109,7 @@ Full reference: [`configuration.md`](configuration.md).
 
 ---
 
-## Compatibility break: servlet types → framework-neutral views
+## Compatibility break: servlet types → framework-neutral views (0.2.0)
 
 Custom integrations that implement core SPIs against **servlet** types must move to:
 
@@ -102,52 +138,11 @@ configure properties / optional beans without custom servlet-typed SPIs.
 | `BaselineLifecycle` / `BaselineRelearnMode` | Explicit reset only |
 | `EnforcementResponse.isCommitted()` | Default method; default `false` |
 | Explanation evidence on `RequestContext` / Actuator `lastDecision` | Diagnostic; JVM-local last decision |
+| `EvaluationStatusContributor` | Optional scorer status contribution |
+| `FeatureSchema` | Explicit feature layout version and dimensions |
 
 Binary/source consumers that constructed the old six-component `RiskDecision` compact form must
 switch to `RiskDecision.of(...)` or pass an `evaluationStatuses` set.
-
----
-
-## Suggested upgrade checklist
-
-1. Bump the starter dependency to `0.2.0`.
-2. Leave `ai.sentinel.mode=MONITOR` (0.3.0 default) unless you already meet ENFORCE preconditions and intentionally set `ENFORCE`.
-3. Leave `baseline-update-policy=ALLOW_OR_MONITOR` and `warmup-action=MONITOR` unless you have a
-   deliberate reason to change them.
-4. Remove obsolete relearn settings if present.
-5. Re-run your integration tests and the characterization release gate
-   ([`testing.md`](testing.md)). Prefer `mvn clean verify` from the repository root when validating
-   a fork or downstream build that includes this library’s sources.
-6. Review Actuator `lastDecision` / evaluation phases in a staging environment before ENFORCE.
-
----
-
-## Quarantine lookup requires identity and endpoint
-
-Applies to the **unreleased** development line after **0.2.0** (will ship in the next published major/minor that documents this break).
-
-The deprecated identity-only quarantine check has been removed from `EnforcementHandler`.
-
-| Previous | Current |
-|----------|---------|
-| `isQuarantined(String identityHash)` | **Removed** |
-| — | `isQuarantined(String identityHash, String endpoint)` |
-
-**Who is affected:** source callers that invoked the one-argument overload must pass the request endpoint. Already compiled binaries that invoke the removed interface method may fail at runtime after upgrade until recompiled.
-
-**Who is not affected:** typical starter consumers, callers already using the two-argument form, and custom `EnforcementHandler` implementations that merely implement the interface without calling the removed method. The removed member was a default method, so the break is for callers of that descriptor rather than implementers by itself.
-
-**Migration:**
-
-```java
-// Before (removed)
-handler.isQuarantined(identityHash);
-
-// After
-handler.isQuarantined(identityHash, endpoint);
-```
-
-Pass the same endpoint used for enforcement (request path / normalized endpoint). Do not substitute a blank or wildcard endpoint merely to restore the old call shape — quarantine may be endpoint-scoped.
 
 ---
 
@@ -158,7 +153,7 @@ Pass the same endpoint used for enforcement (request path / normalized endpoint)
 | [`CHANGELOG.md`](../CHANGELOG.md) | Reviewing user-facing changes in this release line |
 | [`configuration.md`](configuration.md) | Looking up exact property names and defaults |
 | [`deployment.md`](deployment.md) | Choosing OFF / MONITOR / ENFORCE and fail-open posture |
-| [`testing.md`](testing.md) | Validating a build with the characterization / release gate |
+| [`testing.md`](testing.md) | Validating a build with the characterization release gate |
 | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) | Understanding runtime components and replaceability |
 | [`../SECURITY.md`](../SECURITY.md) | Threat-model notes and reporting process |
 | [`../RELEASING.md`](../RELEASING.md) | Publishing artifacts (maintainers) |
