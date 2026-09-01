@@ -4,7 +4,7 @@
 |---------------|---------|
 | `configuration.md` | Tracked property reference |
 | `deployment.md` | Tracked deployment modes, adoption, and failure-mode profile |
-| `migration.md` | Tracked upgrade guide from the previous published line |
+| `migration.md` | Tracked upgrade guide (0.2.x → 0.3.0) |
 | `testing.md` | Tracked characterization and release-gate testing |
 | [`../dotnet/README.md`](../dotnet/README.md) | ASP.NET Core reference adapter (remote client; not gitignored) |
 | `planning/` | Local engineering notes (gitignored) |
