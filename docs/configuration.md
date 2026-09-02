@@ -3,7 +3,9 @@
 Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer.*`). See **`SentinelProperties`** and **`TrainerProperties`** in the codebase for validation rules.
 
 **Operator deployment modes, MONITOR-first adoption, ENFORCE preconditions, and restart/cold-start:** [`deployment.md`](deployment.md).  
-Upgrade notes: [`migration.md`](migration.md). Release notes: [`../CHANGELOG.md`](../CHANGELOG.md).
+Upgrade notes (**0.2.x → 0.3.0**): [`migration.md`](migration.md). Release notes: [`../CHANGELOG.md`](../CHANGELOG.md).
+
+Current tree version is **0.3.0** (published Central baseline remains **0.2.0** until the next release tag).
 
 This page is organized as:
 
