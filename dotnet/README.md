@@ -37,7 +37,9 @@ Authoritative AI-Sentinel engine
 ## Prerequisites
 
 - .NET SDK 8.0 (LTS)
-- Running AI-Sentinel remote evaluation service (Java/Spring)
+- Running AI-Sentinel remote evaluation service (Java/Spring **0.3.0** tree or compatible release)
+
+Pair with the Java starter or service using remote evaluation enabled. Upgrade and contract notes: [`../docs/migration.md`](../docs/migration.md).
 
 ## Build
 
