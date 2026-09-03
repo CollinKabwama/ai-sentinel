@@ -12,6 +12,8 @@ for the published library line.
 
 ### Changed
 
+- Operator docs now state that **0.3.0** is published to Maven Central (tag `v0.3.0`). japicmp still compares against **0.2.0** until a separate baseline retarget.
+
 ### Fixed
 
 ## [0.3.0] — 2026-08-30
@@ -42,7 +44,7 @@ See also: [`docs/migration.md`](docs/migration.md) · [`docs/deployment.md`](doc
 - **ASP.NET Core reference adapter** (`dotnet/`) — thin remote client for the evaluation contract; middleware, sample app, cross-language fixtures, and opt-in live E2E test. No C# behavioral engine.
 - **Evaluation status contributor SPI** — scorers may implement `EvaluationStatusContributor` so operational markers appear without status code knowing concrete scorer types. Engine-owned statuses cannot be injected by untrusted contributors.
 - **Feature schema contract** — `FeatureSchema` publishes layout version and explicit statistical / Isolation Forest / export dimensions and ordered names; training export/parser align on the same constants.
-- **Public API compatibility gate** — Maven profile `api-compatibility` runs japicmp for published modules against the configured Central baseline (default **0.2.0** until **0.3.0** is published and retargeted).
+- **Public API compatibility gate** — Maven profile `api-compatibility` runs japicmp for published modules against the configured Central baseline (**0.2.0** at this release, with approved exclusions). Retargeting that baseline to **0.3.0** is a follow-up after publication.
 
 ### Documentation
 

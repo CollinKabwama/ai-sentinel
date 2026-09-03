@@ -35,10 +35,11 @@ mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am
 ```
 
 CI runs this after the reactor verify. The baseline version is
-`aisentinel.api.compatibility.oldVersion` (default `0.2.0` until **0.3.0** is published). Narrow excludes (documented in module
+`aisentinel.api.compatibility.oldVersion` (currently **0.2.0**; **0.3.0** is published, but the
+japicmp property is not retargeted yet). Narrow excludes (documented in module
 POMs) cover the removed one-argument `EnforcementHandler.isQuarantined(String)` and a pre-existing
 Spring `@Bean` signature change on `SentinelAutoConfiguration.enforcementHandlerImpl`; both should be
-removed when **0.3.0** becomes the next published baseline.
+removed when the baseline is retargeted to **0.3.0**.
 
 Expected shape (may grow if tests are added):
 
