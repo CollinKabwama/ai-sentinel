@@ -109,10 +109,14 @@ Run all commands from the **repository root** (the directory that contains the p
 git checkout main
 git pull
 mvn clean verify
+mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am verify -DskipTests
 ```
 
 Fix any test or build failures before continuing. Run `mvn clean verify` **twice**. Characterization
 and architecture gates are included in that command — see [`docs/testing.md`](docs/testing.md).
+The `api-compatibility` profile compares published library modules against
+`aisentinel.api.compatibility.oldVersion` (default **0.2.0** until **0.3.0** ships) via japicmp. After **0.3.0**
+is published, retarget that property to the new baseline and remove the intentional quarantine-method exclude.
 
 Confirm MONITOR-first guidance is still accurate in [`docs/deployment.md`](docs/deployment.md) and
 that [`CHANGELOG.md`](CHANGELOG.md) / [`docs/migration.md`](docs/migration.md) match the tag you are
@@ -120,11 +124,11 @@ about to cut. Do not publish release notes that claim production-ready ENFORCE f
 
 ### 2. Set a non-SNAPSHOT version
 
-Central **release** publishing rejects `-SNAPSHOT` versions. Update the parent and every module parent reference to the release version (for example bump `0.2.0` → `0.2.1`):
+Central **release** publishing rejects `-SNAPSHOT` versions. Update the parent and every module parent reference to the release version (for example bump `0.2.0` → `0.3.0`):
 
 ```bash
 # Example with the versions plugin (adjust newVersion as needed):
-# mvn versions:set -DnewVersion=0.2.1 -DgenerateBackupPoms=false
+# mvn versions:set -DnewVersion=0.3.0 -DgenerateBackupPoms=false
 # Or edit the <version> in the parent pom.xml and each module's parent reference.
 ```
 
@@ -169,15 +173,15 @@ Artifacts usually appear on Maven Central within minutes; search indexing can ta
 ### 5. Tag and push
 
 ```bash
-git tag -a v0.2.0 -m "Release 0.2.0"
-git push origin v0.2.0
+git tag -a v0.3.0 -m "Release 0.3.0"
+git push origin v0.3.0
 ```
 
-Commit the version bump on `main` if it is not already committed. Use the same version string you published (latest published library line is **0.2.0**; the development tree may already be ahead, for example **0.2.1**).
+Commit the version bump on `main` if it is not already committed. Use the same version string you publish (**0.3.0** on `dev`; latest published Maven Central release before this tag is **0.2.0**).
 
 ### 6. Bump to the next development version (optional)
 
-After the tag, set versions to the next development line (for example `0.2.1-SNAPSHOT` if you enable SNAPSHOT publishing, or simply `0.2.1`) so day-to-day work does not reuse a published release version.
+After the tag, set versions to the next development line (for example `0.3.1-SNAPSHOT` if you enable SNAPSHOT publishing, or simply `0.3.1`) so day-to-day work does not reuse a published release version.
 
 ---
 
@@ -188,7 +192,7 @@ SNAPSHOT uploads go to `https://central.sonatype.com/repository/maven-snapshots/
 1. Central Portal → **Namespaces** → `dev.aisentinel` → ⋮ → **Enable SNAPSHOTs**.
 2. Deploy with a `-SNAPSHOT` version and `-Prelease` as above.
 
-For the first public release, prefer a stable version (no `-SNAPSHOT`).
+For public releases, prefer a stable version (no `-SNAPSHOT`).
 
 ---
 

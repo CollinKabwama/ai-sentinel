@@ -43,6 +43,7 @@ When your PR **deprecates** functionality (but keeps it working for a transition
 | **ai-sentinel-spring-boot-starter** | **Current** Spring Boot / Servlet adapter: auto-configuration, servlet filter, `SentinelProperties`, actuator, Micrometer, optional distributed and model-registry beans. |
 | **ai-sentinel-trainer** | Optional standalone Spring Boot app: consumes training candidates (Kafka when enabled), trains IF, publishes to a filesystem model registry. See [`ai-sentinel-trainer/README.md`](ai-sentinel-trainer/README.md). |
 | **ai-sentinel-demo** | Reference Spring Boot app for local runs and smoke tests. |
+| **dotnet/** | Reference ASP.NET Core remote adapter (`AI.Sentinel.AspNetCore`) — consumes remote evaluation HTTP API; no C# scoring engine. See [`dotnet/README.md`](dotnet/README.md). |
 
 ---
 
@@ -92,8 +93,9 @@ Maintainers merge `dev` → `main` and tag releases. Contributors do not manage 
 
 ## Prerequisites
 
-- **Java 21** — required by the root `pom.xml` (`<java.version>21</java.version>`). Newer JDKs may work locally; align with CI when in doubt.
+- **Java 21** — required by the root `pom.xml` (`<java.version>21</java.version>`) and CI (Temurin 21). This is the **supported/tested** baseline. Newer JDKs (for example JDK 25) are not part of the CI matrix; local Mockito/JaCoCo failures outside JDK 21 are environment issues, not a claim that the production engine requires those JDKs.
 - **Maven 3.8+**
+- **.NET 8 SDK** — optional; required only to build/test [`dotnet/`](dotnet/).
 - **Docker** — optional; needed for Testcontainers-based tests in `ai-sentinel-spring-boot-starter` (those tests are skipped when Docker is unavailable).
 
 ---
@@ -107,7 +109,7 @@ java -version   # expect 21
 mvn clean install
 ```
 
-To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter` at the version in the parent `pom.xml` (currently **0.2.1** on the development line; published Maven Central release is **0.2.0**). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
+To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter` at the version in the parent `pom.xml` (currently **0.3.0** on `dev`; latest published Maven Central release is **0.2.0**). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
 
 Characterization and release-gate testing: [`docs/testing.md`](docs/testing.md). Upgrading from the previous published line: [`docs/migration.md`](docs/migration.md). Docs index and reading order: [`docs/README.md`](docs/README.md).
 
@@ -118,7 +120,7 @@ Characterization and release-gate testing: [`docs/testing.md`](docs/testing.md).
 ## Running the tests
 
 Prefer the **reactor root** so modules resolve each other from the reactor build (not a stale jar in `~/.m2`).
-Requires **Java 21+** (see Prerequisites).
+Requires the supported/tested **Java 21** baseline (see Prerequisites).
 
 ```bash
 mvn test
@@ -127,6 +129,14 @@ mvn clean verify
 ```
 
 `mvn clean verify` is the same primary gate used for release validation ([`docs/testing.md`](docs/testing.md)). Without Docker, a small number of Testcontainers tests are skipped rather than failed.
+
+Optional **public API compatibility** check against the last published Central baseline (`0.2.0` by default; property `aisentinel.api.compatibility.oldVersion`):
+
+```bash
+mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am verify -DskipTests
+```
+
+CI runs this profile after the main reactor verify. After **0.3.0** is published to Maven Central, retarget the baseline property and drop the intentional excludes documented in `ai-sentinel-core/pom.xml` and `ai-sentinel-spring-boot-starter/pom.xml` (removed one-argument quarantine lookup; pre-existing Spring `@Bean` signature change for `enforcementHandlerImpl`).
 
 Running a single module in isolation only works when its dependencies are already installed with matching sources:
 

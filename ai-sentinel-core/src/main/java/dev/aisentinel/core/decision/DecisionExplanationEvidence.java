@@ -39,13 +39,18 @@ public record DecisionExplanationEvidence(
     }
 
     public static DecisionExplanationEvidence fromStatistical(double score, StatisticalScoreSnapshot snapshot) {
+        return fromStatistical(score, snapshot, System.currentTimeMillis());
+    }
+
+    public static DecisionExplanationEvidence fromStatistical(double score, StatisticalScoreSnapshot snapshot,
+                                                              long scoredAtEpochMillis) {
         return new DecisionExplanationEvidence(
             score,
             null,
             false,
             null,
             snapshot,
-            System.currentTimeMillis()
+            scoredAtEpochMillis
         );
     }
 }

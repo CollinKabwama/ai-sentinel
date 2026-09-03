@@ -50,5 +50,11 @@ public enum FailOpenReason {
     FILTER_FAILURE,
 
     /** Explicit baseline reset / lifecycle hook threw. */
-    BASELINE_LIFECYCLE_FAILURE
+    BASELINE_LIFECYCLE_FAILURE,
+
+    /**
+     * Remote evaluation client could not obtain a valid {@code EvaluationResponse}
+     * (timeout, connection, auth, version mismatch, or malformed payload).
+     */
+    REMOTE_EVALUATION_FAILURE
 }

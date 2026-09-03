@@ -67,8 +67,8 @@ public class IdentityAutoConfiguration {
     }
 
     /**
-     * Behavioral baselines (in-memory, or Redis-backed with fail-open when
-     * {@link SentinelProperties.Trust#getDistributed()} is enabled and {@link StringRedisTemplate} exists).
+     * Behavioral baselines (in-memory, or Redis-backed with fail-open when identity trust distributed mode is enabled
+     * and {@link StringRedisTemplate} exists).
      */
     @Bean
     @ConditionalOnMissingBean(BehavioralBaselineStore.class)

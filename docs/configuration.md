@@ -3,7 +3,9 @@
 Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer.*`). See **`SentinelProperties`** and **`TrainerProperties`** in the codebase for validation rules.
 
 **Operator deployment modes, MONITOR-first adoption, ENFORCE preconditions, and restart/cold-start:** [`deployment.md`](deployment.md).  
-Upgrade notes: [`migration.md`](migration.md). Release notes: [`../CHANGELOG.md`](../CHANGELOG.md).
+Upgrade notes (**0.2.x → 0.3.0**): [`migration.md`](migration.md). Release notes: [`../CHANGELOG.md`](../CHANGELOG.md).
+
+Current tree version is **0.3.0** (published Central baseline remains **0.2.0** until the next release tag).
 
 This page is organized as:
 
@@ -104,7 +106,7 @@ Legend: **Required?** = needed for a working filter once `enabled=true`. **Advan
 | Property | Default | Category | Required? | Advanced? |
 |----------|---------|----------|-----------|-----------|
 | `ai.sentinel.enabled` | `true` | core | Yes | No |
-| `ai.sentinel.mode` | `ENFORCE` | core | Yes | No — prefer `MONITOR` for adoption |
+| `ai.sentinel.mode` | `MONITOR` | core | Yes | No — default observe/learn; set `ENFORCE` only deliberately |
 | `ai.sentinel.exclude-paths` | actuator/health/static/favicon | HTTP adapter | No | No |
 | `ai.sentinel.filter-order` | late (`MAX-100`) | HTTP adapter | No | Yes |
 | `ai.sentinel.trusted-proxies` | empty | HTTP adapter | No | Yes |
@@ -165,9 +167,28 @@ Legend: **Required?** = needed for a working filter once `enabled=true`. **Advan
 |----------|---------|----------|-----------|-----------|
 | `ai.sentinel.telemetry.*` | `ANOMALY_ONLY` | observability | No | Yes |
 
+### Remote evaluation (optional)
+
+Default remains **local** evaluation with no network calls. Remote mode is additive.
+
+| Property | Default | Notes |
+|----------|---------|--------|
+| `ai.sentinel.evaluation.executor-mode` | `LOCAL` | `LOCAL`, `REMOTE`, or `REMOTE_WITH_LOCAL_FALLBACK` |
+| `ai.sentinel.evaluation.server.enabled` | `false` | When true, exposes authenticated `POST /ai-sentinel/v1/evaluation` |
+| `ai.sentinel.evaluation.server.api-key` | _(empty)_ | Required when server enabled; inject via env/secret store |
+| `ai.sentinel.evaluation.client.base-url` | _(empty)_ | Required for remote executor modes |
+| `ai.sentinel.evaluation.client.api-key` | _(empty)_ | Sent as `X-AI-Sentinel-Api-Key` (not end-user Authorization) |
+| `ai.sentinel.evaluation.client.connect-timeout` | `500ms` | Connect timeout |
+| `ai.sentinel.evaluation.client.read-timeout` | `2s` | Read timeout |
+| `ai.sentinel.evaluation.client.require-https` | `true` | Non-HTTPS rejected except loopback HTTP for local tests |
+
+Remote transport failures are **fail-open** with status `REMOTE_EVALUATION_FAILURE` (not high risk). There is **no automatic retry** of evaluation POSTs.
+
+**ASP.NET Core clients:** the reference adapter in [`dotnet/README.md`](../dotnet/README.md) maps `AiSentinel:*` settings to the same endpoint and `X-AI-Sentinel-Api-Key` header. Server-side properties above apply to the Java host exposing the evaluation API.
+
 **Obsolete / rejected:** `relearn-mode=AFTER_CONSECUTIVE_SKIPS` fails binding; `relearn-after-consecutive-skips` is ignored if present as an unused key.
 
-**Surprising default:** `mode=ENFORCE` while adoption docs recommend `MONITOR` — intentional compatibility; override for adoption.
+**Default mode:** `mode=MONITOR` (observe and learn; no client denial). Explicit `mode=ENFORCE` is required for client-facing denial.
 
 ---
 
@@ -176,7 +197,7 @@ Legend: **Required?** = needed for a working filter once `enabled=true`. **Advan
 | Property | Default | Notes |
 |----------|---------|--------|
 | `ai.sentinel.enabled` | `true` | Master switch |
-| `ai.sentinel.mode` | `ENFORCE` | `OFF` (full filter bypass), `MONITOR` (score/learn/observe; **no client denial**), `ENFORCE` (client denial enabled). **Recommended adoption mode is `MONITOR`** even though the property default is `ENFORCE` — see [`deployment.md`](deployment.md). |
+| `ai.sentinel.mode` | `MONITOR` | `OFF` (full filter bypass), `MONITOR` (score/learn/observe; **no client denial** — **default**), `ENFORCE` (client denial enabled; requires explicit configuration). See [`deployment.md`](deployment.md). |
 | `ai.sentinel.exclude-paths` | actuator, health, static, favicon | Comma-separated Ant-style patterns |
 | `ai.sentinel.block-status-code` | `429` | HTTP status written on BLOCK / throttle-exhaust / quarantine responses |
 | `ai.sentinel.quarantine-duration-ms` | `300000` | Local quarantine TTL in milliseconds |
@@ -208,7 +229,7 @@ Legend: **Required?** = needed for a working filter once `enabled=true`. **Advan
 | `ai.sentinel.telemetry.log-sample-rate` | `100` | Sampling denominator for `SAMPLED` verbosity |
 | `ai.sentinel.distributed.tenant-id` | `default` | Tenant segment in shared Redis / registry paths (align with trainer) |
 | `ai.sentinel.distributed.cluster-quarantine-read-enabled` | `false` | Merge cluster quarantine into `isQuarantined` (local OR Redis view) |
-| `ai.sentinel.distributed.cluster-quarantine-write-enabled` | `false` | After local `QUARANTINE`, publish `until` to Redis (requires `distributed.enabled`, `redis.enabled`, template; async, fail-open) |
+| `ai.sentinel.distributed.cluster-quarantine-write-enabled` | `false` | After local `QUARANTINE`, publish `until` to Redis (requires `distributed.enabled`, `redis.enabled`, template; async, fail-open). `EnforcementHandler.releaseQuarantine` also best-effort `DEL`s the same key when write path is enabled. |
 | `ai.sentinel.distributed.cluster-throttle-enabled` | `false` | On the **THROTTLE** action path only, consult a Redis fixed-window counter per enforcement key (cluster-wide cap; fail-open if Redis fails; requires `distributed.enabled`, `redis.enabled`, template) |
 | `ai.sentinel.distributed.cluster-throttle-window` | `1s` | Wall-clock window length for the cluster throttle counter (validated ≥ 100ms) |
 | `ai.sentinel.distributed.cluster-throttle-max-requests-per-window` | `30` | Max requests cluster-wide per enforcement key per window when cluster throttle is enabled (validated ≥ 1) |
@@ -236,6 +257,16 @@ Legend: **Required?** = needed for a working filter once `enabled=true`. **Advan
 | `ai.sentinel.model-registry.refresh-enabled` | `false` | Background poll of filesystem registry for newer IF artifacts (requires IF enabled + non-blank `filesystem-root`) |
 | `ai.sentinel.model-registry.filesystem-root` | _(empty)_ | Registry root shared with `ai-sentinel-trainer` output (`{root}/{tenant}/active.json` + `artifacts/`) |
 | `ai.sentinel.model-registry.poll-interval` | `5m` | Poll interval (validated 10s–24h) |
+
+**Registry disk retention:** Publishing (trainer `FilesystemArtifactPublisher`) adds versioned artifact files and rewrites `active.json`. **Old version files are not deleted by the library.** Operators prune obsolete artifacts after confirming rollback needs. See [`deployment.md`](deployment.md#model-registry-disk-retention).
+
+### Feature trust boundary (behavioral signals vs identity)
+
+Behavioral features (parameter counts, payload size from `Content-Length`, header-name fingerprint lengths, `ipBucket` from **`remoteAddr`**, optional token-age headers) can be influenced by **client-controlled request characteristics**. That is expected for behavioral observation — these fields are **not** authenticated identity assertions.
+
+* **Java default extractor `ipBucket`:** uses `HttpRequestView.getRemoteAddr()` only. Spoofed `X-Forwarded-For` / `Forwarded` do **not** change `ipBucket` in the default path.
+* **Java identity IP (separate path):** `SentinelFilter` may resolve client IP via **`ClientIpResolver`** when proxies are trusted — do not conflate with `ipBucket`.
+* **ASP.NET reference adapter:** identity from authenticated principal; `remoteAddress` from `Connection.RemoteIpAddress`; only an allowlisted set of non-credential headers is forwarded (Authorization/Cookie/proxy-IP headers excluded). Configure ASP.NET `ForwardedHeadersMiddleware` separately if the host needs proxy-derived client IPs.
 
 ### Statistical warmup lifecycle
 
@@ -298,6 +329,8 @@ Gated learning can freeze a baseline during a sustained elevated-risk shift. Rel
 **Automatic skip-triggered relearn was removed.** An earlier `AFTER_CONSECUTIVE_SKIPS` mode let the same elevated traffic both force a reset and train post-reset warmup, defeating gated-learning contamination protection. Configurations still setting `AFTER_CONSECUTIVE_SKIPS` fail at property binding (unknown enum value). Property `relearn-after-consecutive-skips` is obsolete and ignored if present as an unused key.
 
 Reset clears statistical state for the key so the next observations re-enter `STATISTICAL_WARMUP` (warmup still learns; live gating resumes afterward). Successful explicit resets increment `aisentinel.baseline.relearn{reason=EXPLICIT}`.
+
+**Gating vs idle TTL:** Idle expiry on `BaselineStore` / statistical maps bounds unused keys. It does **not** relearn a baseline while elevated traffic continues after a permanent legitimate transition. Operator guidance: [`deployment.md`](deployment.md#legitimate-workload-transitions-and-gated-learning).
 
 **Operational responsibility:** perform an explicit reset only when subsequent traffic is expected to represent legitimate behavior. No unauthenticated HTTP reset endpoint is exposed.
 

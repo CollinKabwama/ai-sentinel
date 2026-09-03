@@ -81,6 +81,7 @@ Expose Prometheus if `micrometer-registry-prometheus` is on the classpath (see m
 ## Limitations
 
 - **Filesystem registry only** — No built-in S3 or Redis artifact store; operators manage disk and permissions.
+- **No automatic artifact cleanup** — Each successful publish writes new `{version}.meta.json` / `{version}.payload.bin` and updates `active.json`. Prior version files remain until operators delete them. Keep recent versions if you need rollback; remove only unreferenced obsolete files. See [`docs/deployment.md`](../docs/deployment.md#model-registry-disk-retention).
 - **JVM-local `eventId` dedup** — Restarts and multiple trainer instances can see duplicates; no distributed leader election.
 - **No multi-node trainer coordination** — One trainer instance per logical pipeline is assumed; scale-out requires external design.
 - **Kafka required for live ingestion** — With `kafka.enabled=false`, wire your own feed or enable Kafka for production-style runs.

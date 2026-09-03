@@ -1,7 +1,12 @@
 package dev.aisentinel.autoconfigure.metrics;
 
+import dev.aisentinel.core.decision.AdvisoryCode;
 import dev.aisentinel.core.decision.EvaluationStatus;
+import dev.aisentinel.core.decision.RiskExplanation;
+import dev.aisentinel.core.decision.RiskFactor;
+import dev.aisentinel.core.decision.RiskFactorCode;
 import dev.aisentinel.core.metrics.FailOpenReason;
+import dev.aisentinel.core.metrics.RemoteEvaluationOutcome;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.policy.EnforcementAction;
 import io.micrometer.core.instrument.Counter;
@@ -29,6 +34,10 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Counter actionThrottle;
     private final Counter actionBlock;
     private final Counter actionQuarantine;
+    private final DistributionSummary riskFactorCount;
+    private final Map<String, Counter> topFactorCodeByName = new LinkedHashMap<>();
+    private final Map<String, Counter> advisoryCodeByName = new LinkedHashMap<>();
+    private final Map<String, Counter> advisoryPriorityByName = new LinkedHashMap<>();
 
     private final Timer latencyPipeline;
     private final Timer latencyScoring;
@@ -43,6 +52,7 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Map<String, Counter> evaluationStatusByName = new LinkedHashMap<>();
     private final Map<String, Counter> isolationForestScoreModeByName = new LinkedHashMap<>();
     private final Counter nanClamped;
+    private final Counter invalidScoreRejected;
     private final Counter scoringErrors;
 
     private final Counter distributedQuarantineLookup;
@@ -60,6 +70,11 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Counter distributedQuarantineWriteDropped;
     private final Counter distributedQuarantineWriteSchedulerRejected;
     private final Timer distributedQuarantineWrite;
+    private final Counter quarantineReleasedHadLocal;
+    private final Counter quarantineReleasedMissing;
+    private final Counter distributedQuarantineClearAttempt;
+    private final Counter distributedQuarantineClearSuccess;
+    private final Counter distributedQuarantineClearFailure;
 
     private final Counter distributedThrottleEval;
     private final Counter distributedThrottleAllow;
@@ -92,6 +107,11 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     private final Counter trustBaselineRedisFailure;
     private final Counter trustBaselineRedisFallback;
 
+    private final Counter remoteEvaluationAttempt;
+    private final Map<String, Counter> remoteEvaluationOutcomeByName = new LinkedHashMap<>();
+    private final Timer remoteEvaluationLatency;
+    private final Counter remoteLocalFallback;
+
     private final Map<String, Counter> baselineUpdateAcceptedByMode = new LinkedHashMap<>();
     private final Map<String, Counter> baselineUpdateSkippedByMode = new LinkedHashMap<>();
     private final Counter baselineUpdateAcceptedWarmup;
@@ -116,6 +136,27 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         this.actionThrottle = Counter.builder("aisentinel.action.throttle").register(registry);
         this.actionBlock = Counter.builder("aisentinel.action.block").register(registry);
         this.actionQuarantine = Counter.builder("aisentinel.action.quarantine").register(registry);
+        this.riskFactorCount = DistributionSummary.builder("aisentinel.risk.factor.count")
+            .description("Number of structured risk factors on a completed RiskDecision")
+            .register(registry);
+        for (RiskFactorCode code : RiskFactorCode.values()) {
+            topFactorCodeByName.put(code.name(), Counter.builder("aisentinel.risk.factor.top")
+                .description("Top risk factor code on a completed RiskDecision")
+                .tag("code", code.name())
+                .register(registry));
+        }
+        for (AdvisoryCode code : AdvisoryCode.values()) {
+            advisoryCodeByName.put(code.name(), Counter.builder("aisentinel.risk.advisory.code")
+                .description("Advisory code on a completed RiskDecision")
+                .tag("code", code.name())
+                .register(registry));
+        }
+        for (String priority : List.of("LOW", "MEDIUM", "HIGH")) {
+            advisoryPriorityByName.put(priority, Counter.builder("aisentinel.risk.advisory.priority")
+                .description("Advisory priority on a completed RiskDecision")
+                .tag("priority", priority)
+                .register(registry));
+        }
 
         this.latencyPipeline = Timer.builder("aisentinel.latency.pipeline")
             .description("End-to-end Sentinel pipeline latency")
@@ -157,7 +198,12 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
                 .tag("mode", mode)
                 .register(registry));
         }
-        this.nanClamped = Counter.builder("aisentinel.nan.clamped.count").register(registry);
+        this.nanClamped = Counter.builder("aisentinel.nan.clamped.count")
+            .description("Legacy: historically NaN/negative clamped to 1.0; prefer aisentinel.invalid.score.rejected")
+            .register(registry);
+        this.invalidScoreRejected = Counter.builder("aisentinel.invalid.score.rejected")
+            .description("Scorer returned NaN/±Infinity/negative; classified INVALID_SCORE (not max risk)")
+            .register(registry);
         this.scoringErrors = Counter.builder("aisentinel.errors.scoring.count").register(registry);
 
         this.distributedQuarantineLookup = Counter.builder("aisentinel.distributed.quarantine.lookup")
@@ -196,6 +242,23 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
         this.distributedQuarantineWrite = Timer.builder("aisentinel.distributed.quarantine.write")
             .description("Redis SET for cluster quarantine (async worker)")
             .publishPercentiles(0.5, 0.99)
+            .register(registry);
+        this.quarantineReleasedHadLocal = Counter.builder("aisentinel.quarantine.released")
+            .description("Quarantine release removed a local map entry")
+            .tag("had_local", "true")
+            .register(registry);
+        this.quarantineReleasedMissing = Counter.builder("aisentinel.quarantine.released")
+            .description("Quarantine release invoked with no local entry (idempotent)")
+            .tag("had_local", "false")
+            .register(registry);
+        this.distributedQuarantineClearAttempt = Counter.builder("aisentinel.distributed.quarantine.clear.attempt")
+            .description("Cluster quarantine Redis DEL / clear attempts")
+            .register(registry);
+        this.distributedQuarantineClearSuccess = Counter.builder("aisentinel.distributed.quarantine.clear.success")
+            .description("Cluster quarantine clear succeeded (including missing key)")
+            .register(registry);
+        this.distributedQuarantineClearFailure = Counter.builder("aisentinel.distributed.quarantine.clear.failure")
+            .description("Cluster quarantine clear failures")
             .register(registry);
 
         this.distributedThrottleEval = Counter.builder("aisentinel.distributed.throttle.evaluation")
@@ -273,6 +336,24 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
             .register(registry);
         this.trustBaselineRedisFallback = Counter.builder("aisentinel.identity.trust.baseline.redis.fallback")
             .description("Behavioral trust baseline used in-memory store after Redis failure")
+            .register(registry);
+
+        this.remoteEvaluationAttempt = Counter.builder("aisentinel.remote.evaluation.attempt")
+            .description("Remote evaluation HTTP attempts")
+            .register(registry);
+        for (RemoteEvaluationOutcome outcome : RemoteEvaluationOutcome.values()) {
+            remoteEvaluationOutcomeByName.put(outcome.name(),
+                Counter.builder("aisentinel.remote.evaluation.outcome")
+                    .description("Remote evaluation closed outcome")
+                    .tag("outcome", outcome.name())
+                    .register(registry));
+        }
+        this.remoteEvaluationLatency = Timer.builder("aisentinel.remote.evaluation.latency")
+            .description("Remote evaluation wall-clock latency")
+            .publishPercentiles(0.5, 0.9, 0.99)
+            .register(registry);
+        this.remoteLocalFallback = Counter.builder("aisentinel.remote.evaluation.local_fallback")
+            .description("Remote failed and local evaluation was used")
             .register(registry);
 
         for (String mode : List.of("ALWAYS", "ALLOW_ONLY", "ALLOW_OR_MONITOR", "SCORE_BELOW_THRESHOLD")) {
@@ -396,6 +477,31 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     }
 
     @Override
+    public void recordRiskExplanation(RiskExplanation explanation) {
+        if (explanation == null) {
+            return;
+        }
+        riskFactorCount.record(explanation.factors().size());
+        RiskFactor top = explanation.topFactor();
+        if (top != null) {
+            Counter counter = topFactorCodeByName.get(top.code().name());
+            if (counter != null) {
+                counter.increment();
+            }
+        }
+        if (explanation.advice() != null) {
+            Counter codeCounter = advisoryCodeByName.get(explanation.advice().code().name());
+            if (codeCounter != null) {
+                codeCounter.increment();
+            }
+            Counter priorityCounter = advisoryPriorityByName.get(explanation.advice().priority().name());
+            if (priorityCounter != null) {
+                priorityCounter.increment();
+            }
+        }
+    }
+
+    @Override
     public void recordFailOpen() {
         failOpen.increment();
     }
@@ -430,6 +536,35 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     @Override
     public void recordNanOrNegativeScoreClamped() {
         nanClamped.increment();
+    }
+
+    @Override
+    public void recordInvalidScoreRejected() {
+        invalidScoreRejected.increment();
+    }
+
+    @Override
+    public void recordQuarantineReleased(boolean hadLocalEntry) {
+        if (hadLocalEntry) {
+            quarantineReleasedHadLocal.increment();
+        } else {
+            quarantineReleasedMissing.increment();
+        }
+    }
+
+    @Override
+    public void recordDistributedQuarantineClearAttempt() {
+        distributedQuarantineClearAttempt.increment();
+    }
+
+    @Override
+    public void recordDistributedQuarantineClearSuccess() {
+        distributedQuarantineClearSuccess.increment();
+    }
+
+    @Override
+    public void recordDistributedQuarantineClearFailure() {
+        distributedQuarantineClearFailure.increment();
     }
 
     @Override
@@ -664,6 +799,34 @@ public final class MicrometerSentinelMetrics implements SentinelMetrics {
     @Override
     public void recordTrustBaselineRedisFallback() {
         trustBaselineRedisFallback.increment();
+    }
+
+    @Override
+    public void recordRemoteEvaluationAttempt() {
+        remoteEvaluationAttempt.increment();
+    }
+
+    @Override
+    public void recordRemoteEvaluationOutcome(String outcome) {
+        if (outcome == null) {
+            return;
+        }
+        Counter counter = remoteEvaluationOutcomeByName.get(outcome);
+        if (counter != null) {
+            counter.increment();
+        }
+    }
+
+    @Override
+    public void recordRemoteEvaluationLatencyNanos(long nanos) {
+        if (nanos >= 0L) {
+            remoteEvaluationLatency.record(nanos, java.util.concurrent.TimeUnit.NANOSECONDS);
+        }
+    }
+
+    @Override
+    public void recordRemoteLocalFallback() {
+        remoteLocalFallback.increment();
     }
 
     public Map<String, Object> scoreSummaryForActuator() {

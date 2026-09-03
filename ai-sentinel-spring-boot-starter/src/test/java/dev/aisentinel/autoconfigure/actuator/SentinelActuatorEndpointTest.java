@@ -1,7 +1,15 @@
 package dev.aisentinel.autoconfigure.actuator;
 
 import dev.aisentinel.autoconfigure.config.SentinelProperties;
+import dev.aisentinel.core.decision.AdvisoryCode;
+import dev.aisentinel.core.decision.AdvisoryPriority;
 import dev.aisentinel.core.decision.LastDecisionExplanation;
+import dev.aisentinel.core.decision.RiskExplanation;
+import dev.aisentinel.core.decision.RiskFactor;
+import dev.aisentinel.core.decision.RiskFactorCategory;
+import dev.aisentinel.core.decision.RiskFactorCode;
+import dev.aisentinel.core.decision.RiskFactorSeverity;
+import dev.aisentinel.core.decision.SecurityAdvice;
 import dev.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.model.RequestFeatures;
@@ -93,7 +101,7 @@ class SentinelActuatorEndpointTest {
         assertThat(info.get("lastDecisionScope")).isEqualTo("lastCompletedDecisionOnThisJvm");
         assertThat(info.get("lastDecision")).isEqualTo(Map.of());
         assertThat(info.get("enabled")).isEqualTo(true);
-        assertThat(info.get("mode")).isEqualTo("ENFORCE");
+        assertThat(info.get("mode")).isEqualTo("MONITOR");
         assertThat(info.get("isolationForestEnabled")).isEqualTo(false);
         assertThat(info.get("quarantineCount")).isEqualTo(0);
     }
@@ -211,6 +219,58 @@ class SentinelActuatorEndpointTest {
     }
 
     @Test
+    void lastDecisionIncludesStructuredRiskFactorsAndAdviceWithoutSensitiveFields() {
+        SentinelProperties props = new SentinelProperties();
+        var holder = new LastDecisionExplanation();
+        RiskFactor factor = new RiskFactor(
+            RiskFactorCode.VELOCITY_ANOMALY,
+            RiskFactorCategory.BEHAVIOR,
+            RiskFactorSeverity.HIGH,
+            1.0,
+            0.9,
+            "requestsPerWindow",
+            "Request velocity dominated the statistical anomaly signal.",
+            "statistical");
+        SecurityAdvice advice = new SecurityAdvice(
+            AdvisoryCode.INVESTIGATE,
+            AdvisoryPriority.MEDIUM,
+            "Elevated behavioral signal; investigate contributing factors.",
+            java.util.List.of(RiskFactorCode.VELOCITY_ANOMALY),
+            false);
+        holder.record(new LastDecisionExplanation.Snapshot(
+            "BLOCK",
+            0.91,
+            0.91,
+            false,
+            java.util.List.of("COMPLETE", "STATISTICAL_LIVE"),
+            java.util.List.of("LIVE"),
+            null,
+            0.91,
+            null,
+            null,
+            new StatisticalScoreSnapshot(0.91, false, "requestsPerWindow", 100.0, 10.0, 1.0, 90.0, 20.0),
+            false,
+            1_700_000_000_000L,
+            new RiskExplanation(java.util.List.of(factor), advice)
+        ));
+
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, null,
+            holder, null, null, null, null, null, nullProvider(), nullProvider());
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> last = (Map<String, Object>) endpoint.info().get("lastDecision");
+        @SuppressWarnings("unchecked")
+        java.util.List<Map<String, Object>> factors = (java.util.List<Map<String, Object>>) last.get("riskFactors");
+        assertThat(factors).hasSize(1);
+        assertThat(factors.get(0).get("code")).isEqualTo("VELOCITY_ANOMALY");
+        assertThat(factors.get(0).get("contribution")).isEqualTo(1.0);
+        @SuppressWarnings("unchecked")
+        Map<String, Object> adviceMap = (Map<String, Object>) last.get("securityAdvice");
+        assertThat(adviceMap.get("code")).isEqualTo("INVESTIGATE");
+        assertThat(last.keySet()).doesNotContain("identityHash", "endpoint");
+    }
+
+    @Test
     void lastDecisionReportsModelFallbackAndDegradedPhases() {
         SentinelProperties props = new SentinelProperties();
         var holder = new LastDecisionExplanation();
@@ -236,6 +296,54 @@ class SentinelActuatorEndpointTest {
         Map<String, Object> last = (Map<String, Object>) endpoint.info().get("lastDecision");
         assertThat(last.get("operatorPhases")).asList().contains("MODEL_FALLBACK", "DEGRADED", "WARMUP");
         assertThat(last.get("isolationForestIncludedInBlend")).isEqualTo(false);
+    }
+
+    @Test
+    void lastDecisionNullsNonFiniteScoresForInvalidScorePresentation() throws Exception {
+        SentinelProperties props = new SentinelProperties();
+        var holder = new LastDecisionExplanation();
+        holder.record(new LastDecisionExplanation.Snapshot(
+            "ALLOW",
+            Double.NaN,
+            Double.NaN,
+            false,
+            java.util.List.of("INVALID_SCORE"),
+            java.util.List.of("LIVE"),
+            null,
+            null,
+            Double.POSITIVE_INFINITY,
+            false,
+            null,
+            false,
+            42L
+        ));
+        SentinelActuatorEndpoint endpoint = new SentinelActuatorEndpoint(props, compositeHandler(), null, StartupGrace.NEVER, null, null,
+            holder, null, null, null, null, null, nullProvider(), nullProvider());
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> last = (Map<String, Object>) endpoint.info().get("lastDecision");
+        assertThat(last.get("action")).isEqualTo("ALLOW");
+        assertThat(last.get("anomalyScore")).isNull();
+        assertThat(last.get("policyScore")).isNull();
+        assertThat(last.get("isolationForestScore")).isNull();
+        assertThat(last.get("evaluationStatuses")).asList().contains("INVALID_SCORE");
+        // Must not look like legitimate 0.0 or 1.0 risk, and must not emit a NaN token.
+        assertThat(last.get("anomalyScore")).isNotEqualTo(0.0);
+        assertThat(last.get("anomalyScore")).isNotEqualTo(1.0);
+        String encoded = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(last);
+        assertThat(encoded).doesNotContain("NaN");
+        assertThat(encoded).doesNotContain("Infinity");
+        assertThat(encoded).contains("\"anomalyScore\":null");
+        assertThat(encoded).contains("INVALID_SCORE");
+    }
+
+    @Test
+    void finiteScoreOrNullMapsOnlyNonFinite() {
+        assertThat(SentinelActuatorEndpoint.finiteScoreOrNull(0.0)).isEqualTo(0.0);
+        assertThat(SentinelActuatorEndpoint.finiteScoreOrNull(1.0)).isEqualTo(1.0);
+        assertThat(SentinelActuatorEndpoint.finiteScoreOrNull(Double.NaN)).isNull();
+        assertThat(SentinelActuatorEndpoint.finiteScoreOrNull(Double.POSITIVE_INFINITY)).isNull();
+        assertThat(SentinelActuatorEndpoint.finiteScoreOrNull(Double.NEGATIVE_INFINITY)).isNull();
     }
 
     @Test

@@ -2,6 +2,7 @@ package dev.aisentinel.trainer;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import dev.aisentinel.core.model.FeatureSchema;
 import dev.aisentinel.distributed.training.TrainingCandidateRecord;
 
 import java.io.IOException;
@@ -33,8 +34,8 @@ public final class TrainingCandidateMessageParser {
         String endpointSha256Hex = text(n, "endpointSha256Hex");
         String enforcementKeySha256Hex = text(n, "enforcementKeySha256Hex");
         long observedAt = n.path("observedAtEpochMillis").asLong(0L);
-        double[] ifVec = readDoubles(n, "isolationForestFeatures", 5);
-        double[] stVec = readDoubles(n, "statisticalFeatures", 7);
+        double[] ifVec = readDoubles(n, "isolationForestFeatures", FeatureSchema.ISOLATION_FOREST_DIMENSION);
+        double[] stVec = readDoubles(n, "statisticalFeatures", FeatureSchema.EXPORT_DIMENSION);
         Double statScore = readNullableDouble(n, "statisticalScore");
         Double ifScore = readNullableDouble(n, "isolationForestScore");
         double composite = n.path("compositeScore").asDouble(Double.NaN);

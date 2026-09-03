@@ -1,7 +1,12 @@
 package dev.aisentinel.core.scoring;
 
+import dev.aisentinel.core.decision.EvaluationStatusContributionContext;
+import dev.aisentinel.core.decision.EvaluationStatus;
+import dev.aisentinel.core.decision.EvaluationStatusContributor;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.model.RequestFeatures;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
@@ -22,7 +27,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Child scorers are held in a {@link CopyOnWriteArrayList} so {@link #score}/{@link #update}
  * always iterate a stable snapshot even if {@link #addScorer} runs concurrently.
  */
-public final class CompositeScorer implements AnomalyScorer {
+public final class CompositeScorer implements AnomalyScorer, CompositeScoreSnapshotSource, EvaluationStatusContributor {
+
+    private static final Logger log = LoggerFactory.getLogger(CompositeScorer.class);
 
     private final List<WeightedScorer> scorers = new CopyOnWriteArrayList<>();
     private final SentinelMetrics metrics;
@@ -61,8 +68,24 @@ public final class CompositeScorer implements AnomalyScorer {
      * <p>
      * <strong>Diagnostic only:</strong> last scorer invocation globally — not request-scoped.
      */
+    @Override
     public CompositeScoreSnapshot getLastCompositeScoreSnapshot() {
         return lastSnapshot;
+    }
+
+    @Override
+    public void contributeEvaluationStatuses(RequestFeatures features, EvaluationStatusContributionContext context) {
+        for (AnomalyScorer child : scorersView()) {
+            if (!(child instanceof EvaluationStatusContributor contributor)) {
+                continue;
+            }
+            try {
+                contributor.contributeEvaluationStatuses(features, context);
+            } catch (RuntimeException e) {
+                log.warn("Child evaluation status contributor failed; treating as degraded: {}", e.toString());
+                context.add(EvaluationStatus.DEGRADED);
+            }
+        }
     }
 
     /**
@@ -82,6 +105,7 @@ public final class CompositeScorer implements AnomalyScorer {
         boolean isolationForestIncludedInBlend = false;
         String isolationForestScoreMode = null;
         StatisticalScoreSnapshot statisticalSnapshot = null;
+        Double invalidScore = null;
         for (WeightedScorer ws : scorers) {
             double s;
             boolean includeInBlend = true;
@@ -101,26 +125,41 @@ public final class CompositeScorer implements AnomalyScorer {
             } else {
                 s = ws.scorer.score(features);
             }
+            if (isInvalidScore(s)) {
+                if (invalidScore == null) {
+                    invalidScore = s;
+                }
+                includeInBlend = false;
+            }
             if (includeInBlend) {
                 sum += s * ws.weight;
                 totalWeight += ws.weight;
             }
         }
         if (totalWeight <= 0) {
+            if (invalidScore != null) {
+                long now = features.effectiveTimestampMillis();
+                CompositeScoreSnapshot snap = new CompositeScoreSnapshot(
+                    statistical, isolationForest, invalidScore, now,
+                    isolationForestIncludedInBlend, isolationForestScoreMode);
+                lastSnapshot = snap;
+                return new CompositeScoreOutcome(invalidScore, snap, statisticalSnapshot);
+            }
             metrics.recordCompositeScore(0.0);
             lastSnapshot = null;
             return new CompositeScoreOutcome(0.0, null, statisticalSnapshot);
         }
         double raw = sum / totalWeight;
-        long now = System.currentTimeMillis();
-        if (Double.isNaN(raw) || raw < 0) {
-            metrics.recordNanOrNegativeScoreClamped();
-            metrics.recordCompositeScore(1.0);
+        long now = features.effectiveTimestampMillis();
+        // Pass NaN / ±Infinity / negative through to the decision engine (INVALID_SCORE).
+        // Do not convert them to 1.0 — that conflated evaluation failure with maximum risk.
+        // Finite values > 1 are range-clamped below (not INVALID_SCORE).
+        if (Double.isNaN(raw) || Double.isInfinite(raw) || raw < 0) {
             CompositeScoreSnapshot snap = new CompositeScoreSnapshot(
-                statistical, isolationForest, 1.0, now,
+                statistical, isolationForest, raw, now,
                 isolationForestIncludedInBlend, isolationForestScoreMode);
             lastSnapshot = snap;
-            return new CompositeScoreOutcome(1.0, snap, statisticalSnapshot);
+            return new CompositeScoreOutcome(raw, snap, statisticalSnapshot);
         }
         double out = Math.min(1.0, raw);
         metrics.recordCompositeScore(out);
@@ -141,6 +180,10 @@ public final class CompositeScorer implements AnomalyScorer {
         for (WeightedScorer ws : scorers) {
             ws.scorer.update(features);
         }
+    }
+
+    private static boolean isInvalidScore(double score) {
+        return Double.isNaN(score) || Double.isInfinite(score) || score < 0;
     }
 
     private record WeightedScorer(AnomalyScorer scorer, double weight) {}

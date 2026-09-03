@@ -1,6 +1,11 @@
 package dev.aisentinel.core.scoring;
 
+import dev.aisentinel.core.decision.EvaluationStatus;
+import dev.aisentinel.core.decision.EvaluationStatusContributionContext;
+import dev.aisentinel.core.decision.EvaluationStatusContributor;
 import dev.aisentinel.core.metrics.SentinelMetrics;
+import dev.aisentinel.core.model.FeatureSchema;
+import dev.aisentinel.core.model.IdentityEndpointKey;
 import dev.aisentinel.core.model.RequestFeatures;
 
 import java.util.Map;
@@ -19,7 +24,7 @@ import java.util.concurrent.atomic.AtomicLong;
  * hash/IP features are excluded; near-zero variance is mitigated with role-aware resolution floors
  * and per-feature {@code |z|} caps rather than raising the global numerical {@code MIN_STD}.
  */
-public final class StatisticalScorer implements AnomalyScorer {
+public final class StatisticalScorer implements AnomalyScorer, EvaluationStatusContributor {
 
     /** Numerical floor only — prevents divide-by-zero; not the anti-FP mitigation. */
     private static final double MIN_STD = 1e-6;
@@ -60,7 +65,15 @@ public final class StatisticalScorer implements AnomalyScorer {
         2.0   // payloadSizeBytes
     };
 
-    private final Map<String, WelfordState> stateByKey = new ConcurrentHashMap<>();
+    static {
+        if (STD_RESOLUTION.length != FeatureSchema.STATISTICAL_DIMENSION
+            || Z_CAP.length != FeatureSchema.STATISTICAL_DIMENSION) {
+            throw new ExceptionInInitializerError(
+                "StatisticalScorer dimension tables must match FeatureSchema.STATISTICAL_DIMENSION");
+        }
+    }
+
+    private final Map<IdentityEndpointKey, WelfordState> stateByKey = new ConcurrentHashMap<>();
     private final int maxKeys;
     private final long ttlMs;
     private final int warmupMinSamples;
@@ -125,8 +138,7 @@ public final class StatisticalScorer implements AnomalyScorer {
      * @return {@code true} when a key was present and removed
      */
     public boolean reset(String identityHash, String endpoint) {
-        String key = identityHash + "|" + endpoint;
-        return stateByKey.remove(key) != null;
+        return stateByKey.remove(IdentityEndpointKey.forEndpoint(identityHash, endpoint)) != null;
     }
 
     /** Removes all Welford state (tests / full restart simulation). */
@@ -134,14 +146,27 @@ public final class StatisticalScorer implements AnomalyScorer {
         stateByKey.clear();
     }
 
+    @Override
+    public void contributeEvaluationStatuses(RequestFeatures features, EvaluationStatusContributionContext context) {
+        if (features == null) {
+            context.add(EvaluationStatus.DEGRADED);
+            return;
+        }
+        if (isWarmup(features)) {
+            context.add(EvaluationStatus.STATISTICAL_WARMUP);
+        } else {
+            context.add(EvaluationStatus.STATISTICAL_LIVE);
+        }
+    }
+
     /**
      * {@code true} when this identity|endpoint key lacks enough samples for live z-score scoring.
-     * Does not mutate state. Used by the decision engine for {@link dev.aisentinel.core.decision.EvaluationStatus}
+     * Does not mutate state. Used by the decision engine for {@link EvaluationStatus}
      * without expanding the pluggable {@link AnomalyScorer} SPI.
      */
     public boolean isWarmup(RequestFeatures features) {
-        String key = features.identityHash() + "|" + features.endpoint();
-        expireIdle(System.currentTimeMillis());
+        IdentityEndpointKey key = features.identityEndpointKey();
+        expireIdle(features.effectiveTimestampMillis());
         return isWarmupWithoutExpire(key);
     }
 
@@ -187,8 +212,8 @@ public final class StatisticalScorer implements AnomalyScorer {
 
     private StatisticalScoreOutcome scoreInternal(RequestFeatures features) {
         double[] x = features.toStatisticalArray();
-        String key = features.identityHash() + "|" + features.endpoint();
-        long now = System.currentTimeMillis();
+        IdentityEndpointKey key = features.identityEndpointKey();
+        long now = features.effectiveTimestampMillis();
         expireIdle(now);
 
         if (isWarmupWithoutExpire(key)) {
@@ -236,7 +261,22 @@ public final class StatisticalScorer implements AnomalyScorer {
             }
         }
         double s = sigmoid(maxCappedZ);
-        double out = Double.isNaN(s) ? 1.0 : Math.min(1.0, Math.max(0.0, s));
+        // Non-finite sigmoid output is an invalid score for the decision engine (not maximum risk).
+        if (Double.isNaN(s) || Double.isInfinite(s)) {
+            metrics.recordStatisticalScore(Double.NaN);
+            StatisticalScoreSnapshot invalidSnap = new StatisticalScoreSnapshot(
+                Double.NaN,
+                false,
+                StatisticalFeatureNames.nameAt(dominantIdx),
+                dominantObserved,
+                dominantMean,
+                dominantEffStd,
+                dominantRawAbsZ,
+                dominantCappedAbsZ
+            );
+            return new StatisticalScoreOutcome(Double.NaN, invalidSnap);
+        }
+        double out = Math.min(1.0, Math.max(0.0, s));
         metrics.recordStatisticalScore(out);
         StatisticalScoreSnapshot snap = new StatisticalScoreSnapshot(
             out,
@@ -258,8 +298,8 @@ public final class StatisticalScorer implements AnomalyScorer {
     @Override
     public void update(RequestFeatures features) {
         double[] x = features.toStatisticalArray();
-        String key = features.identityHash() + "|" + features.endpoint();
-        long now = System.currentTimeMillis();
+        IdentityEndpointKey key = features.identityEndpointKey();
+        long now = features.effectiveTimestampMillis();
         expireIdle(now);
 
         stateByKey.compute(key, (k, s) -> {
@@ -291,7 +331,7 @@ public final class StatisticalScorer implements AnomalyScorer {
         stateByKey.entrySet().removeIf(e -> e.getValue().lastAccessMs() < cutoff);
     }
 
-    private boolean isWarmupWithoutExpire(String key) {
+    private boolean isWarmupWithoutExpire(IdentityEndpointKey key) {
         WelfordState state = stateByKey.get(key);
         if (state == null) {
             return true;
@@ -308,9 +348,9 @@ public final class StatisticalScorer implements AnomalyScorer {
         long cutoff = now - ttlMs;
         stateByKey.entrySet().removeIf(e -> e.getValue().lastAccessMs() < cutoff);
         while (stateByKey.size() > maxKeys) {
-            String victim = null;
+            IdentityEndpointKey victim = null;
             long oldest = Long.MAX_VALUE;
-            for (Map.Entry<String, WelfordState> e : stateByKey.entrySet()) {
+            for (Map.Entry<IdentityEndpointKey, WelfordState> e : stateByKey.entrySet()) {
                 long la = e.getValue().lastAccessMs();
                 if (la < oldest) {
                     oldest = la;

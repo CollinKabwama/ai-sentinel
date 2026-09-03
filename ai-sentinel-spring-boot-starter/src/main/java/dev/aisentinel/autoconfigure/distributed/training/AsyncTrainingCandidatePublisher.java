@@ -1,6 +1,7 @@
 package dev.aisentinel.autoconfigure.distributed.training;
 
 import dev.aisentinel.autoconfigure.config.SentinelProperties;
+import dev.aisentinel.core.model.FeatureSchema;
 import dev.aisentinel.core.model.RequestFeatures;
 import dev.aisentinel.core.enforcement.EnforcementKeys;
 import dev.aisentinel.core.metrics.SentinelMetrics;
@@ -27,8 +28,6 @@ public final class AsyncTrainingCandidatePublisher implements TrainingCandidateP
 
     private static final int MIN_IN_FLIGHT = 1;
     private static final int MAX_IN_FLIGHT_CAP = 50_000;
-    private static final int IF_FEATURE_LEN = 5;
-    private static final int STAT_FEATURE_LEN = 7;
 
     private final SentinelProperties properties;
     private final SentinelMetrics metrics;
@@ -96,8 +95,8 @@ public final class AsyncTrainingCandidatePublisher implements TrainingCandidateP
             status.recordError("inflight_exhausted", null);
             return;
         }
-        double[] isolationForestSnapshot = copyDoubles(features.toIsolationForestArray(), IF_FEATURE_LEN);
-        double[] statisticalSnapshot = copyDoubles(features.toArray(), STAT_FEATURE_LEN);
+        double[] isolationForestSnapshot = copyDoubles(features.toIsolationForestArray(), FeatureSchema.ISOLATION_FOREST_DIMENSION);
+        double[] statisticalSnapshot = copyDoubles(features.toArray(), FeatureSchema.EXPORT_DIMENSION);
         String endpointSha256Hex = TrainingFingerprintHashes.sha256HexUtf8(features.endpoint());
         String enforcementKeyPlain = EnforcementKeys.enforcementKey(
             request.enforcementScope(),

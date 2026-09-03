@@ -5,14 +5,20 @@ import dev.aisentinel.core.scoring.AnomalyScorer;
 import dev.aisentinel.core.scoring.CompositeScorer;
 import dev.aisentinel.core.scoring.IsolationForestScorer;
 import dev.aisentinel.core.scoring.StatisticalScorer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.EnumSet;
 import java.util.Set;
 
 /**
- * Collects {@link EvaluationStatus} from known scorer implementations without expanding {@link AnomalyScorer}.
+ * Collects {@link EvaluationStatus} via {@link EvaluationStatusContributor} when available.
+ * Components that do not implement the SPI contribute no type-specific markers (COMPLETE only
+ * when nothing degraded was reported).
  */
 final class EvaluationStatusCollector {
+
+    private static final Logger log = LoggerFactory.getLogger(EvaluationStatusCollector.class);
 
     private EvaluationStatusCollector() {
     }
@@ -50,24 +56,18 @@ final class EvaluationStatusCollector {
             }
             return;
         }
-        if (scorer instanceof StatisticalScorer statistical) {
-            if (statistical.isWarmup(features)) {
-                out.add(EvaluationStatus.STATISTICAL_WARMUP);
-            } else {
-                out.add(EvaluationStatus.STATISTICAL_LIVE);
-            }
+        if (!(scorer instanceof EvaluationStatusContributor contributor)) {
             return;
         }
-        if (scorer instanceof IsolationForestScorer isolationForest) {
-            IsolationForestScorer.LastScoreMode mode = isolationForestModeOrNull != null
-                ? isolationForestModeOrNull
-                : isolationForest.lastScoreMode();
-            if (mode == IsolationForestScorer.LastScoreMode.FALLBACK_NO_MODEL) {
-                out.add(EvaluationStatus.MODEL_UNAVAILABLE);
-                out.add(EvaluationStatus.MODEL_FALLBACK_USED);
-            } else if (mode == IsolationForestScorer.LastScoreMode.FALLBACK_INVALID) {
-                out.add(EvaluationStatus.MODEL_FALLBACK_USED);
-            }
+        String modeName = isolationForestModeOrNull != null ? isolationForestModeOrNull.name() : null;
+        boolean trustedLifecycleContributor = scorer instanceof StatisticalScorer;
+        EvaluationStatusContributionContext ctx =
+            new EvaluationStatusContributionContext(out, modeName, trustedLifecycleContributor);
+        try {
+            contributor.contributeEvaluationStatuses(features, ctx);
+        } catch (RuntimeException e) {
+            log.warn("Evaluation status contributor failed; treating as degraded: {}", e.toString());
+            out.add(EvaluationStatus.DEGRADED);
         }
     }
 }

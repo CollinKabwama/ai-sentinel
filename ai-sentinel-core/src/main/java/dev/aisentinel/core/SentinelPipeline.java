@@ -4,10 +4,12 @@ import dev.aisentinel.core.baseline.BaselineLifecycle;
 import dev.aisentinel.core.baseline.BaselineUpdatePolicy;
 import dev.aisentinel.core.baseline.ConfigurableBaselineUpdatePolicy;
 import dev.aisentinel.core.decision.DecisionExplanationEvidence;
+import dev.aisentinel.core.decision.EvaluationStatus;
 import dev.aisentinel.core.decision.ExplanationContextKeys;
 import dev.aisentinel.core.decision.LastDecisionExplanation;
 import dev.aisentinel.core.decision.OperatorEvaluationPhase;
 import dev.aisentinel.core.decision.RiskDecision;
+import dev.aisentinel.core.decision.RiskExplanation;
 import dev.aisentinel.core.decision.SentinelDecisionEngine;
 import dev.aisentinel.core.enforcement.EnforcementHandler;
 import dev.aisentinel.core.enforcement.EnforcementResponse;
@@ -30,6 +32,7 @@ import dev.aisentinel.core.metrics.FailOpenReason;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.scoring.AnomalyScorer;
+import dev.aisentinel.core.scoring.CompositeScoreSnapshotSource;
 import dev.aisentinel.core.scoring.CompositeScorer;
 import dev.aisentinel.core.scoring.StatisticalScoreSnapshot;
 import dev.aisentinel.core.fusion.FusedRisk;
@@ -54,7 +57,7 @@ import lombok.extern.slf4j.Slf4j;
 public final class SentinelPipeline {
 
     private final FeatureExtractor featureExtractor;
-    private final CompositeScorer compositeScorerOrNull;
+    private final CompositeScoreSnapshotSource compositeScoreSnapshotSourceOrNull;
     private final EnforcementHandler enforcementHandler;
     private final SentinelDecisionEngine decisionEngine;
     private final SentinelMetrics metrics;
@@ -202,7 +205,7 @@ public final class SentinelPipeline {
                             BaselineLifecycle baselineLifecycle,
                             LastDecisionExplanation lastDecisionExplanation) {
         this.featureExtractor = featureExtractor;
-        this.compositeScorerOrNull = compositeScorerOrNull;
+        this.compositeScoreSnapshotSourceOrNull = compositeScorerOrNull;
         this.enforcementHandler = enforcementHandler;
         this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
         this.decisionEngine = new SentinelDecisionEngine(scorer, policyEngine, enforcementHandler, telemetry,
@@ -220,6 +223,21 @@ public final class SentinelPipeline {
         this.lastDecisionExplanation = lastDecisionExplanation != null
             ? lastDecisionExplanation
             : LastDecisionExplanation.NOOP;
+    }
+
+    /** Feature extractor shared with local evaluation bridge / remote evaluation service. */
+    public FeatureExtractor featureExtractor() {
+        return featureExtractor;
+    }
+
+    /** Authoritative decision engine (baselines/quarantine state via shared scorer + enforcement handler). */
+    public SentinelDecisionEngine decisionEngine() {
+        return decisionEngine;
+    }
+
+    /** Identity resolver used on the request path. */
+    public IdentityContextResolver identityContextResolver() {
+        return identityContextResolver;
     }
 
     /**
@@ -266,8 +284,10 @@ public final class SentinelPipeline {
             EnforcementAction action = decision.action();
             boolean proceed = enforcementHandler.apply(action, request, response, identityHash, features.endpoint());
 
-            offerTrainingCandidate(features, identityHash, action, decision.anomalyScore(), proceed,
-                decision.startupGraceActive(), ctx);
+            if (!decision.hasStatus(EvaluationStatus.INVALID_SCORE)) {
+                offerTrainingCandidate(features, identityHash, action, decision.anomalyScore(), proceed,
+                    decision.startupGraceActive(), ctx);
+            }
 
             returnValue = proceed;
             return returnValue;
@@ -297,6 +317,9 @@ public final class SentinelPipeline {
         StatisticalScoreSnapshot statisticalExplanation = evidence != null ? evidence.statisticalExplanation() : null;
         var statuses = decision.evaluationStatuses().stream().map(Enum::name).sorted().toList();
         var phases = OperatorEvaluationPhase.fromStatuses(decision.evaluationStatuses()).stream().sorted().toList();
+        long evaluatedAt = evidence != null && evidence.scoredAtEpochMillis() > 0
+            ? evidence.scoredAtEpochMillis()
+            : System.currentTimeMillis();
         // Completion-order publication: whoever finishes last overwrites (volatile publish of immutable snapshot).
         lastDecisionExplanation.record(new LastDecisionExplanation.Snapshot(
             decision.action().name(),
@@ -311,7 +334,8 @@ public final class SentinelPipeline {
             isolationForestIncludedInBlend,
             statisticalExplanation,
             decision.startupGraceActive(),
-            System.currentTimeMillis()
+            evaluatedAt,
+            decision.explanation() != null ? decision.explanation() : RiskExplanation.empty()
         ));
     }
 
@@ -329,9 +353,9 @@ public final class SentinelPipeline {
             if (evidence != null) {
                 statisticalScore = evidence.statisticalScore();
                 isolationForestScore = evidence.isolationForestScore();
-            } else if (compositeScorerOrNull != null) {
+            } else if (compositeScoreSnapshotSourceOrNull != null) {
                 // Diagnostic fallback only when no request-scoped evidence (custom scorer path).
-                var snap = compositeScorerOrNull.getLastCompositeScoreSnapshot();
+                var snap = compositeScoreSnapshotSourceOrNull.getLastCompositeScoreSnapshot();
                 if (snap != null) {
                     double st = snap.statistical();
                     statisticalScore = Double.isNaN(st) ? null : st;

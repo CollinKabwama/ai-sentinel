@@ -264,7 +264,8 @@ public class SentinelAutoConfiguration {
     @ConditionalOnMissingBean(name = "enforcementHandlerImpl")
     public CompositeEnforcementHandler enforcementHandlerImpl(TelemetryEmitter telemetry, SentinelProperties props,
                                                                ObjectProvider<ClusterQuarantineWriter> clusterQuarantineWriterProvider,
-                                                               ObjectProvider<ClusterThrottleStore> clusterThrottleStoreProvider) {
+                                                               ObjectProvider<ClusterThrottleStore> clusterThrottleStoreProvider,
+                                                               SentinelMetrics sentinelMetrics) {
         int maxKeys = props.getInternalMapMaxKeys() > 0 ? props.getInternalMapMaxKeys() : 100_000;
         long throttleTtlMs = props.getInternalMapTtl() != null ? props.getInternalMapTtl().toMillis() : 300_000L;
         ClusterQuarantineWriter writer = clusterQuarantineWriterProvider.getIfAvailable();
@@ -285,7 +286,8 @@ public class SentinelAutoConfiguration {
             props.getEnforcementScope(),
             writer,
             throttleStore,
-            props.getDistributed().getTenantId()
+            props.getDistributed().getTenantId(),
+            sentinelMetrics
         );
     }
 

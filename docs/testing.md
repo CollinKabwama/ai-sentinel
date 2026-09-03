@@ -16,8 +16,8 @@ mvn clean verify
 ```
 
 This is the **primary release gate**. It runs unit, integration, architecture, characterization,
-and module packaging for the full reactor. The same command is what CI should run for pull
-requests and release candidates.
+and module packaging for the full reactor. CI runs the same command for pull requests and release
+validation.
 
 `mvn test` alone is useful for fast local iteration, but it is **not** a substitute for the release
 gate: packaging and some module checks only run under `verify`.
@@ -25,15 +25,30 @@ gate: packaging and some module checks only run under `verify`.
 When Docker is unavailable, Testcontainers-backed distributed checks are **skipped** (typically five
 tests in the starter module). Skips are expected in that environment; failures and errors are not.
 
+### Public API compatibility
+
+Published modules (`ai-sentinel-core`, `ai-sentinel-spring-boot-starter`) can be checked against the
+last Central baseline with japicmp:
+
+```bash
+mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am verify -DskipTests
+```
+
+CI runs this after the reactor verify. The baseline version is
+`aisentinel.api.compatibility.oldVersion` (default `0.2.0` until **0.3.0** is published). Narrow excludes (documented in module
+POMs) cover the removed one-argument `EnforcementHandler.isQuarantined(String)` and a pre-existing
+Spring `@Bean` signature change on `SentinelAutoConfiguration.enforcementHandlerImpl`; both should be
+removed when **0.3.0** becomes the next published baseline.
+
 Expected shape (may grow if tests are added):
 
 | Module | Typical tests | Notes |
 |--------|---------------|--------|
-| `ai-sentinel-core` | ~360 | Includes characterization + architecture |
-| `ai-sentinel-spring-boot-starter` | ~215 | Includes 5 Docker/Testcontainers skips when Docker is unavailable |
-| `ai-sentinel-trainer` | 12 | |
+| `ai-sentinel-core` | ~555 | Includes characterization + architecture |
+| `ai-sentinel-spring-boot-starter` | ~264 | Includes 5 Docker/Testcontainers skips when Docker is unavailable |
+| `ai-sentinel-trainer` | 16 | |
 | `ai-sentinel-demo` | 4 | |
-| **Total** | **~591** | 0 failures / 0 errors |
+| **Total** | **~839** | 0 failures / 0 errors |
 
 Run **twice** before cutting a release tag so flakes are visible.
 

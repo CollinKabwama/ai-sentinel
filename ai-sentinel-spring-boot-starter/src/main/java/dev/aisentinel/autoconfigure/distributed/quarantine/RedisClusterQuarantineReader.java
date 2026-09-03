@@ -23,8 +23,8 @@ import java.util.concurrent.TimeoutException;
 /**
  * Redis-backed {@link ClusterQuarantineReader} with bounded local cache, bounded Redis wait, and fail-open behavior.
  * <p>
- * <strong>Timeouts:</strong> The caller waits at most {@link SentinelProperties.Distributed.Redis#getLookupTimeout()} on
- * a {@link CompletableFuture}. That does not cancel in-flight Lettuce I/O; configure
+ * <strong>Timeouts:</strong> The caller waits at most the configured distributed Redis lookup timeout on a
+ * {@link CompletableFuture}. That does not cancel in-flight Lettuce I/O; configure
  * {@code spring.data.redis.timeout} (and client resources) so network/command timeouts align with this budget.
  * See README (distributed quarantine Redis timeouts).
  */
@@ -127,6 +127,20 @@ public final class RedisClusterQuarantineReader implements ClusterQuarantineRead
             cache.putPositive(redisKey, until, now);
         }
         return OptionalLong.of(until);
+    }
+
+    @Override
+    public void invalidateQuarantineLookup(String tenantId, String enforcementKey) {
+        if (!cacheEnabled || cache == null) {
+            return;
+        }
+        var redis = properties.getDistributed().getRedis();
+        String redisKey = DistributedQuarantineKeyBuilder.redisKey(
+            redis.getKeyPrefix(),
+            tenantId != null && !tenantId.isBlank() ? tenantId : "default",
+            enforcementKey != null ? enforcementKey : "");
+        cache.invalidate(redisKey);
+        status.setApproximateCacheSize(cache.size());
     }
 
     /**

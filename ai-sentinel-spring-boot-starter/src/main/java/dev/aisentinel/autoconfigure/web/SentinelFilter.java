@@ -18,7 +18,7 @@ import java.io.IOException;
 
 /**
  * Servlet filter that runs the {@link dev.aisentinel.core.SentinelPipeline} once per request (after auth when ordered late).
- * Respects {@link dev.aisentinel.autoconfigure.config.SentinelProperties#getExcludePaths()} and mode OFF/MONITOR/ENFORCE.
+ * Respects configured exclude paths and mode OFF/MONITOR/ENFORCE.
  * <p>
  * In {@link SentinelProperties.Mode#MONITOR}, enforcement writes are discarded so a custom
  * {@link dev.aisentinel.core.enforcement.EnforcementHandler} cannot double-write the client response while the

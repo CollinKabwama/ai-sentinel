@@ -61,6 +61,12 @@ public interface SentinelMetrics {
     default void recordPolicyAction(EnforcementAction action) {}
 
     /**
+     * Low-cardinality risk-explanation summary (factor count / top factor code / advisory code).
+     * Implementations must not use free-form descriptions as metric labels.
+     */
+    default void recordRiskExplanation(dev.aisentinel.core.decision.RiskExplanation explanation) {}
+
+    /**
      * Request allowed despite pipeline error (fail-open). Aggregate counter for back-compat;
      * prefer {@link #recordFailOpen(FailOpenReason)} so operators can split by cause.
      */
@@ -80,8 +86,34 @@ public interface SentinelMetrics {
      */
     default void recordEvaluationStatuses(Collection<? extends Enum<?>> statuses) {}
 
-    /** Illegal raw score corrected before policy (NaN or negative). */
+    /**
+     * Legacy meter: historically incremented when NaN/negative scores were clamped to {@code 1.0}.
+     * Prefer {@link #recordInvalidScoreRejected()} for new call sites. Retained for meter continuity;
+     * Increment 1 no longer clamps invalid scores to maximum risk.
+     */
     default void recordNanOrNegativeScoreClamped() {}
+
+    /**
+     * Scorer returned NaN, {@code ±Infinity}, or a negative finite value; decision path rejected it as
+     * {@link dev.aisentinel.core.decision.EvaluationStatus#INVALID_SCORE} (not maximum risk).
+     */
+    default void recordInvalidScoreRejected() {}
+
+    /**
+     * Operator (or automated) quarantine release was invoked.
+     *
+     * @param hadLocalEntry {@code true} when a local map entry was removed
+     */
+    default void recordQuarantineReleased(boolean hadLocalEntry) {}
+
+    /** Cluster quarantine clear/delete was attempted for an exact tenant+key. */
+    default void recordDistributedQuarantineClearAttempt() {}
+
+    /** Cluster quarantine clear/delete completed successfully (including missing-key idempotent success). */
+    default void recordDistributedQuarantineClearSuccess() {}
+
+    /** Cluster quarantine clear/delete failed (observable; local release still retained). */
+    default void recordDistributedQuarantineClearFailure() {}
 
     /** Exception during scoring/update. */
     default void recordScoringError() {}
@@ -211,4 +243,20 @@ public interface SentinelMetrics {
 
     /** Behavioral baseline update used in-memory path after Redis failure (fail-open). */
     default void recordTrustBaselineRedisFallback() {}
+
+    /** Remote evaluation HTTP attempt started. */
+    default void recordRemoteEvaluationAttempt() {}
+
+    /**
+     * Remote evaluation finished with a closed {@link RemoteEvaluationOutcome} code.
+     *
+     * @param outcome low-cardinality outcome name ({@link RemoteEvaluationOutcome#name()})
+     */
+    default void recordRemoteEvaluationOutcome(String outcome) {}
+
+    /** Wall-clock remote evaluation latency (success or failure). */
+    default void recordRemoteEvaluationLatencyNanos(long nanos) {}
+
+    /** Remote mode failed and local evaluation was used as fallback. */
+    default void recordRemoteLocalFallback() {}
 }

@@ -6,6 +6,9 @@ import dev.aisentinel.autoconfigure.distributed.DistributedThrottleStatus;
 import dev.aisentinel.autoconfigure.distributed.training.TrainingPublishStatus;
 import dev.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
 import dev.aisentinel.core.decision.LastDecisionExplanation;
+import dev.aisentinel.core.decision.RiskExplanation;
+import dev.aisentinel.core.decision.RiskFactor;
+import dev.aisentinel.core.decision.SecurityAdvice;
 import dev.aisentinel.core.enforcement.CompositeEnforcementHandler;
 import dev.aisentinel.distributed.quarantine.ClusterQuarantineReader;
 import dev.aisentinel.distributed.quarantine.ClusterQuarantineWriter;
@@ -16,6 +19,7 @@ import dev.aisentinel.distributed.throttle.NoopClusterThrottleStore;
 import dev.aisentinel.distributed.training.NoopTrainingCandidatePublisher;
 import dev.aisentinel.distributed.training.TrainingCandidatePublisher;
 import dev.aisentinel.core.runtime.StartupGrace;
+import dev.aisentinel.core.scoring.CompositeScoreSnapshotSource;
 import dev.aisentinel.core.scoring.CompositeScorer;
 import dev.aisentinel.core.scoring.IsolationForestScorer;
 import dev.aisentinel.core.scoring.StatisticalScoreSnapshot;
@@ -25,7 +29,9 @@ import org.springframework.boot.actuate.endpoint.annotation.ReadOperation;
 
 import org.springframework.beans.factory.ObjectProvider;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -44,7 +50,7 @@ public class SentinelActuatorEndpoint {
     private final IsolationForestScorer isolationForestScorer;
     private final StartupGrace startupGrace;
     private final MicrometerSentinelMetrics micrometerSentinelMetrics;
-    private final CompositeScorer compositeScorer;
+    private final CompositeScoreSnapshotSource compositeScoreSnapshotSource;
     private final LastDecisionExplanation lastDecisionExplanation;
     private final DistributedQuarantineStatus distributedQuarantineStatus;
     private final DistributedThrottleStatus distributedThrottleStatus;
@@ -92,7 +98,7 @@ public class SentinelActuatorEndpoint {
         this.isolationForestScorer = isolationForestScorer;
         this.startupGrace = startupGrace != null ? startupGrace : StartupGrace.NEVER;
         this.micrometerSentinelMetrics = micrometerSentinelMetrics;
-        this.compositeScorer = compositeScorer;
+        this.compositeScoreSnapshotSource = compositeScorer;
         this.lastDecisionExplanation = lastDecisionExplanation;
         this.distributedQuarantineStatus = distributedQuarantineStatus;
         this.distributedThrottleStatus = distributedThrottleStatus;
@@ -223,19 +229,19 @@ public class SentinelActuatorEndpoint {
     }
 
     private Map<String, Object> lastScoreComponentsPayload() {
-        if (compositeScorer == null) {
+        if (compositeScoreSnapshotSource == null) {
             return Map.of();
         }
-        CompositeScorer.CompositeScoreSnapshot snap = compositeScorer.getLastCompositeScoreSnapshot();
+        CompositeScorer.CompositeScoreSnapshot snap = compositeScoreSnapshotSource.getLastCompositeScoreSnapshot();
         if (snap == null) {
             return Map.of();
         }
         Map<String, Object> m = new LinkedHashMap<>();
-        m.put("statistical", Double.isNaN(snap.statistical()) ? null : snap.statistical());
+        m.put("statistical", finiteScoreOrNull(snap.statistical()));
         if (snap.isolationForest() != null) {
-            m.put("isolationForest", snap.isolationForest());
+            m.put("isolationForest", finiteScoreOrNull(snap.isolationForest()));
         }
-        m.put("composite", snap.composite());
+        m.put("composite", finiteScoreOrNull(snap.composite()));
         m.put("isolationForestIncludedInBlend", snap.isolationForestIncludedInBlend());
         if (snap.isolationForestScoreMode() != null) {
             m.put("isolationForestScoreMode", snap.isolationForestScoreMode());
@@ -254,8 +260,11 @@ public class SentinelActuatorEndpoint {
         }
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("action", snap.action());
-        m.put("anomalyScore", snap.anomalyScore());
-        m.put("policyScore", snap.policyScore());
+        // Public/JSON boundary: never emit NaN/Inf as score numbers (Jackson would stringify "NaN").
+        // Internal Snapshot may still hold NaN for INVALID_SCORE; null here is unambiguous and
+        // cannot be mistaken for legitimate 0.0 or 1.0 risk. Status list carries INVALID_SCORE.
+        m.put("anomalyScore", finiteScoreOrNull(snap.anomalyScore()));
+        m.put("policyScore", finiteScoreOrNull(snap.policyScore()));
         m.put("policyScoreDiffersFromAnomaly", snap.policyScoreDiffersFromAnomaly());
         m.put("policyBand", snap.action());
         m.put("evaluationStatuses", snap.evaluationStatuses());
@@ -264,10 +273,10 @@ public class SentinelActuatorEndpoint {
             m.put("isolationForestScoreMode", snap.isolationForestScoreMode());
         }
         if (snap.statisticalScore() != null) {
-            m.put("statisticalScore", snap.statisticalScore());
+            m.put("statisticalScore", finiteScoreOrNull(snap.statisticalScore()));
         }
         if (snap.isolationForestScore() != null) {
-            m.put("isolationForestScore", snap.isolationForestScore());
+            m.put("isolationForestScore", finiteScoreOrNull(snap.isolationForestScore()));
         }
         if (snap.isolationForestIncludedInBlend() != null) {
             m.put("isolationForestIncludedInBlend", snap.isolationForestIncludedInBlend());
@@ -275,20 +284,62 @@ public class SentinelActuatorEndpoint {
         StatisticalScoreSnapshot se = snap.statisticalExplanation();
         if (se != null) {
             Map<String, Object> stat = new LinkedHashMap<>();
-            stat.put("score", se.score());
+            stat.put("score", finiteScoreOrNull(se.score()));
             stat.put("warmup", se.warmup());
             if (se.dominantFeature() != null) {
                 stat.put("dominantFeature", se.dominantFeature());
-                stat.put("observedValue", se.observedValue());
-                stat.put("referenceMean", se.referenceMean());
-                stat.put("effectiveStd", se.effectiveStd());
-                stat.put("rawAbsZ", se.rawAbsZ());
-                stat.put("cappedAbsZ", se.cappedAbsZ());
+                stat.put("observedValue", finiteScoreOrNull(se.observedValue()));
+                stat.put("referenceMean", finiteScoreOrNull(se.referenceMean()));
+                stat.put("effectiveStd", finiteScoreOrNull(se.effectiveStd()));
+                stat.put("rawAbsZ", finiteScoreOrNull(se.rawAbsZ()));
+                stat.put("cappedAbsZ", finiteScoreOrNull(se.cappedAbsZ()));
             }
             m.put("statisticalExplanation", stat);
         }
         m.put("startupGraceActive", snap.startupGraceActive());
         m.put("evaluatedAtMillis", snap.evaluatedAtEpochMillis());
+        RiskExplanation explanation = snap.explanation();
+        if (explanation != null && !explanation.isEmpty()) {
+            m.put("riskFactors", riskFactorsPayload(explanation));
+            if (explanation.advice() != null) {
+                m.put("securityAdvice", securityAdvicePayload(explanation.advice()));
+            }
+        } else if (explanation != null) {
+            // Empty explanation: explicit empty list; omit advice key (absent vs empty advice).
+            m.put("riskFactors", List.of());
+        }
         return m;
+    }
+
+    private static List<Map<String, Object>> riskFactorsPayload(RiskExplanation explanation) {
+        List<Map<String, Object>> out = new ArrayList<>(explanation.factors().size());
+        for (RiskFactor factor : explanation.factors()) {
+            Map<String, Object> f = new LinkedHashMap<>();
+            f.put("code", factor.code().name());
+            f.put("category", factor.category().name());
+            f.put("severity", factor.severity().name());
+            f.put("contribution", finiteScoreOrNull(factor.contribution()));
+            f.put("confidence", finiteScoreOrNull(factor.confidence()));
+            f.put("evidenceRef", factor.evidenceRef());
+            f.put("explanation", factor.explanation());
+            f.put("source", factor.source());
+            out.add(f);
+        }
+        return out;
+    }
+
+    private static Map<String, Object> securityAdvicePayload(SecurityAdvice advice) {
+        Map<String, Object> a = new LinkedHashMap<>();
+        a.put("code", advice.code().name());
+        a.put("priority", advice.priority().name());
+        a.put("reason", advice.reason());
+        a.put("linkedFactorCodes", advice.linkedFactorCodes().stream().map(Enum::name).toList());
+        a.put("humanReviewRecommended", advice.humanReviewRecommended());
+        return a;
+    }
+
+    /** Presentation-only: finite scores pass through; NaN/±Infinity become {@code null}. */
+    static Double finiteScoreOrNull(double score) {
+        return Double.isFinite(score) ? score : null;
     }
 }

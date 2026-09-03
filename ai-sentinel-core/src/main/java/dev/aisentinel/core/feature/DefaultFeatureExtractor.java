@@ -2,6 +2,7 @@ package dev.aisentinel.core.feature;
 
 import dev.aisentinel.core.model.RequestContext;
 import dev.aisentinel.core.model.RequestFeatures;
+import dev.aisentinel.core.model.IdentityEndpointKey;
 import dev.aisentinel.core.store.BaselineStore;
 import dev.aisentinel.core.http.HttpRequestView;
 
@@ -51,10 +52,11 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
     public RequestFeatures extract(HttpRequestView request, String identityHash, RequestContext ctx) {
         long now = System.currentTimeMillis();
         String endpoint = normalizeEndpoint(request.getRequestURI());
+        IdentityEndpointKey stateKey = IdentityEndpointKey.forEndpoint(identityHash, endpoint);
 
-        int requestsPerWindow = requestCountStore.incrementAndGet(identityHash + "|" + endpoint);
+        int requestsPerWindow = requestCountStore.incrementAndGet(stateKey);
         EndpointDiversity diversity = computeEndpointDiversity(identityHash, endpoint, now);
-        double tokenAgeSeconds = extractTokenAgeSeconds(request);
+        double tokenAgeSeconds = extractTokenAgeSeconds(request, now);
         int parameterCount = request.getParameterMap().size();
         long payloadSizeBytes = extractPayloadSize(request);
         long headerFingerprintHash = computeHeaderFingerprint(request);
@@ -167,7 +169,7 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
         volatile long lastAccessMs;
     }
 
-    private double extractTokenAgeSeconds(HttpRequestView request) {
+    private double extractTokenAgeSeconds(HttpRequestView request, long nowMillis) {
         String auth = request.getHeader("Authorization");
         if (auth == null || auth.isBlank()) {
             return TOKEN_AGE_MISSING_OR_INVALID;
@@ -183,7 +185,7 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
                 return TOKEN_AGE_MISSING_OR_INVALID;
             }
             long issuedMs = issuedEpochSeconds * 1000L;
-            double ageSeconds = (System.currentTimeMillis() - issuedMs) / 1000.0;
+            double ageSeconds = (nowMillis - issuedMs) / 1000.0;
             if (ageSeconds < 0) {
                 // Small future offsets are ordinary issuer/application clock skew: treat as
                 // freshly issued (0) rather than conflating with missing/invalid (-1).

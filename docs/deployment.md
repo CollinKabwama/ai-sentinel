@@ -5,10 +5,9 @@ This guide states **actual** `OFF` / `MONITOR` / `ENFORCE` behavior from the **c
 **Recommended initial deployment mode: `MONITOR`.**  
 Do not enable `ENFORCE` based on synthetic regression suites alone. Application-specific monitoring, tuning, and operational validation are required first.
 
-Property defaults (verified): `ai.sentinel.enabled=true`, `ai.sentinel.mode=ENFORCE`. The library default is enforcement-capable; **operators should override to `MONITOR` during adoption.**
+Property defaults (verified): `ai.sentinel.enabled=true`, `ai.sentinel.mode=MONITOR`. **Client denial requires explicit `ai.sentinel.mode=ENFORCE`** after MONITOR validation.
 
-Full property tables: [`configuration.md`](configuration.md). Upgrade from the previous published
-line (`0.1.0`): [`migration.md`](migration.md). Validation gates: [`testing.md`](testing.md).
+Full property tables: [`configuration.md`](configuration.md). Upgrade from **0.2.0** (or unreleased **0.2.1** development trees) to **0.3.0**: [`migration.md`](migration.md). Validation gates: [`testing.md`](testing.md).
 Architecture (security model vs Java core vs current adapter) and observability: [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
 ---
@@ -106,6 +105,58 @@ integrate with enabled=true, mode=MONITOR
 
 `ENFORCE` does **not** automatically follow `MONITOR`. Some deployments should remain in MONITOR indefinitely.
 
+### Legitimate workload transitions and gated learning
+
+Default statistical learning uses **`ALLOW_OR_MONITOR`**: after a risk decision, the baseline updates only for `ALLOW` / `MONITOR` (and always during warmup). Elevated actions (`THROTTLE` / `BLOCK` / `QUARANTINE`) do **not** train the baseline. That protects against **baseline poisoning** from anomalous traffic.
+
+**Operational consequence:** a **legitimate permanent workload change** (deploy, batch job, new steady traffic level) can remain elevated relative to the prior baseline for as long as gated learning refuses to absorb the new pattern. Elevated risk indicates **behavioral deviation**, not proof of malicious activity.
+
+**What does *not* automatically clear sticky elevation while traffic continues:**
+
+* Idle **TTL** on `BaselineStore` / statistical keys — continuous requests keep keys active, so idle expiry does not act as relearning.
+* Publishing a new Isolation Forest model — independent of statistical Welford state.
+* Quarantine **release** alone — clears enforcement state only (see table below).
+
+**Supported recovery today:**
+
+1. Confirm the new workload is legitimate (MONITOR telemetry / metrics / business context).
+2. **Primary per-key operator path:** ensure `ai.sentinel.statistical.relearn-mode=EXPLICIT_ONLY`, then call `BaselineLifecycle.reset(identityHash, endpoint)` so the key re-enters warmup and subsequent traffic may train a new baseline. With default `relearn-mode=DISABLED`, reset is a no-op.
+3. **Process restart** clears local in-memory Welford / baseline maps (re-warmup). Redis-backed quarantine/trust may outlive local statistical state.
+4. **Idle TTL** after traffic stops may expire unused keys; continuous elevated traffic refreshes access and does not clear sticky elevation.
+5. **Deliberate policy change** (for example `ALWAYS`) allows continuous learning to absorb a new plateau — an operational choice, not automatic relearning.
+
+There is **no** automatic skip-triggered relearn and **no** shadow/candidate baseline in the current line. Automatic continuous adaptation after elevated risk remains an **architecture/product decision** and must not be assumed for production **ENFORCE** readiness. Prefer MONITOR until operators understand transition handling for their traffic.
+
+### Model registry disk retention
+
+Trainer publish writes new versioned files under `{filesystem-root}/{tenant}/artifacts/` and updates `{tenant}/active.json` to point at the active version. **Previous `{version}.meta.json` / `{version}.payload.bin` files remain on disk** until an operator deletes them. The library does **not** implement automatic disk cleanup.
+
+**Operator practice:**
+
+* Treat accumulation as expected for explicit train/publish cycles (not an unbounded request-path leak).
+* Keep recent versions if you need rollback; remove only artifacts no longer referenced by `active.json` and outside your retention window.
+* Size the shared filesystem for expected publish frequency × artifact size.
+* Serving nodes only **read** the registry (`FilesystemModelRegistry` + optional refresh); they do not prune.
+
+### False-positive recovery (quarantine lift)
+
+Quarantine release and baseline reset are **independent** operator actions:
+
+1. Detect a false-positive quarantine (actuator `lastDecision`, metrics, telemetry).
+2. Inspect the decision (`evaluationStatuses`, scores — invalid scores present as JSON `null` with `INVALID_SCORE`).
+3. Call `EnforcementHandler.releaseQuarantine(identityHash, endpoint)` on the Spring `enforcementHandler` /
+   `enforcementHandlerImpl` bean (scope-aware; idempotent; also best-effort clears Redis when cluster write is enabled).
+4. Optionally call `BaselineLifecycle.reset(identityHash, endpoint)` when subsequent traffic should relearn —
+   **only if** `relearn-mode` allows it. This does **not** lift quarantine by itself.
+5. Monitor recovery (quarantine count gauge, `aisentinel.quarantine.released`, clear success/failure meters).
+
+| Action | Clears quarantine? | Resets statistical baseline? |
+|--------|--------------------|------------------------------|
+| `releaseQuarantine` | Yes (local + best-effort cluster) | No |
+| `BaselineLifecycle.reset` | No | Yes (when relearn enabled) |
+
+There is **no** unauthenticated HTTP admin release endpoint. Inject the existing Spring beans from a secured operator tool or support path.
+
 ### What to evaluate in MONITOR
 
 * False-positive frequency of would-be `THROTTLE` / `BLOCK` / `QUARANTINE` (telemetry / metrics).
@@ -113,7 +164,8 @@ integrate with enabled=true, mode=MONITOR
 * `DEGRADED` and `MODEL_FALLBACK` / `isolationForestScoreMode` frequency.
 * `FailOpenReason` distribution (`aisentinel.failopen.reason`).
 * Identity and endpoint patterns; `EnforcementScope` blast radius.
-* Whether explicit baseline reset (`BaselineLifecycle` / `relearn-mode`) is understood.
+* Whether explicit baseline reset (`BaselineLifecycle` / `relearn-mode`) is understood — including legitimate permanent workload transitions under gated learning (see above).
+* Registry disk retention procedure when using the filesystem model registry.
 * Redis degradation gauges and timeouts when distributed features are enabled.
 * Compatibility of denial status/bodies with your API clients (validated in a non-production ENFORCE trial if you proceed).
 
@@ -310,6 +362,6 @@ Operators should validate Redis timeouts, degraded gauges, and peer visibility i
 | `DEGRADED` | Optional subsystem failed; decision still produced |
 | `FailOpenReason` | Why a request was allowed after an error |
 | `isolationForestScoreMode` | `MODEL` vs `FALLBACK_NO_MODEL` vs `FALLBACK_INVALID` |
-| `/actuator/sentinel` `lastDecision` | Last completed decision on **this JVM** (action, scores, phases, IF mode, statistical dominant signal) — not cluster history; no identity/endpoint |
+| `/actuator/sentinel` `lastDecision` | Last completed decision on **this JVM** (action, scores, phases, IF mode, statistical dominant signal, structured `riskFactors` / optional `securityAdvice`) — not cluster history; no identity/endpoint. Advice is operator guidance only and does not change enforcement. |
 
 See the full observability meter list in [`../ARCHITECTURE.md`](../ARCHITECTURE.md) § Observability.

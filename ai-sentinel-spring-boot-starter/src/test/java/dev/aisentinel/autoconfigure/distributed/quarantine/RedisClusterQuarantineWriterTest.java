@@ -175,6 +175,50 @@ class RedisClusterQuarantineWriterTest {
         }
     }
 
+    @Test
+    void clearDeletesExactRedisKeyAndRecordsSuccess() throws Exception {
+        SentinelProperties props = new SentinelProperties();
+        props.getDistributed().getRedis().setKeyPrefix("pfx");
+        StringRedisTemplate template = mock(StringRedisTemplate.class);
+        org.mockito.Mockito.when(template.delete(anyString())).thenReturn(Boolean.TRUE);
+        var status = new DistributedQuarantineStatus();
+        var metrics = new CountingMetrics();
+        var writer = new RedisClusterQuarantineWriter(template, props, metrics, status);
+        try {
+            writer.clearQuarantine("mytenant", "id|/p");
+            String expectedKey = DistributedQuarantineKeyBuilder.redisKey("pfx", "mytenant", "id|/p");
+            verify(template, timeout(2_000).times(1)).delete(eq(expectedKey));
+            assertThat(metrics.clearAttempts.get()).isEqualTo(1);
+            assertThat(metrics.clearSuccesses.get()).isEqualTo(1);
+            assertThat(metrics.clearFailures.get()).isZero();
+        } finally {
+            writer.destroy();
+        }
+    }
+
+    @Test
+    void clearFailureIsObservableAndDoesNotThrow() throws Exception {
+        SentinelProperties props = new SentinelProperties();
+        StringRedisTemplate template = mock(StringRedisTemplate.class);
+        org.mockito.Mockito.when(template.delete(anyString()))
+            .thenThrow(new RedisConnectionFailureException("down"));
+        var status = new DistributedQuarantineStatus();
+        var metrics = new CountingMetrics();
+        var writer = new RedisClusterQuarantineWriter(template, props, metrics, status);
+        try {
+            writer.clearQuarantine("t", "k");
+            verify(template, timeout(2_000).times(1)).delete(anyString());
+            long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            while (metrics.clearFailures.get() < 1 && System.nanoTime() < deadline) {
+                Thread.sleep(10);
+            }
+            assertThat(metrics.clearFailures.get()).isEqualTo(1);
+            assertThat(status.isRedisWriterDegraded()).isTrue();
+        } finally {
+            writer.destroy();
+        }
+    }
+
     private static StringRedisTemplate stubTemplate(ValueOperations<String, String> ops) {
         return new StringRedisTemplate() {
             @Override
@@ -195,6 +239,9 @@ class RedisClusterQuarantineWriterTest {
         final AtomicInteger skippedExpired = new AtomicInteger();
         final AtomicInteger dropped = new AtomicInteger();
         final AtomicInteger schedulerRejected = new AtomicInteger();
+        final AtomicInteger clearAttempts = new AtomicInteger();
+        final AtomicInteger clearSuccesses = new AtomicInteger();
+        final AtomicInteger clearFailures = new AtomicInteger();
 
         @Override
         public void recordDistributedQuarantineWriteAttempt() {
@@ -224,6 +271,21 @@ class RedisClusterQuarantineWriterTest {
         @Override
         public void recordDistributedQuarantineWriteSchedulerRejected() {
             schedulerRejected.incrementAndGet();
+        }
+
+        @Override
+        public void recordDistributedQuarantineClearAttempt() {
+            clearAttempts.incrementAndGet();
+        }
+
+        @Override
+        public void recordDistributedQuarantineClearSuccess() {
+            clearSuccesses.incrementAndGet();
+        }
+
+        @Override
+        public void recordDistributedQuarantineClearFailure() {
+            clearFailures.incrementAndGet();
         }
     }
 }

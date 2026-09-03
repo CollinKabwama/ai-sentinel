@@ -1,5 +1,7 @@
 package dev.aisentinel.core.store;
 
+import dev.aisentinel.core.model.IdentityEndpointKey;
+
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,7 +31,7 @@ public final class BaselineStore {
     private final long ttlMs;
     private final int maxKeys;
     private final LongSupplier clock;
-    private final Map<String, BucketChain> store = new ConcurrentHashMap<>();
+    private final Map<IdentityEndpointKey, BucketChain> store = new ConcurrentHashMap<>();
     private final AtomicLong nextExpireSweepMs = new AtomicLong(0);
     private final AtomicLong expireSweepCount = new AtomicLong(0);
     /** Serializes capacity eviction so concurrent over-capacity inserts do not stampede O(n) scans. */
@@ -82,6 +84,10 @@ public final class BaselineStore {
      * Increment request count for the given key and return the rolling count within the active TTL window.
      */
     public int incrementAndGet(String key) {
+        return incrementAndGet(IdentityEndpointKey.fromStorageKey(key));
+    }
+
+    public int incrementAndGet(IdentityEndpointKey key) {
         long now = clock.getAsLong();
         expireIdle(now);
         long bucketId = now / BUCKET_MS;
@@ -104,6 +110,10 @@ public final class BaselineStore {
      * Get current rolling count without incrementing.
      */
     public int get(String key) {
+        return get(IdentityEndpointKey.fromStorageKey(key));
+    }
+
+    public int get(IdentityEndpointKey key) {
         long now = clock.getAsLong();
         expireIdle(now);
         BucketChain chain = store.get(key);
@@ -151,9 +161,9 @@ public final class BaselineStore {
             });
             int staleVictimRetries = 0;
             while (store.size() > maxKeys) {
-                String victim = null;
+                IdentityEndpointKey victim = null;
                 long oldest = Long.MAX_VALUE;
-                for (Map.Entry<String, BucketChain> e : store.entrySet()) {
+                for (Map.Entry<IdentityEndpointKey, BucketChain> e : store.entrySet()) {
                     long la = e.getValue().lastAccessMs();
                     if (la < oldest) {
                         oldest = la;

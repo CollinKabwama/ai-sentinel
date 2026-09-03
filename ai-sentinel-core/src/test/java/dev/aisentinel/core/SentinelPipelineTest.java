@@ -20,12 +20,12 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
- * Verifies pipeline clampScore: NaN or negative scorer output becomes 1.0 so policy sees high risk (no bypass).
+ * Pipeline invalid-score semantics: NaN / negative scorer output → ALLOW + INVALID_SCORE (not max-risk quarantine).
  */
 class SentinelPipelineTest {
 
     @Test
-    void nanScoreClampedToOnePolicySeesQuarantine() throws Exception {
+    void nanScoreIsInvalidAllowNotQuarantine() throws Exception {
         FeatureExtractor extractor = mock(FeatureExtractor.class);
         RequestFeatures features = RequestFeatures.builder()
             .identityHash("h").endpoint("/api").timestampMillis(0)
@@ -42,7 +42,7 @@ class SentinelPipelineTest {
         PolicyEngine policy = new dev.aisentinel.core.policy.ThresholdPolicyEngine();
         EnforcementHandler handler = mock(EnforcementHandler.class);
         when(handler.isQuarantined(anyString(), anyString())).thenReturn(false);
-        when(handler.apply(eq(EnforcementAction.QUARANTINE), any(), any(), eq("h"), eq("/api"))).thenReturn(false);
+        when(handler.apply(eq(EnforcementAction.ALLOW), any(), any(), eq("h"), eq("/api"))).thenReturn(true);
 
         SentinelPipeline pipeline = new SentinelPipeline(extractor, nanScorer, policy, handler, mock(TelemetryEmitter.class), StartupGrace.NEVER, SentinelMetrics.NOOP);
         HttpRequestView request = mock(HttpRequestView.class);
@@ -50,8 +50,9 @@ class SentinelPipelineTest {
 
         boolean proceed = pipeline.process(request, response, "h");
 
-        assertThat(proceed).isFalse();
-        verify(handler).apply(eq(EnforcementAction.QUARANTINE), eq(request), eq(response), eq("h"), eq("/api"));
+        assertThat(proceed).isTrue();
+        verify(handler).apply(eq(EnforcementAction.ALLOW), eq(request), eq(response), eq("h"), eq("/api"));
+        verify(handler, never()).apply(eq(EnforcementAction.QUARANTINE), any(), any(), anyString(), anyString());
     }
 
     @Test
@@ -63,9 +64,9 @@ class SentinelPipelineTest {
             .parameterCount(0).payloadSizeBytes(0).headerFingerprintHash(0).ipBucket(0).build();
         when(extractor.extract(any(), eq("h"), any(RequestContext.class))).thenReturn(features);
 
-        AnomalyScorer nanScorer = new AnomalyScorer() {
+        AnomalyScorer highRiskScorer = new AnomalyScorer() {
             @Override
-            public double score(RequestFeatures f) { return Double.NaN; }
+            public double score(RequestFeatures f) { return 0.95; }
             @Override
             public void update(RequestFeatures f) {}
         };
@@ -75,7 +76,7 @@ class SentinelPipelineTest {
         when(handler.apply(eq(EnforcementAction.MONITOR), any(), any(), eq("h"), eq("/api"))).thenReturn(true);
 
         StartupGrace grace = () -> true;
-        SentinelPipeline pipeline = new SentinelPipeline(extractor, nanScorer, policy, handler, mock(TelemetryEmitter.class), grace, SentinelMetrics.NOOP);
+        SentinelPipeline pipeline = new SentinelPipeline(extractor, highRiskScorer, policy, handler, mock(TelemetryEmitter.class), grace, SentinelMetrics.NOOP);
         HttpRequestView request = mock(HttpRequestView.class);
         EnforcementResponse response = mock(EnforcementResponse.class);
 
@@ -87,7 +88,7 @@ class SentinelPipelineTest {
     }
 
     @Test
-    void negativeScoreClampedToOnePolicySeesQuarantine() throws Exception {
+    void negativeScoreIsInvalidAllowNotQuarantine() throws Exception {
         FeatureExtractor extractor = mock(FeatureExtractor.class);
         RequestFeatures features = RequestFeatures.builder()
             .identityHash("h").endpoint("/api").timestampMillis(0)
@@ -104,7 +105,7 @@ class SentinelPipelineTest {
         PolicyEngine policy = new dev.aisentinel.core.policy.ThresholdPolicyEngine();
         EnforcementHandler handler = mock(EnforcementHandler.class);
         when(handler.isQuarantined(anyString(), anyString())).thenReturn(false);
-        when(handler.apply(eq(EnforcementAction.QUARANTINE), any(), any(), eq("h"), eq("/api"))).thenReturn(false);
+        when(handler.apply(eq(EnforcementAction.ALLOW), any(), any(), eq("h"), eq("/api"))).thenReturn(true);
 
         SentinelPipeline pipeline = new SentinelPipeline(extractor, negativeScorer, policy, handler, mock(TelemetryEmitter.class), StartupGrace.NEVER, SentinelMetrics.NOOP);
         HttpRequestView request = mock(HttpRequestView.class);
@@ -112,7 +113,8 @@ class SentinelPipelineTest {
 
         boolean proceed = pipeline.process(request, response, "h");
 
-        assertThat(proceed).isFalse();
-        verify(handler).apply(eq(EnforcementAction.QUARANTINE), eq(request), eq(response), eq("h"), eq("/api"));
+        assertThat(proceed).isTrue();
+        verify(handler).apply(eq(EnforcementAction.ALLOW), eq(request), eq(response), eq("h"), eq("/api"));
+        verify(handler, never()).apply(eq(EnforcementAction.QUARANTINE), any(), any(), anyString(), anyString());
     }
 }

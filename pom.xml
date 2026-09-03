@@ -13,7 +13,7 @@
 
     <groupId>dev.aisentinel</groupId>
     <artifactId>ai-sentinel</artifactId>
-    <version>0.2.1</version>
+    <version>0.3.0</version>
     <packaging>pom</packaging>
     <name>ai-sentinel</name>
     <description>AI-Assisted Zero-Trust API Defense for Spring Boot</description>
@@ -51,6 +51,7 @@
     <properties>
         <java.version>21</java.version>
         <lombok.version>1.18.38</lombok.version>
+        <aisentinel.api.compatibility.oldVersion>0.2.0</aisentinel.api.compatibility.oldVersion>
     </properties>
 
     <dependencyManagement>
@@ -71,6 +72,11 @@
                     <groupId>org.jacoco</groupId>
                     <artifactId>jacoco-maven-plugin</artifactId>
                     <version>0.8.12</version>
+                </plugin>
+                <plugin>
+                    <groupId>com.github.siom79.japicmp</groupId>
+                    <artifactId>japicmp-maven-plugin</artifactId>
+                    <version>0.23.1</version>
                 </plugin>
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
@@ -125,6 +131,7 @@
                     <plugin>
                         <groupId>org.apache.maven.plugins</groupId>
                         <artifactId>maven-gpg-plugin</artifactId>
+                        <version>3.2.8</version>
                         <executions>
                             <execution>
                                 <id>sign-artifacts</id>

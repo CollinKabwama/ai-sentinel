@@ -1,0 +1,13 @@
+{
+  "contractVersion": 1,
+  "correlationId": "fixture-remote-failure",
+  "action": "ALLOW",
+  "evaluationStatuses": ["REMOTE_EVALUATION_FAILURE"],
+  "anomalyScore": null,
+  "policyScore": null,
+  "startupGraceActive": false,
+  "proceed": true,
+  "endpoint": "",
+  "factors": [],
+  "advice": null
+}

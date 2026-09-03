@@ -2,6 +2,8 @@ package dev.aisentinel.core.telemetry;
 
 import dev.aisentinel.core.decision.EvaluationStatus;
 import dev.aisentinel.core.decision.OperatorEvaluationPhase;
+import dev.aisentinel.core.decision.RiskExplanation;
+import dev.aisentinel.core.decision.RiskFactor;
 import dev.aisentinel.core.metrics.FailOpenReason;
 
 import java.util.ArrayList;
@@ -30,6 +32,18 @@ public record TelemetryEvent(
     public static TelemetryEvent threatScored(String identityHash, String endpoint, double score,
                                              Collection<EvaluationStatus> evaluationStatuses,
                                              String isolationForestScoreMode) {
+        return threatScored(identityHash, endpoint, score, evaluationStatuses, isolationForestScoreMode, null);
+    }
+
+    /**
+     * Threat score with optional evaluation lifecycle markers, IF score mode, and low-cardinality
+     * risk-explanation codes. Additive payload keys only — existing consumers ignore unknown fields.
+     * Does not include free-form factor descriptions (high-cardinality).
+     */
+    public static TelemetryEvent threatScored(String identityHash, String endpoint, double score,
+                                             Collection<EvaluationStatus> evaluationStatuses,
+                                             String isolationForestScoreMode,
+                                             RiskExplanation explanation) {
         LinkedHashMap<String, Object> p = new LinkedHashMap<>();
         p.put("identityHash", maskHash(identityHash));
         p.put("endpoint", endpoint);
@@ -51,6 +65,17 @@ public record TelemetryEvent(
         if (isolationForestScoreMode != null && !isolationForestScoreMode.isBlank()) {
             p.put("isolationForestScoreMode", isolationForestScoreMode);
         }
+        if (explanation != null) {
+            p.put("factorCount", explanation.factors().size());
+            RiskFactor top = explanation.topFactor();
+            if (top != null) {
+                p.put("topFactorCode", top.code().name());
+            }
+            if (explanation.advice() != null) {
+                p.put("advisoryCode", explanation.advice().code().name());
+                p.put("advisoryPriority", explanation.advice().priority().name());
+            }
+        }
         return new TelemetryEvent("ThreatScored", System.currentTimeMillis(), Map.copyOf(p));
     }
 
@@ -71,6 +96,18 @@ public record TelemetryEvent(
     public static TelemetryEvent quarantineStarted(String identityHash, String endpoint, long durationMs) {
         return new TelemetryEvent("QuarantineStarted", System.currentTimeMillis(),
             Map.of("identityHash", maskHash(identityHash), "endpoint", endpoint, "durationMs", durationMs));
+    }
+
+    /**
+     * Operator (or automated) quarantine release. {@code hadLocalEntry} is true when a local map entry
+     * was removed; cluster clear is always attempted by the writer independently.
+     */
+    public static TelemetryEvent quarantineReleased(String identityHash, String endpoint, boolean hadLocalEntry) {
+        LinkedHashMap<String, Object> p = new LinkedHashMap<>();
+        p.put("identityHash", maskHash(identityHash));
+        p.put("endpoint", endpoint != null ? endpoint : "");
+        p.put("hadLocalEntry", hadLocalEntry);
+        return new TelemetryEvent("QuarantineReleased", System.currentTimeMillis(), Map.copyOf(p));
     }
 
     /**

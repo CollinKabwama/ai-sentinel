@@ -174,4 +174,40 @@ class DefaultTelemetryEmitterTest {
 
         assertThat(registry.counter("sentinel.events", "type", "ThreatScored").count()).isEqualTo(1.0);
     }
+
+    @Test
+    void repeatedEmitReusesCounterInstance() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        DefaultTelemetryEmitter emitter = new DefaultTelemetryEmitter(registry, TelemetryConfig.defaults());
+        var event = new TelemetryEvent("ThreatScored", 1L, Map.of("score", 0.2));
+
+        emitter.emit(event);
+        io.micrometer.core.instrument.Counter first = registry.counter("sentinel.events", "type", "ThreatScored");
+        emitter.emit(event);
+        io.micrometer.core.instrument.Counter second = registry.counter("sentinel.events", "type", "ThreatScored");
+
+        assertThat(first).isSameAs(second);
+        assertThat(second.count()).isEqualTo(2.0);
+    }
+
+    @Test
+    void arbitraryEventTypesAreNotRetainedInEmitterCounterCache() {
+        SimpleMeterRegistry registry = new SimpleMeterRegistry();
+        DefaultTelemetryEmitter emitter = new DefaultTelemetryEmitter(
+            registry, new TelemetryConfig(TelemetryConfig.LogVerbosity.NONE, 0.4, 100));
+
+        for (int i = 0; i < 50; i++) {
+            emitter.emit(new TelemetryEvent("CustomType" + i, 1L, Map.of()));
+        }
+
+        assertThat(emitter.cachedCounterCount()).isZero();
+    }
+
+    @Test
+    void formatEventJsonIncludesEscapedPayloadFields() {
+        String json = DefaultTelemetryEmitter.formatEventJson(
+            new TelemetryEvent("Threat\nScored", 99L, Map.of("score", 0.5, "note", "a\"b\nc")));
+        assertThat(json).startsWith("{\"type\":\"Threat\\nScored\",\"timestamp\":99,\"payload\":{");
+        assertThat(json).contains("\"score\":0.5").contains("\"note\":\"a\\\"b\\nc\"").endsWith("}}");
+    }
 }

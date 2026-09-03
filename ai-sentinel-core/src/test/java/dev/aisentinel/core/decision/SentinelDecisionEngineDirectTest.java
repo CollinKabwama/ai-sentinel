@@ -137,12 +137,19 @@ class SentinelDecisionEngineDirectTest {
     }
 
     @Test
-    void nanScoreIsClampedToHighRiskQuarantine() {
-        RiskDecision decision = engine(new FixedAnomalyScorer(Double.NaN), StartupGrace.NEVER, new RecordingTelemetry())
+    void nanScoreIsInvalidScoreAllowNotQuarantine() {
+        FixedAnomalyScorer scorer = new FixedAnomalyScorer(Double.NaN);
+        RecordingTelemetry telemetry = new RecordingTelemetry();
+        RiskDecision decision = engine(scorer, StartupGrace.NEVER, telemetry)
             .evaluate(new MapHttpRequestView(), "h", features(), new RequestContext());
 
-        assertThat(decision.anomalyScore()).isEqualTo(1.0);
-        assertThat(decision.action()).isEqualTo(EnforcementAction.QUARANTINE);
+        assertThat(Double.isNaN(decision.anomalyScore())).isTrue();
+        assertThat(decision.action()).isEqualTo(EnforcementAction.ALLOW);
+        assertThat(decision.hasStatus(EvaluationStatus.INVALID_SCORE)).isTrue();
+        assertThat(decision.hasStatus(EvaluationStatus.COMPLETE)).isFalse();
+        assertThat(scorer.updates).isZero();
+        assertThat(telemetry.events).extracting(TelemetryEvent::type).contains("ThreatScored");
+        assertThat(decision.explanation().advice().code().name()).isEqualTo("REVIEW_SCORER_HEALTH");
     }
 
     @Test

@@ -99,6 +99,51 @@ public final class RedisClusterQuarantineWriter implements ClusterQuarantineWrit
         }
     }
 
+    @Override
+    public void clearQuarantine(String tenantId, String enforcementKey) {
+        metrics.recordDistributedQuarantineClearAttempt();
+        if (!inFlight.tryAcquire()) {
+            metrics.recordDistributedQuarantineClearFailure();
+            metrics.recordDistributedQuarantineWriteDropped();
+            log.debug("Cluster quarantine clear dropped (in-flight cap reached)");
+            return;
+        }
+        String t = tenantId != null && !tenantId.isBlank() ? tenantId : "default";
+        String key = enforcementKey != null ? enforcementKey : "";
+        try {
+            redisWriteExecutor.execute(() -> {
+                try {
+                    deleteFromRedis(t, key);
+                } finally {
+                    inFlight.release();
+                }
+            });
+        } catch (RejectedExecutionException e) {
+            inFlight.release();
+            metrics.recordDistributedQuarantineClearFailure();
+            metrics.recordDistributedQuarantineWriteSchedulerRejected();
+            status.recordWriteError("clear_executor_rejected", e);
+            log.warn("Cluster quarantine clear task rejected: {}", e.toString());
+        }
+    }
+
+    private void deleteFromRedis(String tenantId, String enforcementKey) {
+        long start = System.nanoTime();
+        try {
+            var redis = properties.getDistributed().getRedis();
+            String redisKey = DistributedQuarantineKeyBuilder.redisKey(redis.getKeyPrefix(), tenantId, enforcementKey);
+            redisTemplate.delete(redisKey);
+            status.recordWriteSuccess();
+            metrics.recordDistributedQuarantineClearSuccess();
+        } catch (Exception e) {
+            metrics.recordDistributedQuarantineClearFailure();
+            status.recordWriteError("del", e);
+            log.warn("Cluster quarantine Redis DEL failed for tenant={}: {}", tenantId, e.toString());
+        } finally {
+            metrics.recordDistributedQuarantineWriteDurationNanos(System.nanoTime() - start);
+        }
+    }
+
     private void writeToRedis(String tenantId, String enforcementKey, long untilEpochMillis) {
         long start = System.nanoTime();
         try {
