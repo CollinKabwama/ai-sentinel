@@ -2,9 +2,15 @@
 
 ## Supported versions
 
+| Line | Status |
+|------|--------|
+| **0.3.0** (tag `v0.3.0`) | Current published Maven Central release; preferred for new deployments |
+| **0.2.0** | Previous published line; upgrade via [`docs/migration.md`](docs/migration.md) |
+| Unreleased `dev` commits | Integration tip; not a supported production pin unless you intentionally build from source |
+
 Security fixes are developed on **`dev`** and promoted to **`main`** via the normal release flow. Critical vulnerabilities that require immediate public mitigation may be hotfixed directly on `main` at maintainer discretion; such fixes are merged back into `dev` promptly.
 
-Use the latest commit or release tag for deployments. Older snapshots are not maintained on a separate long-term support schedule unless explicitly stated in the future.
+Prefer the latest **published** release tag for deployments. Older snapshots are not maintained on a separate long-term support schedule unless explicitly stated in the future.
 
 ---
 
@@ -43,6 +49,6 @@ Maintainers will acknowledge receipt when possible and coordinate a fix and disc
 - **No fail-closed profile** — Availability-first failure modes are intentional today; do not assume denial on component failure.
 
 No security boundary is perfect; review changes in your own threat model before production use.
-This project is an early open-source release (see parent `pom.xml` version); treat production readiness as an operator judgment, not a claim of the library alone.
+This project is an early open-source release; the current published library line is **0.3.0**. Treat production readiness as an operator judgment, not a claim of the library alone.
 
 Related: [`docs/deployment.md`](docs/deployment.md) · [`CHANGELOG.md`](CHANGELOG.md) · [`docs/migration.md`](docs/migration.md)
