@@ -106,7 +106,7 @@ Add the starter dependency:
 </dependency>
 ```
 
-The **0.3.0** line is the first stable compatibility baseline in this repository. The latest published Maven Central release is **0.2.0** (tag `v0.2.0`); until **0.3.0** is tagged and published, install locally with `mvn clean install` and depend on tree version **0.3.0**.
+The **0.3.0** line is the first stable compatibility baseline in this repository and the latest published Maven Central release (tag `v0.3.0`).
 
 Upgrade notes from **0.2.0** (and unreleased **0.2.1** development trees): [`docs/migration.md`](docs/migration.md). Full history: [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -180,7 +180,7 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 
 ## Current limitations
 
-- **Stable baseline** — **0.3.0** is the first stable compatibility baseline in this repository. Published Maven Central line to date is **0.2.0**. Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
+- **Stable baseline** — **0.3.0** is the first stable compatibility baseline and the current Maven Central line (tag `v0.3.0`). Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
 - **MONITOR default** — Default `ai.sentinel.mode=MONITOR` (observe/learn; no client denial). Explicit `ENFORCE` enables client denial only after ENFORCE preconditions. Full mode matrix, restart behavior, and the availability-first **failure-mode profile**: [`docs/deployment.md`](docs/deployment.md). Statistical warmup is a lifecycle state (`EvaluationStatus.STATISTICAL_WARMUP`), not evidence of abuse; default warmup action is `MONITOR`. Default baseline learning skips `THROTTLE`/`BLOCK`/`QUARANTINE` risk (`ALLOW_OR_MONITOR`).
 - **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository).
 - **Trainer `eventId` dedup** is JVM-local; multiple trainer instances are not coordinated without external design.

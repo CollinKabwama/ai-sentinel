@@ -6,6 +6,6 @@ actuator **`/actuator/sentinel`**, Micrometer metrics, and optional Redis / Kafk
 
 Depends on **`ai-sentinel-core`**. Custom beans replace defaults via `@ConditionalOnMissingBean`.
 
-**Current tree version:** **0.3.0** (Maven Central latest published: **0.2.0**). Default `ai.sentinel.mode` is **`MONITOR`**; set **`ENFORCE`** only after operator validation — see [`docs/deployment.md`](../docs/deployment.md).
+**Current version:** **0.3.0** (Maven Central, tag `v0.3.0`). Default `ai.sentinel.mode` is **`MONITOR`**; set **`ENFORCE`** only after operator validation — see [`docs/deployment.md`](../docs/deployment.md).
 
 **Next:** [Root README](../README.md) · [Configuration](../docs/configuration.md) · [Migration](../docs/migration.md) · [Architecture](../ARCHITECTURE.md)

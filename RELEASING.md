@@ -115,8 +115,8 @@ mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am
 Fix any test or build failures before continuing. Run `mvn clean verify` **twice**. Characterization
 and architecture gates are included in that command — see [`docs/testing.md`](docs/testing.md).
 The `api-compatibility` profile compares published library modules against
-`aisentinel.api.compatibility.oldVersion` (default **0.2.0** until **0.3.0** ships) via japicmp. After **0.3.0**
-is published, retarget that property to the new baseline and remove the intentional quarantine-method exclude.
+`aisentinel.api.compatibility.oldVersion` (currently **0.2.0**; **0.3.0** is published) via japicmp.
+A follow-up should retarget that property to **0.3.0** and remove the intentional quarantine-method exclude.
 
 Confirm MONITOR-first guidance is still accurate in [`docs/deployment.md`](docs/deployment.md) and
 that [`CHANGELOG.md`](CHANGELOG.md) / [`docs/migration.md`](docs/migration.md) match the tag you are
@@ -124,11 +124,11 @@ about to cut. Do not publish release notes that claim production-ready ENFORCE f
 
 ### 2. Set a non-SNAPSHOT version
 
-Central **release** publishing rejects `-SNAPSHOT` versions. Update the parent and every module parent reference to the release version (for example bump `0.2.0` → `0.3.0`):
+Central **release** publishing rejects `-SNAPSHOT` versions. Update the parent and every module parent reference to the release version (for example bump `0.3.0` → `0.3.1`):
 
 ```bash
 # Example with the versions plugin (adjust newVersion as needed):
-# mvn versions:set -DnewVersion=0.3.0 -DgenerateBackupPoms=false
+# mvn versions:set -DnewVersion=0.3.1 -DgenerateBackupPoms=false
 # Or edit the <version> in the parent pom.xml and each module's parent reference.
 ```
 
@@ -173,11 +173,11 @@ Artifacts usually appear on Maven Central within minutes; search indexing can ta
 ### 5. Tag and push
 
 ```bash
-git tag -a v0.3.0 -m "Release 0.3.0"
-git push origin v0.3.0
+git tag -a v0.3.1 -m "Release 0.3.1"
+git push origin v0.3.1
 ```
 
-Commit the version bump on `main` if it is not already committed. Use the same version string you publish (**0.3.0** on `dev`; latest published Maven Central release before this tag is **0.2.0**).
+Commit the version bump on `main` if it is not already committed. Use the same version string you publish. The current published Maven Central line is **0.3.0** (tag `v0.3.0`).
 
 ### 6. Bump to the next development version (optional)
 
