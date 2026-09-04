@@ -87,7 +87,7 @@ If a maintainer designates an issue as **hotfix**, **security**, or **release-bl
 
 ### Releases
 
-Maintainers merge `dev` → `main` and tag releases. Contributors do not manage releases.
+Maintainers merge `dev` → `main` and tag releases (for example [`v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)). After promoting a release, keep `dev` and `main` tips aligned. Contributors do not manage releases.
 
 ---
 

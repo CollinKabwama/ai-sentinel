@@ -13,6 +13,7 @@ for the published library line.
 ### Changed
 
 - Operator docs now state that **0.3.0** is published to Maven Central (tag `v0.3.0`). japicmp still compares against **0.2.0** until a separate baseline retarget.
+- Linked README, SECURITY, migration, deployment, docs index, CONTRIBUTING, and the ASP.NET adapter README to the published **0.3.0** release / Central coordinate.
 
 ### Fixed
 
