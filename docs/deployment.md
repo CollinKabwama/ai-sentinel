@@ -7,6 +7,8 @@ Do not enable `ENFORCE` based on synthetic regression suites alone. Application-
 
 Property defaults (verified): `ai.sentinel.enabled=true`, `ai.sentinel.mode=MONITOR`. **Client denial requires explicit `ai.sentinel.mode=ENFORCE`** after MONITOR validation.
 
+The current published library line is **0.3.0** ([Maven Central](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.3.0), tag [`v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)).
+
 Full property tables: [`configuration.md`](configuration.md). Upgrade from **0.2.0** (or unreleased **0.2.1** development trees) to **0.3.0**: [`migration.md`](migration.md). Validation gates: [`testing.md`](testing.md).
 Architecture (security model vs Java core vs current adapter) and observability: [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
