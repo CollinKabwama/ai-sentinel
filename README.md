@@ -106,7 +106,9 @@ Add the starter dependency:
 </dependency>
 ```
 
-The **0.3.0** line is the first stable compatibility baseline in this repository and the latest published Maven Central release (tag `v0.3.0`).
+The **0.3.0** line is the first stable compatibility baseline in this repository and the latest published Maven Central release ([tag `v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)).
+
+Artifact: [`dev.aisentinel:ai-sentinel-spring-boot-starter:0.3.0`](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.3.0).
 
 Upgrade notes from **0.2.0** (and unreleased **0.2.1** development trees): [`docs/migration.md`](docs/migration.md). Full history: [`CHANGELOG.md`](CHANGELOG.md).
 
