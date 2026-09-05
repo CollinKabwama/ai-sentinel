@@ -10,6 +10,8 @@ for the published library line.
 
 ### Added
 
+- Opt-in JMH **benchmark foundation** module (`ai-sentinel-benchmark`) for in-process latency/throughput measurement (not an SLA gate). See [`docs/performance/BENCHMARKING.md`](docs/performance/BENCHMARKING.md).
+
 ### Changed
 
 - Operator docs now state that **0.3.0** is published to Maven Central (tag `v0.3.0`). japicmp still compares against **0.2.0** until a separate baseline retarget.
