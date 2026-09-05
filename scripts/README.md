@@ -94,3 +94,20 @@ Output includes counts, elapsed time, actual RPS, and latency min/avg/max/p50/p9
 `lastDecision` is the **most recent completed decision on this JVM** (action/policy band, anomaly vs policy score, evaluation statuses / operator phases, IF mode, statistical dominant signal). It intentionally omits identity, endpoint, headers, IP, and tokens — not a request history.
 
 When IF is enabled, `/actuator/sentinel` also includes fields such as `isolationForestModelLoaded`, `isolationForestBufferedSampleCount`, `isolationForestModelVersion`, retrain timestamps, `acceptedTrainingSampleCount`, and `rejectedTrainingSampleCount`. With Micrometer wired, you may also see `scoreSummary`, `latencySummary`, and retrain counters — see `SentinelActuatorEndpoint` in the starter module for the authoritative list.
+
+---
+
+## Opt-in JMH benchmarks (`run-benchmarks.sh`)
+
+Builds `ai-sentinel-benchmark` and runs the shaded JMH jar. **Not** part of normal `mvn test` / CI performance gating.
+
+```bash
+./scripts/run-benchmarks.sh smoke       # developer quick check — not official baseline
+./scripts/run-benchmarks.sh full        # intermediate suite
+./scripts/run-benchmarks.sh reference   # official controlled JMH profile
+./scripts/capture-reference-baseline.sh # three reference runs → results/reference-capture/
+```
+
+Official measured baseline: [`docs/performance/REFERENCE_BASELINE.md`](../docs/performance/REFERENCE_BASELINE.md).
+
+Details: [`docs/performance/BENCHMARKING.md`](../docs/performance/BENCHMARKING.md).

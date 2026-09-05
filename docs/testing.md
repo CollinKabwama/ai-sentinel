@@ -49,7 +49,9 @@ Expected shape (may grow if tests are added):
 | `ai-sentinel-spring-boot-starter` | ~264 | Includes 5 Docker/Testcontainers skips when Docker is unavailable |
 | `ai-sentinel-trainer` | 16 | |
 | `ai-sentinel-demo` | 4 | |
-| **Total** | **~839** | 0 failures / 0 errors |
+| **Total** | **~850** | 0 failures / 0 errors; infra skips may apply |
+
+The reactor also compiles **`ai-sentinel-benchmark`**. Its **support-code** unit tests are included in the total above; the JMH suite does **not** run on `verify`. See [`performance/BENCHMARKING.md`](performance/BENCHMARKING.md). Official measured 0.3.0 reference values (not CI gates / not SLAs): [`performance/REFERENCE_BASELINE.md`](performance/REFERENCE_BASELINE.md).
 
 Run **twice** before cutting a release tag so flakes are visible.
 
