@@ -1,0 +1,932 @@
+{
+  "sentinelVersion": "0.3.0",
+  "commit": "7bce0feb59784a524e932af799aecbd8eda76557",
+  "captureDate": "2026-09-04",
+  "captureWindowUtc": {
+    "started": "2026-09-04T05:31:28Z",
+    "finished": "2026-09-04T05:51:58Z"
+  },
+  "environmentId": "developer-laptop-apple-m5-macos-jdk21-msft-battery",
+  "methodology": "Three controlled reference-profile JMH runs. SampleTime latency: official percentiles from the run whose p50 is closest to the median p50 across runs (mean used as tie-break). Isolation Forest fallback uses mean because SampleTime p50 hits timer resolution floor (~0 ns). Throughput: official mean from the run closest to the median mean ops/s across runs.",
+  "jmhConfiguration": {
+    "profile": "reference",
+    "forks": 2,
+    "warmupIterations": 5,
+    "measurementIterations": 5,
+    "warmupTime": "1s",
+    "measurementTime": "1s",
+    "command": "./scripts/capture-reference-baseline.sh"
+  },
+  "environment": {
+    "hostClass": "developer-laptop",
+    "os": "Mac OS X",
+    "osVersion": "26.6.2",
+    "architecture": "aarch64",
+    "cpuModel": "Apple M5",
+    "logicalCpus": 10,
+    "physicalMemoryBytes": 25769803776,
+    "jvm": "OpenJDK 64-Bit Server VM",
+    "javaVersion": "21.0.10",
+    "javaVendor": "Microsoft",
+    "maxHeapBytes": 6442450944,
+    "powerSource": "Battery Power",
+    "featureSchemaVersion": "1",
+    "deploymentMode": "in-process",
+    "stateBackend": "local-memory",
+    "benchmarkSuiteVersion": "1",
+    "suiteName": "ai-sentinel-benchmark-foundation"
+  },
+  "stability": {
+    "controlledRuns": 3,
+    "latencyP50MaxMinRatioThresholdOk": 1.5,
+    "notes": [
+      "All SampleTime p50 ratios < 1.2 except isolationForestFallback which is timer-floor limited; mean ratio ~1.12.",
+      "Four-thread throughput mean ratio 1.433 (highest variance among throughput profiles; still under 1.5).",
+      "p99 tails are noisier than p50; official p99 is from the selected representative run, not an average of percentiles."
+    ]
+  },
+  "disclaimer": "Reference engineering baseline for the documented environment only. Not a production SLA, partner guarantee, hardware-independent result, security efficacy claim, or partner workload benchmark.",
+  "results": [
+    {
+      "benchmark": "evaluate",
+      "params": {
+        "workload": "abruptDeviation"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 3,
+      "ratioMaxMin": 1.0,
+      "mean": 757.251,
+      "p50": 542.0,
+      "p95": 667.0,
+      "p99": 1542.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.DecisionEngineBenchmark.evaluate",
+      "selectionPrimary": "p50",
+      "medianPrimary": 542.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 796.847,
+          "p50": 542.0,
+          "p95": 667.0,
+          "p99": 1792.0
+        },
+        {
+          "run": 2,
+          "mean": 625.333,
+          "p50": 542.0,
+          "p95": 625.0,
+          "p99": 1166.0
+        },
+        {
+          "run": 3,
+          "mean": 757.251,
+          "p50": 542.0,
+          "p95": 667.0,
+          "p99": 1542.0
+        }
+      ]
+    },
+    {
+      "benchmark": "evaluate",
+      "params": {
+        "workload": "establishedBaseline"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 3,
+      "ratioMaxMin": 1.0,
+      "mean": 676.429,
+      "p50": 542.0,
+      "p95": 625.0,
+      "p99": 1290.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.DecisionEngineBenchmark.evaluate",
+      "selectionPrimary": "p50",
+      "medianPrimary": 542.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 599.283,
+          "p50": 542.0,
+          "p95": 583.0,
+          "p99": 750.0
+        },
+        {
+          "run": 2,
+          "mean": 678.515,
+          "p50": 542.0,
+          "p95": 625.0,
+          "p99": 1332.0
+        },
+        {
+          "run": 3,
+          "mean": 676.429,
+          "p50": 542.0,
+          "p95": 625.0,
+          "p99": 1290.0
+        }
+      ]
+    },
+    {
+      "benchmark": "evaluate",
+      "params": {
+        "workload": "invalidScore"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 1,
+      "ratioMaxMin": 1.0,
+      "mean": 356.512,
+      "p50": 292.0,
+      "p95": 334.0,
+      "p99": 708.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.DecisionEngineBenchmark.evaluate",
+      "selectionPrimary": "p50",
+      "medianPrimary": 292.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 356.512,
+          "p50": 292.0,
+          "p95": 334.0,
+          "p99": 708.0
+        },
+        {
+          "run": 2,
+          "mean": 342.513,
+          "p50": 292.0,
+          "p95": 334.0,
+          "p99": 542.0
+        },
+        {
+          "run": 3,
+          "mean": 397.896,
+          "p50": 292.0,
+          "p95": 375.0,
+          "p99": 709.0
+        }
+      ]
+    },
+    {
+      "benchmark": "evaluate",
+      "params": {
+        "workload": "warmupSparse"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "ratioMaxMin": 1.0,
+      "mean": 496.281,
+      "p50": 458.0,
+      "p95": 500.0,
+      "p99": 708.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.DecisionEngineBenchmark.evaluate",
+      "selectionPrimary": "p50",
+      "medianPrimary": 458.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 488.292,
+          "p50": 458.0,
+          "p95": 500.0,
+          "p99": 584.0
+        },
+        {
+          "run": 2,
+          "mean": 496.281,
+          "p50": 458.0,
+          "p95": 500.0,
+          "p99": 708.0
+        },
+        {
+          "run": 3,
+          "mean": 513.537,
+          "p50": 458.0,
+          "p95": 541.0,
+          "p99": 917.0
+        }
+      ]
+    },
+    {
+      "benchmark": "extract",
+      "params": {
+        "requestShape": "largerValid"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "ratioMaxMin": 1.0,
+      "mean": 460.924,
+      "p50": 417.0,
+      "p95": 541.0,
+      "p99": 958.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.FeatureExtractionBenchmark.extract",
+      "selectionPrimary": "p50",
+      "medianPrimary": 417.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 450.885,
+          "p50": 417.0,
+          "p95": 459.0,
+          "p99": 584.0
+        },
+        {
+          "run": 2,
+          "mean": 460.924,
+          "p50": 417.0,
+          "p95": 541.0,
+          "p99": 958.0
+        },
+        {
+          "run": 3,
+          "mean": 635.902,
+          "p50": 417.0,
+          "p95": 542.0,
+          "p99": 1208.0
+        }
+      ]
+    },
+    {
+      "benchmark": "extract",
+      "params": {
+        "requestShape": "small"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "ratioMaxMin": 1.196,
+      "mean": 250.717,
+      "p50": 209.0,
+      "p95": 250.0,
+      "p99": 334.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.FeatureExtractionBenchmark.extract",
+      "selectionPrimary": "p50",
+      "medianPrimary": 209.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 250.242,
+          "p50": 209.0,
+          "p95": 250.0,
+          "p99": 334.0
+        },
+        {
+          "run": 2,
+          "mean": 250.717,
+          "p50": 209.0,
+          "p95": 250.0,
+          "p99": 334.0
+        },
+        {
+          "run": 3,
+          "mean": 287.42,
+          "p50": 250.0,
+          "p95": 291.0,
+          "p99": 500.0
+        }
+      ]
+    },
+    {
+      "benchmark": "extract",
+      "params": {
+        "requestShape": "typical"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 1,
+      "ratioMaxMin": 1.0,
+      "mean": 379.505,
+      "p50": 292.0,
+      "p95": 417.0,
+      "p99": 709.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.FeatureExtractionBenchmark.extract",
+      "selectionPrimary": "p50",
+      "medianPrimary": 292.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 379.505,
+          "p50": 292.0,
+          "p95": 417.0,
+          "p99": 709.0
+        },
+        {
+          "run": 2,
+          "mean": 347.714,
+          "p50": 292.0,
+          "p95": 334.0,
+          "p99": 417.0
+        },
+        {
+          "run": 3,
+          "mean": 386.317,
+          "p50": 292.0,
+          "p95": 417.0,
+          "p99": 750.0
+        }
+      ]
+    },
+    {
+      "benchmark": "scoreRotatingIdentities",
+      "params": {
+        "identityCount": "1"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "ratioMaxMin": 1.0,
+      "mean": 74.51,
+      "p50": 83.0,
+      "p95": 84.0,
+      "p99": 125.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.IdentityCardinalityBenchmark.scoreRotatingIdentities",
+      "selectionPrimary": "p50",
+      "medianPrimary": 83.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 69.052,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 84.0
+        },
+        {
+          "run": 2,
+          "mean": 74.51,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 125.0
+        },
+        {
+          "run": 3,
+          "mean": 74.621,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 125.0
+        }
+      ]
+    },
+    {
+      "benchmark": "scoreRotatingIdentities",
+      "params": {
+        "identityCount": "100"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 1,
+      "ratioMaxMin": 1.012,
+      "mean": 111.71,
+      "p50": 84.0,
+      "p95": 125.0,
+      "p99": 125.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.IdentityCardinalityBenchmark.scoreRotatingIdentities",
+      "selectionPrimary": "p50",
+      "medianPrimary": 84.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 111.71,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 125.0
+        },
+        {
+          "run": 2,
+          "mean": 101.163,
+          "p50": 83.0,
+          "p95": 125.0,
+          "p99": 166.0
+        },
+        {
+          "run": 3,
+          "mean": 117.828,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 208.0
+        }
+      ]
+    },
+    {
+      "benchmark": "scoreRotatingIdentities",
+      "params": {
+        "identityCount": "1000"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "ratioMaxMin": 1.0,
+      "mean": 113.888,
+      "p50": 84.0,
+      "p95": 125.0,
+      "p99": 167.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.IdentityCardinalityBenchmark.scoreRotatingIdentities",
+      "selectionPrimary": "p50",
+      "medianPrimary": 84.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 108.659,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 166.0
+        },
+        {
+          "run": 2,
+          "mean": 113.888,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 167.0
+        },
+        {
+          "run": 3,
+          "mean": 127.733,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 208.0
+        }
+      ]
+    },
+    {
+      "benchmark": "scoreRotatingIdentities",
+      "params": {
+        "identityCount": "10000"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "ratioMaxMin": 1.0,
+      "mean": 123.0,
+      "p50": 84.0,
+      "p95": 125.0,
+      "p99": 167.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.IdentityCardinalityBenchmark.scoreRotatingIdentities",
+      "selectionPrimary": "p50",
+      "medianPrimary": 84.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 121.392,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 208.0
+        },
+        {
+          "run": 2,
+          "mean": 123.0,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 167.0
+        },
+        {
+          "run": 3,
+          "mean": 485.203,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 250.0
+        }
+      ]
+    },
+    {
+      "benchmark": "processLatencyOneThread",
+      "params": {},
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "ratioMaxMin": 1.052,
+      "mean": 886.487,
+      "p50": 792.0,
+      "p95": 958.0,
+      "p99": 1334.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.PipelineBenchmark.processLatencyOneThread",
+      "selectionPrimary": "p50",
+      "medianPrimary": 792.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 869.848,
+          "p50": 792.0,
+          "p95": 958.0,
+          "p99": 1250.0
+        },
+        {
+          "run": 2,
+          "mean": 886.487,
+          "p50": 792.0,
+          "p95": 958.0,
+          "p99": 1334.0
+        },
+        {
+          "run": 3,
+          "mean": 949.802,
+          "p50": 833.0,
+          "p95": 1000.0,
+          "p99": 1958.0
+        }
+      ]
+    },
+    {
+      "benchmark": "processThroughputFourThreads",
+      "params": {},
+      "mode": "thrpt",
+      "unit": "ops/s",
+      "selectedRun": 2,
+      "ratioMaxMin": 1.433,
+      "mean": 1697635.7,
+      "p50": 1723072.3999415594,
+      "p95": 1904619.5279793264,
+      "p99": 1904619.5279793264,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.PipelineBenchmark.processThroughputFourThreads",
+      "selectionPrimary": "mean",
+      "medianPrimary": 1697635.74,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 1837818.837,
+          "p50": 1827948.6222494321,
+          "p95": 1911733.5550494548,
+          "p99": 1911733.5550494548
+        },
+        {
+          "run": 2,
+          "mean": 1697635.74,
+          "p50": 1723072.3999415594,
+          "p95": 1904619.5279793264,
+          "p99": 1904619.5279793264
+        },
+        {
+          "run": 3,
+          "mean": 1282195.227,
+          "p50": 1294231.664613396,
+          "p95": 1348472.0043905242,
+          "p99": 1348472.0043905242
+        }
+      ]
+    },
+    {
+      "benchmark": "processThroughputOneThread",
+      "params": {},
+      "mode": "thrpt",
+      "unit": "ops/s",
+      "selectedRun": 2,
+      "ratioMaxMin": 1.105,
+      "mean": 1161083.7,
+      "p50": 1165761.7284532762,
+      "p95": 1181908.2255344226,
+      "p99": 1181908.2255344226,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.PipelineBenchmark.processThroughputOneThread",
+      "selectionPrimary": "mean",
+      "medianPrimary": 1161083.724,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 1212671.387,
+          "p50": 1214633.0777296922,
+          "p95": 1222798.8303501708,
+          "p99": 1222798.8303501708
+        },
+        {
+          "run": 2,
+          "mean": 1161083.724,
+          "p50": 1165761.7284532762,
+          "p95": 1181908.2255344226,
+          "p99": 1181908.2255344226
+        },
+        {
+          "run": 3,
+          "mean": 1097783.463,
+          "p50": 1098842.7588673513,
+          "p95": 1152532.9132333815,
+          "p99": 1152532.9132333815
+        }
+      ]
+    },
+    {
+      "benchmark": "processThroughputSixteenThreads",
+      "params": {},
+      "mode": "thrpt",
+      "unit": "ops/s",
+      "selectedRun": 3,
+      "ratioMaxMin": 1.017,
+      "mean": 1530236.0,
+      "p50": 1501621.7137633688,
+      "p95": 1613555.1225912827,
+      "p99": 1613555.1225912827,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.PipelineBenchmark.processThroughputSixteenThreads",
+      "selectionPrimary": "mean",
+      "medianPrimary": 1530235.989,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 1551271.593,
+          "p50": 1621869.138033437,
+          "p95": 1657472.060827404,
+          "p99": 1657472.060827404
+        },
+        {
+          "run": 2,
+          "mean": 1524956.263,
+          "p50": 1533803.6625682604,
+          "p95": 1557249.1387586351,
+          "p99": 1557249.1387586351
+        },
+        {
+          "run": 3,
+          "mean": 1530235.989,
+          "p50": 1501621.7137633688,
+          "p95": 1613555.1225912827,
+          "p99": 1613555.1225912827
+        }
+      ]
+    },
+    {
+      "benchmark": "score",
+      "params": {
+        "scorerKind": "compositeStatisticalOnly"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 1,
+      "ratioMaxMin": 1.0,
+      "mean": 87.713,
+      "p50": 83.0,
+      "p95": 84.0,
+      "p99": 166.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score",
+      "selectionPrimary": "p50",
+      "medianPrimary": 83.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 87.713,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 166.0
+        },
+        {
+          "run": 2,
+          "mean": 85.28,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 125.0
+        },
+        {
+          "run": 3,
+          "mean": 94.141,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 167.0
+        }
+      ]
+    },
+    {
+      "benchmark": "score",
+      "params": {
+        "scorerKind": "compositeWithIf"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 3,
+      "ratioMaxMin": 1.0,
+      "mean": 285.719,
+      "p50": 250.0,
+      "p95": 292.0,
+      "p99": 583.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score",
+      "selectionPrimary": "p50",
+      "medianPrimary": 250.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 262.946,
+          "p50": 250.0,
+          "p95": 292.0,
+          "p99": 334.0
+        },
+        {
+          "run": 2,
+          "mean": 296.25,
+          "p50": 250.0,
+          "p95": 292.0,
+          "p99": 625.0
+        },
+        {
+          "run": 3,
+          "mean": 285.719,
+          "p50": 250.0,
+          "p95": 292.0,
+          "p99": 583.0
+        }
+      ]
+    },
+    {
+      "benchmark": "score",
+      "params": {
+        "scorerKind": "isolationForestFallback"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 1,
+      "ratioMaxMin": 1.124,
+      "mean": 19.254,
+      "p50": 0.0,
+      "p95": 42.0,
+      "p99": 42.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "notes": "p50/p95/p99 at SampleTime timer resolution floor; use mean as primary comparison metric.",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score",
+      "selectionPrimary": "mean",
+      "medianPrimary": 19.254,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 19.254,
+          "p50": 0.0,
+          "p95": 42.0,
+          "p99": 42.0
+        },
+        {
+          "run": 2,
+          "mean": 19.004,
+          "p50": 0.0,
+          "p95": 42.0,
+          "p99": 42.0
+        },
+        {
+          "run": 3,
+          "mean": 21.368,
+          "p50": 0.0,
+          "p95": 42.0,
+          "p99": 42.0
+        }
+      ]
+    },
+    {
+      "benchmark": "score",
+      "params": {
+        "scorerKind": "isolationForestModel"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "ratioMaxMin": 1.0,
+      "mean": 201.578,
+      "p50": 167.0,
+      "p95": 209.0,
+      "p99": 250.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score",
+      "selectionPrimary": "p50",
+      "medianPrimary": 167.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 213.28,
+          "p50": 167.0,
+          "p95": 250.0,
+          "p99": 417.0
+        },
+        {
+          "run": 2,
+          "mean": 201.578,
+          "p50": 167.0,
+          "p95": 209.0,
+          "p99": 250.0
+        },
+        {
+          "run": 3,
+          "mean": 197.385,
+          "p50": 167.0,
+          "p95": 209.0,
+          "p99": 291.0
+        }
+      ]
+    },
+    {
+      "benchmark": "score",
+      "params": {
+        "scorerKind": "statistical"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "selectedRun": 1,
+      "ratioMaxMin": 1.0,
+      "mean": 102.89,
+      "p50": 83.0,
+      "p95": 84.0,
+      "p99": 125.0,
+      "forks": 2,
+      "warmupIterations": 5,
+      "measurementIterations": 5,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score",
+      "selectionPrimary": "p50",
+      "medianPrimary": 83.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 102.89,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 125.0
+        },
+        {
+          "run": 2,
+          "mean": 76.202,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 125.0
+        },
+        {
+          "run": 3,
+          "mean": 112.069,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 125.0
+        }
+      ]
+    }
+  ],
+  "rawEvidence": {
+    "sourceDirectory": "ai-sentinel-benchmark/results/reference-capture/",
+    "retention": "Raw JMH JSON and manifests are generated artifacts and are gitignored; this tracked summary preserves selected raw run metrics and SHA-256 hashes for auditability.",
+    "captureNotesSha256": "63969ce2cdfe1b72caa51a512bd2e6b0a2330eb53cbc9dbde42275db4ff276e2",
+    "runArtifacts": [
+      {
+        "run": 1,
+        "jmhFile": "ai-sentinel-benchmark/results/reference-capture/run-01/jmh.json",
+        "jmhSha256": "7b7991b512f4a27ae2ac6fbe3d17bfbf02910be95756df2e3bf9ccedeede9130",
+        "manifestFile": "ai-sentinel-benchmark/results/reference-capture/run-01/manifest.json",
+        "manifestSha256": "0dd2311e8a0b4da08ae520d94c464ad5ee6c2c75a376f75fe40a2d334a36d96b"
+      },
+      {
+        "run": 2,
+        "jmhFile": "ai-sentinel-benchmark/results/reference-capture/run-02/jmh.json",
+        "jmhSha256": "9bd2c9715670bd55c64c2ae65499d81c634bd30e5bc93755212a89411a0a12db",
+        "manifestFile": "ai-sentinel-benchmark/results/reference-capture/run-02/manifest.json",
+        "manifestSha256": "a3522b152028fb038b17cb6b94b8d0925fc57f2bf5d076c4982ea5e3bd7ac63d"
+      },
+      {
+        "run": 3,
+        "jmhFile": "ai-sentinel-benchmark/results/reference-capture/run-03/jmh.json",
+        "jmhSha256": "30e8b617255b8cc98664e1f36e40b1d46d254809b7b33cf3ea55f2525d3b8c15",
+        "manifestFile": "ai-sentinel-benchmark/results/reference-capture/run-03/manifest.json",
+        "manifestSha256": "502ff0b0414213ce605a682e958fc4e4e19d97f1c5195066c91bdb8c175bbbb7"
+      }
+    ]
+  }
+}
