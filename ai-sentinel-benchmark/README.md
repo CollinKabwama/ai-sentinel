@@ -19,13 +19,13 @@ servlet adaptation, Redis/Kafka/network I/O, Micrometer export, or response body
 
 ### Deployment and degradation harness
 
-- Java remote evaluation over loopback HTTP using the real `RemoteEvaluationClient` and `RemoteEvaluationController`
+- Java remote evaluation over loopback HTTP using the real `RemoteEvaluationClient`, a benchmark HTTP adapter, and `RemoteEvaluationController`
 - Redis-backed behavioral trust overhead relative to local-memory trust state
 - Remote degradation scenarios: unavailable, slow/timeout, malformed response, recovery
 - Redis degradation scenarios: unavailable, interrupted, recovery
 
 Deployment results are a separate benchmark family from the JMH reference baseline. They are local controlled
-integration measurements, not production request latency.
+integration measurements, not production request latency and not full Spring Boot/Tomcat servlet-stack measurements.
 
 Infrastructure failure is benchmarked as fail-open/degraded behavior only. It must **not** be interpreted as attack
 evidence, maximum risk, or detection effectiveness.

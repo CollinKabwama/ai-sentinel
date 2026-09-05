@@ -70,6 +70,10 @@ final class BenchmarkSentinelMetrics implements SentinelMetrics {
         return remoteAttempts.get();
     }
 
+    long trustRedisSuccess() {
+        return trustRedisSuccess.get();
+    }
+
     long trustRedisFailure() {
         return trustRedisFailure.get();
     }

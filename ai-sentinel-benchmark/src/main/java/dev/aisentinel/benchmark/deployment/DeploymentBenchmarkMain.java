@@ -15,6 +15,7 @@ import java.io.InputStreamReader;
 import java.net.ServerSocket;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -28,7 +29,7 @@ public final class DeploymentBenchmarkMain {
 
     private static final ObjectMapper JSON = new ObjectMapper().findAndRegisterModules();
     private static final String REMOTE_BOUNDARY =
-        "Includes RemoteEvaluationClient JSON serialization, loopback HTTP transport, servlet dispatch, "
+        "Includes RemoteEvaluationClient JSON serialization, loopback HTTP transport, benchmark HTTP adapter deserialization, "
             + "RemoteEvaluationController handling, LocalEvaluationExecutor/LocalEvaluationBridge execution, "
             + "response serialization, loopback HTTP transport, and client deserialization. "
             + "Excludes WAN/internet latency, TLS termination, load balancers, host application business logic, "
@@ -36,7 +37,7 @@ public final class DeploymentBenchmarkMain {
     private static final String REDIS_BOUNDARY =
         "Includes loopback remote evaluation plus identity trust baseline interaction with the configured backend. "
             + "For Redis-backed scenarios this includes Lettuce client calls, local Docker-hosted Redis transport, "
-            + "Redis Lua execution, and fallback-to-local behavior when Redis is unavailable. "
+            + "Redis server-side update execution, and fallback-to-local behavior when Redis is unavailable. "
             + "Excludes WAN/cloud Redis latency, external IAM/IdP calls, and production network infrastructure.";
 
     private DeploymentBenchmarkMain() {
@@ -525,6 +526,7 @@ public final class DeploymentBenchmarkMain {
             (workerId, opIndex) -> invokeRemote(client, clientMetrics, trustRequestFor(workerId, opIndex + 40_000)));
         Map<String, Object> interruptedCounts = redisExtraCounts(server.metrics());
         redis.unpause();
+        awaitRedisOnMeasuredPath(server, client, clientMetrics);
 
         LoadHarness.RunResult recovered = LoadHarness.run(
             1,
@@ -590,8 +592,28 @@ public final class DeploymentBenchmarkMain {
             commandOutput("docker", "version", "--format", "{{.Server.Version}}"),
             redis.redisVersion(),
             "healthy->paused fallback->healthy",
-            "Responses remained successful during interruption because Redis baseline failures fall back to local memory.",
+            "Responses remained successful during interruption because Redis baseline failures fall back to local memory; a bounded post-unpause probe verified Redis success before measured recovery.",
             sumRedisCounts(healthyCounts, interruptedCounts, recoveredCounts));
+    }
+
+
+    private static void awaitRedisOnMeasuredPath(RemoteBenchmarkServer server,
+                                                 RemoteEvaluationClient client,
+                                                 BenchmarkSentinelMetrics clientMetrics) throws Exception {
+        long deadline = System.nanoTime() + Duration.ofSeconds(8).toNanos();
+        int probe = 0;
+        while (System.nanoTime() < deadline) {
+            server.metrics().reset();
+            clientMetrics.reset();
+            invokeRemote(client, clientMetrics, trustRequestFor(0, 80_000 + probe++));
+            if (server.metrics().trustRedisSuccess() > 0) {
+                server.metrics().reset();
+                clientMetrics.reset();
+                return;
+            }
+            Thread.sleep(100L);
+        }
+        throw new IllegalStateException("Redis did not return to the measured trust baseline path after unpause");
     }
 
     private static DeploymentBenchmarkResult buildResult(String benchmarkType,
@@ -662,27 +684,32 @@ public final class DeploymentBenchmarkMain {
 
     private static Map<String, Object> redisExtraCounts(BenchmarkSentinelMetrics serverMetrics) {
         Map<String, Object> counts = new LinkedHashMap<>();
+        counts.put("redisSuccesses", serverMetrics.trustRedisSuccess());
         counts.put("redisFailures", serverMetrics.trustRedisFailure());
-        counts.put("fallbacks", serverMetrics.trustRedisFallback());
+        counts.put("redisFallbacks", serverMetrics.trustRedisFallback());
         counts.put("serverFailOpenCount", serverMetrics.failOpenCount());
         return counts;
     }
 
+    @SafeVarargs
     private static Map<String, Object> sumRedisCounts(Map<String, Object>... parts) {
         long redisFailures = 0L;
-        long fallbacks = 0L;
+        long redisSuccesses = 0L;
+        long redisFallbacks = 0L;
         long serverFailOpenCount = 0L;
         for (Map<String, Object> part : parts) {
             if (part == null) {
                 continue;
             }
+            redisSuccesses += number(part.get("redisSuccesses"));
             redisFailures += number(part.get("redisFailures"));
-            fallbacks += number(part.get("fallbacks"));
+            redisFallbacks += number(part.get("redisFallbacks"));
             serverFailOpenCount += number(part.get("serverFailOpenCount"));
         }
         Map<String, Object> counts = new LinkedHashMap<>();
+        counts.put("redisSuccesses", redisSuccesses);
         counts.put("redisFailures", redisFailures);
-        counts.put("fallbacks", fallbacks);
+        counts.put("redisFallbacks", redisFallbacks);
         counts.put("serverFailOpenCount", serverFailOpenCount);
         return counts;
     }

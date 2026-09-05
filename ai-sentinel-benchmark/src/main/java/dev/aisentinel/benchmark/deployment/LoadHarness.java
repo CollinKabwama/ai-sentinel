@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -66,11 +67,15 @@ final class LoadHarness {
         ExecutorService pool = Executors.newFixedThreadPool(concurrency);
         try {
             List<Future<RunResult>> futures = new ArrayList<>();
-            long start = System.nanoTime();
+            CountDownLatch ready = new CountDownLatch(concurrency);
+            CountDownLatch startGate = new CountDownLatch(1);
             for (int worker = 0; worker < concurrency; worker++) {
                 final int workerId = worker;
-                futures.add(pool.submit(task(workerId, attemptsPerThread, operation)));
+                futures.add(pool.submit(task(workerId, attemptsPerThread, operation, ready, startGate)));
             }
+            ready.await();
+            long start = System.nanoTime();
+            startGate.countDown();
             long attempts = 0L;
             long successes = 0L;
             long failures = 0L;
@@ -121,8 +126,11 @@ final class LoadHarness {
         }
     }
 
-    private static Callable<RunResult> task(int workerId, int attemptsPerThread, Operation operation) {
+    private static Callable<RunResult> task(int workerId, int attemptsPerThread, Operation operation,
+                                            CountDownLatch ready, CountDownLatch startGate) {
         return () -> {
+            ready.countDown();
+            startGate.await();
             long attempts = 0L;
             long successes = 0L;
             long failures = 0L;

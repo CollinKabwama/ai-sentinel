@@ -186,18 +186,20 @@ Java remote latency includes:
 
 - client serialization;
 - loopback HTTP transport;
-- request deserialization/validation at the remote evaluation endpoint;
+- request deserialization by the benchmark HTTP adapter;
+- `RemoteEvaluationController` contract handling;
 - local AI-Sentinel evaluation;
 - response serialization;
 - client deserialization.
 
 Redis-backed latency includes the same loopback remote boundary plus the trust baseline state interaction. When Redis is
-enabled locally, that includes client calls, local Docker-hosted Redis transport, Redis command execution, and any
-documented fail-open fallback.
+enabled locally, that includes client calls, local Docker-hosted Redis transport, Redis server-side update execution, and
+any documented fail-open fallback.
 
 These deployment benchmarks exclude:
 
 - WAN/internet latency;
+- full Spring Boot/Tomcat servlet dispatch;
 - production TLS termination if not configured locally;
 - load balancers/API gateways;
 - application business endpoint work;
