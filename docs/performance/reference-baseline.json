@@ -903,7 +903,10 @@
   ],
   "rawEvidence": {
     "sourceDirectory": "ai-sentinel-benchmark/results/reference-capture/",
-    "retention": "Raw JMH JSON and manifests are generated artifacts and are gitignored; this tracked summary preserves selected raw run metrics and SHA-256 hashes for auditability.",
+    "algorithm": "SHA-256",
+    "retention": "Raw capture artifacts are generated and gitignored; this tracked summary preserves selected raw run metrics plus SHA-256 hashes for capture notes, the selection analysis, and the stable per-run jmh.json/manifest.json copies used to audit the accepted reference baseline.",
+    "analysisFile": "ai-sentinel-benchmark/results/reference-capture/analysis.json",
+    "analysisSha256": "15ee32fe2a6447ce495463e4ccd3cd8e2bddd3b277ae975933cf5c740401cab1",
     "captureNotesSha256": "63969ce2cdfe1b72caa51a512bd2e6b0a2330eb53cbc9dbde42275db4ff276e2",
     "runArtifacts": [
       {

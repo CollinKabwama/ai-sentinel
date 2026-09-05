@@ -16,7 +16,7 @@ They are **NOT**:
 
 The benchmark captures relative engineering reference points that are intended to make future changes comparable against a known **0.3.0** baseline.
 
-Machine-readable summary: [`reference-baseline.json`](reference-baseline.json). It includes selected per-run raw metrics and SHA-256 hashes for the local raw capture artifacts so the selection can be audited without tracking the large generated JMH directory.
+Machine-readable summary: [`reference-baseline.json`](reference-baseline.json). It includes selected per-run raw metrics and SHA-256 hashes for the local raw capture artifacts used to audit the accepted baseline: `capture-notes.txt`, `analysis.json`, and the stable `run-0{1,2,3}/{jmh.json,manifest.json}` copies. The large generated raw capture directory remains gitignored.
 
 ## 2. Baseline identity
 
