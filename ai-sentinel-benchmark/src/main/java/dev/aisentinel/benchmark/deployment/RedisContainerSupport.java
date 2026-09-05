@@ -52,6 +52,10 @@ final class RedisContainerSupport implements AutoCloseable {
         return IMAGE;
     }
 
+    String containerId() {
+        return containerId;
+    }
+
     @Override
     public void close() throws IOException, InterruptedException {
         if (containerId != null) {
