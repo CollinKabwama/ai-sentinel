@@ -88,6 +88,7 @@ public final class ResourceBenchmarkMain {
                 concurrency,
                 config,
                 null,
+                null,
                 "Includes benchmark-host JVM pipeline execution only; excludes transport, Redis, and profiler overhead.",
                 "No latency baseline comparison or production capacity claim should be inferred.",
                 op));
@@ -120,6 +121,7 @@ public final class ResourceBenchmarkMain {
                     concurrency,
                     config,
                     null,
+                    null,
                     "Combined benchmark-client plus local evaluator in one JVM over loopback HTTP; excludes WAN/TLS/load balancers.",
                     "Client and server share one JVM in this benchmark harness.",
                     op));
@@ -151,6 +153,7 @@ public final class ResourceBenchmarkMain {
                     concurrency,
                     config,
                     null,
+                    localTrust.metrics(),
                     "Combined benchmark-client plus local evaluator with in-JVM trust baseline state; excludes Redis and WAN infrastructure.",
                     "Control scenario for Redis-backed comparison.",
                     (workerId, sequence) -> invokeRemote(client, trustRequestFor(workerId, sequence))));
@@ -180,6 +183,7 @@ public final class ResourceBenchmarkMain {
                         concurrency,
                         config,
                         redis.containerId(),
+                        server.metrics(),
                         "Combined benchmark-client plus local evaluator JVM plus Docker-hosted local Redis; excludes managed/cloud Redis and WAN infrastructure.",
                         "Redis container metrics are local Docker samples, not production Redis sizing guidance.",
                         (workerId, sequence) -> invokeRemote(client, trustRequestFor(workerId, sequence))));
@@ -196,81 +200,93 @@ public final class ResourceBenchmarkMain {
                                                            Integer concurrency,
                                                            ResourceBenchmarkConfig config,
                                                            String redisContainerId,
+                                                           BenchmarkSentinelMetrics scenarioMetrics,
                                                            String boundary,
                                                            String limitations,
                                                            ResourceLoadHarness.Operation operation) throws Exception {
         long heapBefore = ResourceSupport.heapUsedBytes();
         ResourceLoadHarness.warmup(concurrency, config.warmupDuration(), operation);
+        if (scenarioMetrics != null) {
+            scenarioMetrics.reset();
+        }
         long heapAfterWarmup = ResourceSupport.heapUsedBytes();
-        Long rssAfterWarmup = ResourceSupport.processRssBytes();
-        ResourceSupport.CpuSnapshot cpuStart = ResourceSupport.cpuSnapshot();
-        ResourceSupport.GcSnapshot gcStart = ResourceSupport.gcSnapshot();
         ResourceLoadHarness.RunResult run;
-        long peakHeap;
+        Long peakHeap;
         Long peakRss;
         Double redisCpu;
         Long redisMem;
         try (ResourceSampler sampler = new ResourceSampler(config.samplingInterval(), redisContainerId)) {
             sampler.start();
+            ResourceSupport.CpuSnapshot cpuStart = ResourceSupport.cpuSnapshot();
+            ResourceSupport.GcSnapshot gcStart = ResourceSupport.gcSnapshot();
             run = ResourceLoadHarness.measure(concurrency, config.measurementDuration(), operation);
+            ResourceSupport.CpuSnapshot cpuEnd = ResourceSupport.cpuSnapshot();
+            ResourceSupport.GcSnapshot gcEnd = ResourceSupport.gcSnapshot();
             peakHeap = sampler.peakHeapBytes();
             peakRss = sampler.peakRssBytes();
             redisCpu = sampler.averageRedisCpuPercent();
             redisMem = sampler.latestRedisMemoryBytes();
+            Long cpuDelta = delta(cpuStart.processCpuTimeNanos(), cpuEnd.processCpuTimeNanos());
+            Long gcCountDelta = delta(gcStart.collectionCount(), gcEnd.collectionCount());
+            Long gcTimeDelta = delta(gcStart.collectionTimeMillis(), gcEnd.collectionTimeMillis());
+            Long redisTrustSuccesses = scenarioMetrics == null ? null : scenarioMetrics.trustRedisSuccess();
+            Long redisTrustFailures = scenarioMetrics == null ? null : scenarioMetrics.trustRedisFailure();
+            Long redisTrustFallbacks = scenarioMetrics == null ? null : scenarioMetrics.trustRedisFallback();
+            if ("redis".equals(stateBackend) && (redisTrustSuccesses == null || redisTrustSuccesses == 0L)) {
+                throw new IllegalStateException("Redis-backed resource scenario did not record Redis trust baseline success");
+            }
+            long measuredWallNanos = run.measuredWallNanos();
+            long heapAfter = ResourceSupport.heapUsedBytes();
+            Long rssAfter = ResourceSupport.processRssBytes();
+            double throughput = run.attempts() == 0L
+                ? 0.0
+                : run.attempts() / (measuredWallNanos / 1_000_000_000.0);
+            return new ResourceBenchmarkResult(
+                ResourceBenchmarkVersions.SCHEMA_VERSION,
+                ResourceBenchmarkVersions.HARNESS_VERSION,
+                base.sentinelVersion(),
+                base.gitCommit(),
+                ResourceSupport.dirtyTree(),
+                Instant.now().toString(),
+                scenario,
+                deploymentMode,
+                stateBackend,
+                modelState,
+                concurrency,
+                config.warmupDuration().toMillis(),
+                config.measurementDuration().toMillis(),
+                run.attempts(),
+                run.successes(),
+                run.failures(),
+                throughput,
+                base.javaVersion(),
+                base.osName() + " " + base.osVersion(),
+                base.osArch(),
+                base.availableProcessors(),
+                heapBefore,
+                heapAfterWarmup,
+                peakHeap,
+                heapAfter,
+                ResourceSupport.heapCommittedBytes(),
+                ResourceSupport.heapMaxBytes(),
+                cpuDelta,
+                ResourceSupport.processCpuCoresEquivalent(cpuDelta, measuredWallNanos),
+                ResourceSupport.processCpuPercentOfMachine(cpuDelta, measuredWallNanos,
+                    base.availableProcessors() != null ? base.availableProcessors() : 0),
+                rssAfter,
+                peakRss,
+                gcCountDelta,
+                gcTimeDelta,
+                null,
+                null,
+                redisCpu,
+                redisMem,
+                redisTrustSuccesses,
+                redisTrustFailures,
+                redisTrustFallbacks,
+                boundary,
+                limitations);
         }
-        long measuredWallNanos = run.measuredWallNanos();
-        ResourceSupport.CpuSnapshot cpuEnd = ResourceSupport.cpuSnapshot();
-        ResourceSupport.GcSnapshot gcEnd = ResourceSupport.gcSnapshot();
-        long heapAfter = ResourceSupport.heapUsedBytes();
-        Long rssAfter = ResourceSupport.processRssBytes();
-        Long cpuDelta = delta(cpuStart.processCpuTimeNanos(), cpuEnd.processCpuTimeNanos());
-        long gcCountDelta = gcEnd.collectionCount() - gcStart.collectionCount();
-        long gcTimeDelta = gcEnd.collectionTimeMillis() - gcStart.collectionTimeMillis();
-        double throughput = run.attempts() == 0L
-            ? 0.0
-            : run.attempts() / (measuredWallNanos / 1_000_000_000.0);
-        return new ResourceBenchmarkResult(
-            ResourceBenchmarkVersions.SCHEMA_VERSION,
-            ResourceBenchmarkVersions.HARNESS_VERSION,
-            base.sentinelVersion(),
-            base.gitCommit(),
-            ResourceSupport.dirtyTree(),
-            Instant.now().toString(),
-            scenario,
-            deploymentMode,
-            stateBackend,
-            modelState,
-            concurrency,
-            config.warmupDuration().toMillis(),
-            config.measurementDuration().toMillis(),
-            run.attempts(),
-            run.successes(),
-            run.failures(),
-            throughput,
-            base.javaVersion(),
-            base.osName() + " " + base.osVersion(),
-            base.osArch(),
-            base.availableProcessors(),
-            heapBefore,
-            heapAfterWarmup,
-            Math.max(peakHeap, heapAfterWarmup),
-            heapAfter,
-            ResourceSupport.heapCommittedBytes(),
-            ResourceSupport.heapMaxBytes(),
-            cpuDelta,
-            ResourceSupport.processCpuCoresEquivalent(cpuDelta, measuredWallNanos),
-            ResourceSupport.processCpuPercentOfMachine(cpuDelta, measuredWallNanos,
-                base.availableProcessors() != null ? base.availableProcessors() : 0),
-            rssAfter,
-            peakRss != null ? peakRss : rssAfterWarmup,
-            gcCountDelta,
-            gcTimeDelta,
-            null,
-            null,
-            redisCpu,
-            redisMem,
-            boundary,
-            limitations);
     }
 
     private static boolean invokeRemote(RemoteEvaluationClient client, EvaluationRequest request) {
@@ -317,6 +333,9 @@ public final class ResourceBenchmarkMain {
 
     private static Long delta(Long start, Long end) {
         if (start == null || end == null) {
+            return null;
+        }
+        if (end < start) {
             return null;
         }
         return end - start;

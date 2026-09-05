@@ -4,11 +4,13 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 final class ResourceLoadHarness {
 
@@ -44,12 +46,17 @@ final class ResourceLoadHarness {
         AtomicBoolean stop = new AtomicBoolean(false);
         try {
             List<Future<long[]>> futures = new ArrayList<>();
-            long deadline = System.nanoTime() + duration.toNanos();
-            long start = System.nanoTime();
+            CountDownLatch ready = new CountDownLatch(concurrency);
+            CountDownLatch startGate = new CountDownLatch(1);
+            AtomicLong deadlineNanos = new AtomicLong();
             for (int worker = 0; worker < concurrency; worker++) {
                 int workerId = worker;
-                futures.add(pool.submit(task(workerId, deadline, stop, operation)));
+                futures.add(pool.submit(task(workerId, deadlineNanos, ready, startGate, stop, operation)));
             }
+            ready.await();
+            long start = System.nanoTime();
+            deadlineNanos.set(start + duration.toNanos());
+            startGate.countDown();
             long attempts = 0L;
             long successes = 0L;
             long failures = 0L;
@@ -73,15 +80,19 @@ final class ResourceLoadHarness {
     }
 
     private static Callable<long[]> task(int workerId,
-                                         long deadlineNanos,
+                                         AtomicLong deadlineNanos,
+                                         CountDownLatch ready,
+                                         CountDownLatch startGate,
                                          AtomicBoolean stop,
                                          Operation operation) {
         return () -> {
+            ready.countDown();
+            startGate.await();
             long sequence = 0L;
             long attempts = 0L;
             long successes = 0L;
             long failures = 0L;
-            while (!stop.get() && System.nanoTime() < deadlineNanos) {
+            while (!stop.get() && System.nanoTime() < deadlineNanos.get()) {
                 boolean success = operation.invoke(workerId, sequence++);
                 attempts++;
                 if (success) {

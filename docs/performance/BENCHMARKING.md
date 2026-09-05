@@ -275,6 +275,10 @@ scenarios. It does not claim standalone server-only CPU or memory usage.
 
 Peak heap is based on observed samples during the measured window. Process RSS and Redis container metrics remain
 best-effort platform/local-runtime observations rather than portable capacity claims.
+`redisContainerCpuPercent` is the average of successful `docker stats --no-stream` samples collected during the measured
+window. `redisContainerMemoryBytes` is the latest successful container memory sample, not a peak or average.
+Redis-backed resource rows also include measured-window `redisTrustSuccesses`, `redisTrustFailures`, and
+`redisTrustFallbacks` counters so a local fallback path cannot be mistaken for successful Redis-backed measurement.
 
 ### Measurement boundaries and interpretation
 

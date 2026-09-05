@@ -37,7 +37,7 @@ evidence, maximum risk, or detection effectiveness.
 - JVM heap snapshots plus sampled peak heap during the measured window
 - Best-effort process RSS snapshots on supported hosts
 - GC count/time deltas over the measured window
-- Local Docker Redis CPU and memory samples for Redis-backed scenarios
+- Local Docker Redis average CPU and latest memory samples for Redis-backed scenarios
 - Separate opt-in JMH GC-profiler pass for allocation and GC-allocation evidence
 
 Resource results are a third benchmark family. They do **not** replace the official latency baseline, and profiler-backed

@@ -39,6 +39,9 @@ record ResourceBenchmarkResult(
     Long approximateModelLoadHeapDeltaBytes,
     Double redisContainerCpuPercent,
     Long redisContainerMemoryBytes,
+    Long redisTrustSuccesses,
+    Long redisTrustFailures,
+    Long redisTrustFallbacks,
     String measurementBoundary,
     String limitations
 ) {

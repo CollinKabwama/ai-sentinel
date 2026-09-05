@@ -12,8 +12,11 @@ final class ResourceSampler implements AutoCloseable {
     private final AtomicLong peakHeapBytes = new AtomicLong();
     private final AtomicLong peakRssBytes = new AtomicLong(-1L);
     private final AtomicLong latestRedisMemoryBytes = new AtomicLong(-1L);
+    private final AtomicLong sampleCount = new AtomicLong();
     private final AtomicLong redisSampleCount = new AtomicLong();
+    private final AtomicLong redisCpuSampleCount = new AtomicLong();
     private final AtomicLong redisCpuSamplesScaled = new AtomicLong();
+    private final AtomicLong sampleFailures = new AtomicLong();
     private Thread thread;
 
     ResourceSampler(Duration interval, String redisContainerId) {
@@ -27,19 +30,7 @@ final class ResourceSampler implements AutoCloseable {
         }
         thread = Thread.ofVirtual().name("resource-sampler").start(() -> {
             while (running.get()) {
-                peakHeapBytes.accumulateAndGet(ResourceSupport.heapUsedBytes(), Math::max);
-                Long rss = ResourceSupport.processRssBytes();
-                if (rss != null) {
-                    peakRssBytes.accumulateAndGet(rss, Math::max);
-                }
-                if (redisContainerId != null) {
-                    ResourceSupport.DockerStats stats = ResourceSupport.dockerStats(redisContainerId);
-                    if (stats != null) {
-                        latestRedisMemoryBytes.set(stats.memoryBytes());
-                        redisCpuSamplesScaled.addAndGet(Math.round(stats.cpuPercent() * 1000.0));
-                        redisSampleCount.incrementAndGet();
-                    }
-                }
+                sampleOnce();
                 try {
                     Thread.sleep(interval);
                 } catch (InterruptedException e) {
@@ -50,8 +41,8 @@ final class ResourceSampler implements AutoCloseable {
         });
     }
 
-    long peakHeapBytes() {
-        return peakHeapBytes.get();
+    Long peakHeapBytes() {
+        return sampleCount.get() == 0L ? null : peakHeapBytes.get();
     }
 
     Long peakRssBytes() {
@@ -60,7 +51,7 @@ final class ResourceSampler implements AutoCloseable {
     }
 
     Double averageRedisCpuPercent() {
-        long samples = redisSampleCount.get();
+        long samples = redisCpuSampleCount.get();
         if (samples == 0L) {
             return null;
         }
@@ -72,15 +63,56 @@ final class ResourceSampler implements AutoCloseable {
         return value < 0 ? null : value;
     }
 
+    long sampleCount() {
+        return sampleCount.get();
+    }
+
+    long redisSampleCount() {
+        return redisSampleCount.get();
+    }
+
+    long sampleFailures() {
+        return sampleFailures.get();
+    }
+
     @Override
     public void close() {
         running.set(false);
         if (thread != null) {
             try {
                 thread.join(1000L);
+                if (thread.isAlive()) {
+                    thread.interrupt();
+                }
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
+        }
+    }
+
+    private void sampleOnce() {
+        try {
+            peakHeapBytes.accumulateAndGet(ResourceSupport.heapUsedBytes(), Math::max);
+            sampleCount.incrementAndGet();
+            Long rss = ResourceSupport.processRssBytes();
+            if (rss != null) {
+                peakRssBytes.accumulateAndGet(rss, Math::max);
+            }
+            if (redisContainerId != null) {
+                ResourceSupport.DockerStats stats = ResourceSupport.dockerStats(redisContainerId);
+                if (stats != null) {
+                    if (stats.memoryBytes() != null) {
+                        latestRedisMemoryBytes.set(stats.memoryBytes());
+                    }
+                    if (stats.cpuPercent() != null) {
+                        redisCpuSamplesScaled.addAndGet(Math.round(stats.cpuPercent() * 1000.0));
+                        redisCpuSampleCount.incrementAndGet();
+                    }
+                    redisSampleCount.incrementAndGet();
+                }
+            }
+        } catch (RuntimeException ignored) {
+            sampleFailures.incrementAndGet();
         }
     }
 }

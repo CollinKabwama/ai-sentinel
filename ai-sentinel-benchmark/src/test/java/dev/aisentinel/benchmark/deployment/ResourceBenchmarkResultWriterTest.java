@@ -56,6 +56,9 @@ class ResourceBenchmarkResultWriterTest {
             null,
             null,
             null,
+            null,
+            null,
+            null,
             "boundary",
             "limitations");
 

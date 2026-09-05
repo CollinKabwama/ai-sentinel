@@ -44,17 +44,21 @@ final class ResourceSupport {
     static GcSnapshot gcSnapshot() {
         long count = 0L;
         long time = 0L;
+        boolean countSupported = false;
+        boolean timeSupported = false;
         for (GarbageCollectorMXBean bean : ManagementFactory.getGarbageCollectorMXBeans()) {
             long c = bean.getCollectionCount();
             long t = bean.getCollectionTime();
             if (c >= 0) {
                 count += c;
+                countSupported = true;
             }
             if (t >= 0) {
                 time += t;
+                timeSupported = true;
             }
         }
-        return new GcSnapshot(count, time);
+        return new GcSnapshot(countSupported ? count : null, timeSupported ? time : null);
     }
 
     static Long processRssBytes() {
@@ -92,20 +96,20 @@ final class ResourceSupport {
     }
 
     static Double processCpuCoresEquivalent(Long cpuDeltaNanos, long wallDeltaNanos) {
-        if (cpuDeltaNanos == null || wallDeltaNanos <= 0L) {
+        if (cpuDeltaNanos == null || cpuDeltaNanos < 0L || wallDeltaNanos <= 0L) {
             return null;
         }
         return cpuDeltaNanos / (double) wallDeltaNanos;
     }
 
     static Double processCpuPercentOfMachine(Long cpuDeltaNanos, long wallDeltaNanos, int logicalProcessors) {
-        if (cpuDeltaNanos == null || wallDeltaNanos <= 0L || logicalProcessors <= 0) {
+        if (cpuDeltaNanos == null || cpuDeltaNanos < 0L || wallDeltaNanos <= 0L || logicalProcessors <= 0) {
             return null;
         }
         return (cpuDeltaNanos / (double) wallDeltaNanos) / logicalProcessors * 100.0;
     }
 
-    private static Double parsePercent(String raw) {
+    static Double parsePercent(String raw) {
         if (raw == null) {
             return null;
         }
@@ -120,7 +124,7 @@ final class ResourceSupport {
         }
     }
 
-    private static Long parseMemoryUsage(String raw) {
+    static Long parseMemoryUsage(String raw) {
         if (raw == null || raw.isBlank()) {
             return null;
         }
@@ -133,14 +137,25 @@ final class ResourceSupport {
         if (numeric.isEmpty() || unit.isEmpty()) {
             return null;
         }
-        double value = Double.parseDouble(numeric);
+        double value;
+        try {
+            value = Double.parseDouble(numeric);
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
         long multiplier = switch (unit) {
             case "B" -> 1L;
-            case "KiB", "kB" -> 1024L;
-            case "MiB", "MB" -> 1024L * 1024L;
-            case "GiB", "GB" -> 1024L * 1024L * 1024L;
-            default -> 1L;
+            case "kB" -> 1_000L;
+            case "MB" -> 1_000_000L;
+            case "GB" -> 1_000_000_000L;
+            case "KiB" -> 1024L;
+            case "MiB" -> 1024L * 1024L;
+            case "GiB" -> 1024L * 1024L * 1024L;
+            default -> 0L;
         };
+        if (multiplier == 0L) {
+            return null;
+        }
         return Math.round(value * multiplier);
     }
 
@@ -164,7 +179,7 @@ final class ResourceSupport {
     record CpuSnapshot(Long processCpuTimeNanos, int logicalProcessors) {
     }
 
-    record GcSnapshot(long collectionCount, long collectionTimeMillis) {
+    record GcSnapshot(Long collectionCount, Long collectionTimeMillis) {
     }
 
     record DockerStats(Double cpuPercent, Long memoryBytes) {

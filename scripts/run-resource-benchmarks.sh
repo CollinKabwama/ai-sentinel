@@ -16,7 +16,7 @@ shift || true
 
 RESULTS_DIR="${AISENTINEL_BENCHMARK_RESULTS_DIR:-${ROOT}/ai-sentinel-benchmark/results}"
 
-if [[ "$MODE" == "redis" || "$MODE" == "full" ]]; then
+if [[ "$MODE" == "smoke" || "$MODE" == "redis" || "$MODE" == "full" ]]; then
   docker info >/dev/null
 fi
 
