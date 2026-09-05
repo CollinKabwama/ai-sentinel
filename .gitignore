@@ -6,6 +6,8 @@ docs/*
 !docs/migration.md
 !docs/testing.md
 !docs/README.md
+!docs/performance/
+!docs/performance/**
 
 # Local independent-review / agent assessment artifacts
 review/
@@ -36,6 +38,9 @@ pom.xml.releaseBackup
 pom.xml.versionsBackup
 .release
 dependency-reduced-pom.xml
+
+# Benchmark generated results (definitions stay tracked)
+ai-sentinel-benchmark/results/
 
 # IDE
 .idea/

@@ -46,6 +46,7 @@
         <module>ai-sentinel-spring-boot-starter</module>
         <module>ai-sentinel-trainer</module>
         <module>ai-sentinel-demo</module>
+        <module>ai-sentinel-benchmark</module>
     </modules>
 
     <properties>
@@ -156,10 +157,11 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
-                            <!-- Demo and trainer are not Maven Central libraries. -->
+                            <!-- Demo, trainer, and benchmarks are not Maven Central libraries. -->
                             <excludeArtifacts>
                                 <excludeArtifact>ai-sentinel-demo</excludeArtifact>
                                 <excludeArtifact>ai-sentinel-trainer</excludeArtifact>
+                                <excludeArtifact>ai-sentinel-benchmark</excludeArtifact>
                             </excludeArtifacts>
                         </configuration>
                     </plugin>

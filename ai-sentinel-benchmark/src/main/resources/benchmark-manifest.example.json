@@ -1,0 +1,27 @@
+{
+  "benchmarkSuiteVersion": "1",
+  "suiteName": "ai-sentinel-benchmark-foundation",
+  "sentinelVersion": "0.3.0",
+  "commit": "<git-sha-or-null>",
+  "capturedAtUtc": "<iso-8601>",
+  "featureSchemaVersion": "1",
+  "deploymentMode": "in-process",
+  "stateBackend": "local-memory",
+  "environment": {
+    "javaVersion": "<string>",
+    "javaVendor": "<string-or-null>",
+    "javaVmName": "<string-or-null>",
+    "os": "<string-or-null>",
+    "osVersion": "<string-or-null>",
+    "architecture": "<string-or-null>",
+    "processors": 0,
+    "maxHeapBytes": 0,
+    "totalMemoryBytes": 0,
+    "jvmInputArguments": "<string-or-null>"
+  },
+  "run": {
+    "jmhArgs": "<string>",
+    "jmhResultFile": "<path>"
+  },
+  "disclaimer": "Synthetic host-local measurements. Not a production SLA, partner guarantee, or detection-quality claim."
+}
