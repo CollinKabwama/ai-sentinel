@@ -26,11 +26,12 @@ Do not publish marketing claims from these runs without a separately scoped meas
 
 | Path | Role |
 |------|------|
-| [`ai-sentinel-benchmark/`](../../ai-sentinel-benchmark/) | Opt-in JMH module + support fixtures/metadata |
+| [`ai-sentinel-benchmark/`](../../ai-sentinel-benchmark/) | Opt-in JMH module + deployment benchmark harness + support fixtures/metadata |
 | [`scripts/run-benchmarks.sh`](../../scripts/run-benchmarks.sh) | Convenience runner |
+| [`scripts/run-deployment-benchmarks.sh`](../../scripts/run-deployment-benchmarks.sh) | Deployment/degradation benchmark runner |
 | `ai-sentinel-benchmark/results/` | Generated manifests + JMH JSON (gitignored) |
 
-Benchmark-only code stays outside production runtime modules. The module depends on **`ai-sentinel-core`** only.
+Benchmark-only code stays outside production runtime modules.
 
 ## Measurement technology
 
@@ -138,21 +139,114 @@ java -jar ai-sentinel-benchmark/target/benchmarks.jar [jmh-args...]
 
 Prefer JMH’s statistics over a hand-rolled percentile engine.
 
+## Deployment and degradation benchmarks
+
+These measurements are a separate result family from the in-process JMH reference baseline. They exist to measure
+deployment cost and fail-open/degradation behavior, not detection effectiveness.
+
+### Tooling split
+
+- **JMH** remains the benchmark tool for in-process scorer/engine/feature/pipeline/cardinality measurements.
+- **Deployment harness** measures Java remote HTTP, Redis-backed state, and degradation/recovery scenarios where JMH
+  would be a poor fit.
+
+Do not compare JMH nanoseconds-per-operation directly with loopback deployment latency as if they were identical
+measurement boundaries.
+
+### Deployment modes
+
+```bash
+./scripts/run-deployment-benchmarks.sh smoke
+./scripts/run-deployment-benchmarks.sh remote
+./scripts/run-deployment-benchmarks.sh redis
+./scripts/run-deployment-benchmarks.sh degradation
+./scripts/run-deployment-benchmarks.sh full
+```
+
+`smoke` is a quick sanity run only. `full` is opt-in. Neither replaces the official in-process reference baseline.
+
+### Current deployment scenarios
+
+- `JAVA_REMOTE_NORMAL`
+- `REMOTE_UNAVAILABLE`
+- `REMOTE_SLOW_OR_TIMEOUT`
+- `REMOTE_MALFORMED_RESPONSE`
+- `REMOTE_RECOVERY`
+- `TRUST_LOCAL_MEMORY_REFERENCE`
+- `REDIS_NORMAL`
+- `REDIS_UNAVAILABLE`
+- `REDIS_INTERRUPTED`
+- `REDIS_RECOVERY`
+
+`.NET -> Java` benchmarking remains optional and environment-dependent.
+
+### Measurement boundaries
+
+Java remote latency includes:
+
+- client serialization;
+- loopback HTTP transport;
+- request deserialization by the benchmark HTTP adapter;
+- `RemoteEvaluationController` contract handling;
+- local AI-Sentinel evaluation;
+- response serialization;
+- client deserialization.
+
+Redis-backed latency includes the same loopback remote boundary plus the trust baseline state interaction. When Redis is
+enabled locally, that includes client calls, local Docker-hosted Redis transport, Redis server-side update execution, and
+any documented fail-open fallback.
+
+These deployment benchmarks exclude:
+
+- WAN/internet latency;
+- full Spring Boot/Tomcat servlet dispatch;
+- production TLS termination if not configured locally;
+- load balancers/API gateways;
+- application business endpoint work;
+- production telemetry/export pipelines;
+- real cloud Redis networking and topology.
+
+### Result semantics
+
+Deployment results are written as JSON under:
+
+- `ai-sentinel-benchmark/results/deployment/<timestamp>/deployment-*.json`
+
+Each result records scenario, deployment mode, state backend, concurrency, warmup, measured attempts, success/failure
+counters, latency percentiles, throughput, timeout budget, environment metadata, and benchmark notes.
+
+Successful latency percentiles are computed from post-warmup per-request successful observations only. Failed operations
+are summarized separately and are never mixed into successful latency percentiles.
+
+### Prerequisites and interpretation
+
+- JDK 21 is required.
+- Docker must be available for the Redis-backed deployment scenarios.
+- Raw generated deployment results remain gitignored.
+
+Benchmark result != production SLA.
+
+Performance != detection effectiveness.
+
+Infrastructure failure != attack.
+
+Local loopback/container performance != production infrastructure performance.
+
 ## Normal CI / verify behavior
 
 `mvn test` and `mvn clean verify` compile the benchmark module and run **support-code unit tests only**.
 
-They do **not** execute the JMH suite. There are **no** host-dependent performance gates in CI yet.
+They do **not** execute the JMH suite or the deployment benchmark runs. There are **no** host-dependent performance
+gates in CI yet.
 
-## Extension points (explicitly out of this foundation)
+## Extension points
 
-Documented for the next benchmark extension:
+Still out of scope for the current benchmark suite:
 
-- Java remote evaluation;
-- .NET → Java remote evaluation;
-- Redis-backed paths;
-- slow/unavailable dependency degradation;
-- multi-instance behavior.
+- multi-instance distributed behavior under real cluster topology;
+- automated regression thresholds/gates;
+- resource/CPU/memory/GC profiling;
+- broader `.NET -> Java` deployment benchmarking when the runtime is unavailable.
 
 ## Related
 
