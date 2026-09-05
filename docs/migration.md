@@ -2,6 +2,8 @@
 
 This guide covers upgrading from the published **0.2.0** line, or unreleased **0.2.1** development trees, to **0.3.0**. Notes for **0.1.0 → 0.2.0** remain below for operators still on the earlier line.
 
+**0.3.0 is published** to Maven Central (tag [`v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)). Prefer the Central coordinate below over a local install unless you are developing against this repository.
+
 **Recommended first deployment mode remains `MONITOR`.** From **0.3.0**, `MONITOR` is also the **library default**. Do not enable `ENFORCE` based on
 synthetic suites alone — see [`deployment.md`](deployment.md).
 
@@ -18,6 +20,8 @@ For the full user-facing change list, see the root [`CHANGELOG.md`](../CHANGELOG
   <version>0.3.0</version>
 </dependency>
 ```
+
+Maven Central: [`dev.aisentinel:ai-sentinel-spring-boot-starter:0.3.0`](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.3.0).
 
 ---
 
