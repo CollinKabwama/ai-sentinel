@@ -2,6 +2,9 @@ package dev.aisentinel.benchmark;
 
 import org.openjdk.jmh.Main;
 
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -74,6 +77,10 @@ public final class BenchmarkLauncher {
         Map<String, String> extras = new LinkedHashMap<>();
         extras.put("jmhArgs", String.join(" ", jmhArgs));
         extras.put("jmhResultFile", jmhJsonPath.toString());
+        Boolean dirtyTree = dirtyTree();
+        if (dirtyTree != null) {
+            extras.put("dirtyTree", dirtyTree.toString());
+        }
         BenchmarkManifestWriter.write(manifestPath, metadata, extras);
 
         System.out.println("Wrote benchmark manifest: " + manifestPath.toAbsolutePath());
@@ -82,5 +89,27 @@ public final class BenchmarkLauncher {
             "NOTE: Results are synthetic host-local measurements — not production SLAs or detection claims.");
 
         Main.main(jmhArgs.toArray(String[]::new));
+    }
+
+    private static Boolean dirtyTree() {
+        String output = commandOutput(List.of("git", "status", "--porcelain"));
+        return output == null ? null : !output.isBlank();
+    }
+
+    private static String commandOutput(List<String> command) {
+        try {
+            Process process = new ProcessBuilder(command)
+                .redirectErrorStream(true)
+                .start();
+            String output;
+            try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
+                output = reader.lines().reduce("", (a, b) -> a + (a.isEmpty() ? "" : "\n") + b).trim();
+            }
+            int exit = process.waitFor();
+            return exit == 0 ? output : null;
+        } catch (Exception ignored) {
+            return null;
+        }
     }
 }

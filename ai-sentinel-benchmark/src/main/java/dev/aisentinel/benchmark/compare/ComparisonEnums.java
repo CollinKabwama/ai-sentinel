@@ -1,0 +1,35 @@
+package dev.aisentinel.benchmark.compare;
+
+enum ComparabilityStatus {
+    STRICT_COMPARABLE,
+    INFORMATIONAL_ONLY,
+    NOT_COMPARABLE
+}
+
+enum ComparisonClassification {
+    PASS,
+    WARN,
+    REGRESSION,
+    IMPROVEMENT,
+    NOT_COMPARABLE
+}
+
+enum MetricDirection {
+    LOWER_IS_BETTER,
+    HIGHER_IS_BETTER
+}
+
+enum ComparisonReason {
+    MISSING_BASELINE,
+    MISSING_CANDIDATE,
+    POLICY_MISSING,
+    SCHEMA_VERSION_MISMATCH,
+    PROFILE_MISMATCH,
+    ENVIRONMENT_MISMATCH,
+    DIRTY_CANDIDATE,
+    UNIT_MISMATCH,
+    VALUE_MISSING,
+    INVALID_VALUE,
+    ZERO_BASELINE,
+    MEASUREMENT_METHOD_MISMATCH
+}

@@ -299,6 +299,82 @@ Generated resource outputs are written under:
 
 These raw generated outputs remain gitignored unless a separate stable summary artifact is intentionally tracked.
 
+## Benchmark comparison tooling
+
+Comparison answers two distinct questions:
+
+1. Can two benchmark results legitimately be compared?
+2. If they are comparable, is the delta meaningful under tracked policy?
+
+`NOT_COMPARABLE` is not a regression. Missing metrics are not zero. Passing a comparison does not update the baseline.
+
+### Supported families
+
+- JMH reference comparison: accepted `reference-baseline.json` vs a raw candidate JMH run normalized through the sidecar manifest
+- Deployment comparison: deployment benchmark JSON vs compatible deployment benchmark JSON
+- Resource comparison: resource benchmark JSON vs compatible resource benchmark JSON
+
+### Commands
+
+```bash
+./scripts/compare-benchmarks.sh \
+  --family jmh \
+  --baseline docs/performance/reference-baseline.json \
+  --candidate ai-sentinel-benchmark/results/jmh-<stamp>.json
+
+./scripts/compare-benchmarks.sh \
+  --family deployment \
+  --baseline ai-sentinel-benchmark/results/deployment/<a>/deployment-full.json \
+  --candidate ai-sentinel-benchmark/results/deployment/<b>/deployment-full.json
+
+./scripts/compare-benchmarks.sh \
+  --family resources \
+  --baseline ai-sentinel-benchmark/results/resources/<a>/resource-full.json \
+  --candidate ai-sentinel-benchmark/results/resources/<b>/resource-full.json
+
+./scripts/run-benchmark-regression.sh
+```
+
+Comparison reports are written under `ai-sentinel-benchmark/results/comparisons/` unless an explicit output path is
+provided.
+
+### Comparability rules
+
+- JMH reference comparisons require the `reference` profile, matching benchmark identity, matching metric identity, and
+  compatible environment metadata from the sidecar manifest.
+- Deployment/resource comparisons require matching scenario identity, metric identity, concurrency, and profile.
+- Different workload, state backend, deployment mode, or profile is not comparable.
+- Environment mismatch or `dirtyTree=true` candidate evidence is reported as informational-only rather than
+  gate-authoritative.
+- Generic GitHub-hosted runners should not be compared against the developer-host reference baseline as a CI
+  performance gate.
+
+### Policy and gating
+
+Tracked policy lives in `ai-sentinel-benchmark/src/main/resources/benchmark-comparison-policy.json`.
+
+- Direction is explicit: `LOWER_IS_BETTER` or `HIGHER_IS_BETTER`.
+- Thresholds are inclusive.
+- Gate-eligible metrics are conservative and currently focus on stable JMH reference metrics.
+- Deployment and resource comparisons are supported, but their current classifications are informational by default.
+
+Timer-floor note: Isolation Forest fallback uses `mean`, not `p50`, for authoritative JMH comparison because
+SampleTime percentiles hit timer resolution limits.
+
+### Exit codes
+
+- `0`: comparison completed with no gate-eligible regressions
+- `1`: at least one gate-eligible regression
+- `2`: invalid input, malformed policy, parse failure, or comparison execution error
+
+Warnings and informational-only regressions do not fail by default.
+
+### CI strategy
+
+Normal CI should validate comparator correctness, fixtures, and CLI behavior. Machine-sensitive performance regression
+gating should run only on a controlled compatible host. Benchmark comparison tooling must never silently rewrite
+`reference-baseline.json`.
+
 ## Normal CI / verify behavior
 
 `mvn test` and `mvn clean verify` compile the benchmark module and run **support-code unit tests only**.

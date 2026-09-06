@@ -1,0 +1,28 @@
+[
+  {
+    "benchmark": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score",
+    "params": {
+      "scorerKind": "statistical"
+    },
+    "threads": 1,
+    "primaryMetric": {
+      "score": 120.0,
+      "scoreUnit": "ns/op",
+      "scorePercentiles": {
+        "50.0": 111.0,
+        "95.0": 140.0,
+        "99.0": 160.0
+      }
+    }
+  },
+  {
+    "benchmark": "dev.aisentinel.benchmark.jmh.PipelineBenchmark.processThroughputOneThread",
+    "params": {},
+    "threads": 1,
+    "primaryMetric": {
+      "score": 850.0,
+      "scoreUnit": "ops/s",
+      "scorePercentiles": {}
+    }
+  }
+]

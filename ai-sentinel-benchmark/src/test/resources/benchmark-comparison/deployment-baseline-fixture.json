@@ -1,0 +1,28 @@
+{
+  "resultSchemaVersion": "1",
+  "harnessVersion": "1",
+  "suiteName": "ai-sentinel-deployment-benchmark",
+  "summary": {
+    "mode": "full"
+  },
+  "results": [
+    {
+      "gitCommit": "baseline-deploy",
+      "scenario": "JAVA_REMOTE_NORMAL",
+      "deploymentMode": "remote-http-loopback",
+      "stateBackend": "local-memory",
+      "scorer": "statistical",
+      "featureSchemaVersion": "1",
+      "javaVersion": "21.0.10",
+      "os": "Mac OS X",
+      "architecture": "aarch64",
+      "concurrency": 1,
+      "successLatency": {
+        "unit": "milliseconds",
+        "p50": 1.0,
+        "p95": 2.0
+      },
+      "throughputRequestsPerSecond": 100.0
+    }
+  ]
+}

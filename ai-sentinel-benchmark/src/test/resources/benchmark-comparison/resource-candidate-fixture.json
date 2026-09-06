@@ -1,0 +1,28 @@
+{
+  "schemaVersion": "1",
+  "harnessVersion": "1",
+  "summary": {
+    "mode": "full"
+  },
+  "results": [
+    {
+      "gitCommit": "candidate-resource",
+      "dirtyTree": false,
+      "scenario": "RESOURCE_IN_PROCESS",
+      "deploymentMode": "in-process",
+      "stateBackend": "local-memory",
+      "modelState": "statistical",
+      "concurrency": 1,
+      "javaVersion": "21.0.10",
+      "os": "Mac OS X",
+      "architecture": "aarch64",
+      "logicalProcessors": 10,
+      "heapMaxBytes": 6442450944,
+      "throughputRequestsPerSecond": 980.0,
+      "processCpuCoresEquivalent": 1.3,
+      "heapPeakMeasuredBytes": 1400000,
+      "gcCountDelta": 12,
+      "redisContainerCpuPercent": null
+    }
+  ]
+}
