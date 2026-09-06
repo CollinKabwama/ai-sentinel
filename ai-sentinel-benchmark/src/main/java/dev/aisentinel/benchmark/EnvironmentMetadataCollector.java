@@ -39,7 +39,7 @@ public final class EnvironmentMetadataCollector {
             .maxHeapBytes(rt.maxMemory())
             .totalMemoryBytes(rt.totalMemory())
             .jvmInputArguments(inputArgs.isEmpty() ? null : String.join(" ", inputArgs))
-            .featureSchemaVersion(Integer.toString(FeatureSchema.VERSION))
+            .featureSchemaVersion(FeatureSchema.VERSION_ID)
             .deploymentMode("in-process")
             .stateBackend("local-memory")
             .build();

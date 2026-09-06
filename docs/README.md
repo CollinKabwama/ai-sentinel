@@ -6,6 +6,7 @@
 | `deployment.md` | Tracked deployment modes, adoption, and failure-mode profile |
 | `migration.md` | Tracked upgrade guide (0.2.x → 0.3.0) |
 | `testing.md` | Tracked characterization and release-gate testing |
+| [`contracts/`](contracts/FEATURE_SCHEMA.md) | Versioned feature-schema and evaluation-event contract documentation |
 | [`performance/`](performance/BENCHMARKING.md) | Tracked JMH benchmark foundation + [0.3.0 reference baseline](performance/REFERENCE_BASELINE.md) (not an SLA) |
 | [`../dotnet/README.md`](../dotnet/README.md) | ASP.NET Core reference adapter (remote client; not gitignored) |
 | `planning/` | Local engineering notes (gitignored) |
