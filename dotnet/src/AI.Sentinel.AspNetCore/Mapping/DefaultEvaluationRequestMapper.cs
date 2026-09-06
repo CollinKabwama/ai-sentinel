@@ -8,16 +8,22 @@ namespace AI.Sentinel.AspNetCore.Mapping;
 /// <summary>Maps ASP.NET request context into the frozen EvaluationRequest contract.</summary>
 public sealed class DefaultEvaluationRequestMapper : IEvaluationRequestMapper
 {
+    internal const string AuthorizationPresentSentinel = "present";
+    internal const string ParameterPresentSentinel = "present";
+
     private static readonly HashSet<string> IncludedHeaders = new(StringComparer.OrdinalIgnoreCase)
     {
         "accept",
         "accept-language",
+        "authorization",
+        "content-length",
         "content-type",
         "traceparent",
         "tracestate",
         "user-agent",
         "x-correlation-id",
-        "x-request-id"
+        "x-request-id",
+        "x-token-issued-at"
     };
 
     private readonly AiSentinelOptions _options;
@@ -75,7 +81,9 @@ public sealed class DefaultEvaluationRequestMapper : IEvaluationRequestMapper
                     continue;
                 }
 
-                var value = header.Value.ToString();
+                var value = string.Equals(normalized, "authorization", StringComparison.OrdinalIgnoreCase)
+                    ? AuthorizationPresentSentinel
+                    : header.Value.ToString();
                 if (value.Length > EvaluationContractConstants.MaxStringLength)
                 {
                     value = value[..EvaluationContractConstants.MaxStringLength];
@@ -85,6 +93,7 @@ public sealed class DefaultEvaluationRequestMapper : IEvaluationRequestMapper
             }
         }
 
+        var parameterIndex = 0;
         foreach (var query in request.Query)
         {
             if (evaluationRequest.Parameters.Count >= EvaluationContractConstants.MaxParameters)
@@ -97,13 +106,7 @@ public sealed class DefaultEvaluationRequestMapper : IEvaluationRequestMapper
                 continue;
             }
 
-            var first = query.Value.FirstOrDefault() ?? string.Empty;
-            if (first.Length > EvaluationContractConstants.MaxStringLength)
-            {
-                first = first[..EvaluationContractConstants.MaxStringLength];
-            }
-
-            evaluationRequest.Parameters[query.Key] = first;
+            evaluationRequest.Parameters["p" + parameterIndex++] = ParameterPresentSentinel;
         }
 
         var activity = Activity.Current;
