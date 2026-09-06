@@ -6,6 +6,8 @@ docs/*
 !docs/migration.md
 !docs/testing.md
 !docs/README.md
+!docs/contracts/
+!docs/contracts/**
 !docs/performance/
 !docs/performance/**
 
