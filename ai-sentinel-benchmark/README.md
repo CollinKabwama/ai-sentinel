@@ -30,6 +30,19 @@ integration measurements, not production request latency and not full Spring Boo
 Infrastructure failure is benchmarked as fail-open/degraded behavior only. It must **not** be interpreted as attack
 evidence, maximum risk, or detection effectiveness.
 
+### Resource measurements
+
+- Sustained resource runs for in-process, loopback remote, local-memory trust control, and Redis-backed evaluation
+- Process CPU over the measured interval using JVM CPU time deltas
+- JVM heap snapshots plus sampled peak heap during the measured window
+- Best-effort process RSS snapshots on supported hosts
+- GC count/time deltas over the measured window
+- Local Docker Redis average CPU and latest memory samples for Redis-backed scenarios
+- Separate opt-in JMH GC-profiler pass for allocation and GC-allocation evidence
+
+Resource results are a third benchmark family. They do **not** replace the official latency baseline, and profiler-backed
+allocation runs are intentionally separate because profiler overhead changes measurement conditions.
+
 ## What it does not measure (yet)
 
 - .NET → Java remote path
@@ -69,6 +82,16 @@ normal `mvn test` / `mvn verify`.
 ./scripts/run-deployment-benchmarks.sh degradation
 ./scripts/run-deployment-benchmarks.sh full
 
+# Resource measurement harness
+./scripts/run-resource-benchmarks.sh smoke
+./scripts/run-resource-benchmarks.sh in-process
+./scripts/run-resource-benchmarks.sh remote
+./scripts/run-resource-benchmarks.sh redis
+./scripts/run-resource-benchmarks.sh full
+
+# Separate JMH allocation / GC profiler pass
+./scripts/run-resource-benchmarks.sh allocation
+
 # JMH categories
 ./scripts/run-benchmarks.sh scorer
 ./scripts/run-benchmarks.sh engine
@@ -83,6 +106,8 @@ Or directly:
 java -jar ai-sentinel-benchmark/target/benchmarks.jar [jmh-args...]
 java -cp ai-sentinel-benchmark/target/benchmarks.jar \
   dev.aisentinel.benchmark.deployment.DeploymentBenchmarkMain [smoke|remote|redis|degradation|full]
+java -cp ai-sentinel-benchmark/target/benchmarks.jar \
+  dev.aisentinel.benchmark.deployment.ResourceBenchmarkMain [smoke|in-process|remote|redis|full]
 ```
 
 Results land under `ai-sentinel-benchmark/results/` (gitignored):
@@ -90,6 +115,8 @@ Results land under `ai-sentinel-benchmark/results/` (gitignored):
 - `manifest-*.json` — AI-Sentinel environment metadata for JMH runs
 - `jmh-*.json` — JMH machine-readable output
 - `deployment/<timestamp>/deployment-*.json` — deployment/degradation machine-readable output
+- `resources/<timestamp>/resource-*.json` — sustained resource measurement output
+- `resources/<timestamp>/allocation-jmh.json` — opt-in JMH GC-profiler output for selected in-process workloads
 
 Official measured baseline (tracked docs): [`docs/performance/REFERENCE_BASELINE.md`](../docs/performance/REFERENCE_BASELINE.md) and [`docs/performance/reference-baseline.json`](../docs/performance/reference-baseline.json).
 

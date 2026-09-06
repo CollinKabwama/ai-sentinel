@@ -232,6 +232,73 @@ Infrastructure failure != attack.
 
 Local loopback/container performance != production infrastructure performance.
 
+## Resource measurements
+
+These measurements are a separate result family from both the official in-process JMH latency baseline and the
+deployment/degradation latency harness. They exist to capture local resource cost under controlled load, not to make
+production sizing claims.
+
+### Resource modes
+
+```bash
+./scripts/run-resource-benchmarks.sh smoke
+./scripts/run-resource-benchmarks.sh in-process
+./scripts/run-resource-benchmarks.sh remote
+./scripts/run-resource-benchmarks.sh redis
+./scripts/run-resource-benchmarks.sh full
+./scripts/run-resource-benchmarks.sh allocation
+```
+
+`smoke` is instrumentation verification only. `full` is the longer opt-in evidence profile. `allocation` is a separate
+JMH GC-profiler pass for selected in-process workloads and is not equivalent to the official latency baseline.
+
+### Resource scenarios
+
+- `RESOURCE_IN_PROCESS`
+- `RESOURCE_REMOTE`
+- `RESOURCE_REDIS_LOCAL_MEMORY_CONTROL`
+- `RESOURCE_REDIS_BACKED`
+
+The resource harness currently measures the combined benchmark-client plus evaluator JVM for remote and Redis-backed
+scenarios. It does not claim standalone server-only CPU or memory usage.
+
+### Metrics and sources
+
+- Process CPU time delta via `OperatingSystemMXBean.getProcessCpuTime()`
+- `processCpuCoresEquivalent = processCpuTimeDelta / measuredWallTime`
+- `processCpuPercentOfMachine = processCpuCoresEquivalent / logicalProcessors * 100`
+- Heap snapshots and sampled measured-window peak via `MemoryMXBean`
+- GC collection count/time deltas via `GarbageCollectorMXBean`
+- Best-effort process RSS snapshots on supported hosts via `ps -o rss`
+- Local Redis container CPU/memory sampling via `docker stats --no-stream`
+- Allocation and GC-allocation evidence via a separate JMH `-prof gc` run
+
+Peak heap is based on observed samples during the measured window. Process RSS and Redis container metrics remain
+best-effort platform/local-runtime observations rather than portable capacity claims.
+`redisContainerCpuPercent` is the average of successful `docker stats --no-stream` samples collected during the measured
+window. `redisContainerMemoryBytes` is the latest successful container memory sample, not a peak or average.
+Redis-backed resource rows also include measured-window `redisTrustSuccesses`, `redisTrustFailures`, and
+`redisTrustFallbacks` counters so a local fallback path cannot be mistaken for successful Redis-backed measurement.
+
+### Measurement boundaries and interpretation
+
+- Warmup and measured windows are distinct; interval CPU and GC deltas are taken over the measured window only.
+- Resource JSON records `used`, `committed`, and `max` heap separately.
+- Process RSS is not a proxy for JVM heap.
+- Allocation rate is not retained heap and is not evidence of a memory leak.
+- Local Docker Redis measurements are not cloud or managed Redis cost.
+- Resource benchmark result != production capacity.
+- Local resource result != cloud sizing guidance.
+
+### Resource outputs
+
+Generated resource outputs are written under:
+
+- `ai-sentinel-benchmark/results/resources/<timestamp>/resource-*.json`
+- `ai-sentinel-benchmark/results/resources/<timestamp>/allocation-jmh.json`
+
+These raw generated outputs remain gitignored unless a separate stable summary artifact is intentionally tracked.
+
 ## Normal CI / verify behavior
 
 `mvn test` and `mvn clean verify` compile the benchmark module and run **support-code unit tests only**.
@@ -245,7 +312,6 @@ Still out of scope for the current benchmark suite:
 
 - multi-instance distributed behavior under real cluster topology;
 - automated regression thresholds/gates;
-- resource/CPU/memory/GC profiling;
 - broader `.NET -> Java` deployment benchmarking when the runtime is unavailable.
 
 ## Related
