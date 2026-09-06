@@ -43,6 +43,14 @@ evidence, maximum risk, or detection effectiveness.
 Resource results are a third benchmark family. They do **not** replace the official latency baseline, and profiler-backed
 allocation runs are intentionally separate because profiler overhead changes measurement conditions.
 
+### Benchmark comparison
+
+- Compares compatible benchmark evidence without rewriting accepted baselines
+- Separates comparability from regression classification
+- Supports JMH reference-vs-candidate comparison plus deployment and resource result comparison
+- Uses a tracked versioned comparison policy for metric direction, thresholds, and gate eligibility
+- Treats environment-mismatched or dirty-tree candidate evidence as informational rather than authoritative gates
+
 ## What it does not measure (yet)
 
 - .NET → Java remote path
@@ -92,6 +100,12 @@ normal `mvn test` / `mvn verify`.
 # Separate JMH allocation / GC profiler pass
 ./scripts/run-resource-benchmarks.sh allocation
 
+# Compare compatible results
+./scripts/compare-benchmarks.sh --family jmh --baseline docs/performance/reference-baseline.json --candidate ai-sentinel-benchmark/results/jmh-....json
+
+# Controlled-host reference regression command
+./scripts/run-benchmark-regression.sh
+
 # JMH categories
 ./scripts/run-benchmarks.sh scorer
 ./scripts/run-benchmarks.sh engine
@@ -117,6 +131,7 @@ Results land under `ai-sentinel-benchmark/results/` (gitignored):
 - `deployment/<timestamp>/deployment-*.json` — deployment/degradation machine-readable output
 - `resources/<timestamp>/resource-*.json` — sustained resource measurement output
 - `resources/<timestamp>/allocation-jmh.json` — opt-in JMH GC-profiler output for selected in-process workloads
+- `comparisons/*.json` — machine-readable comparison reports
 
 Official measured baseline (tracked docs): [`docs/performance/REFERENCE_BASELINE.md`](../docs/performance/REFERENCE_BASELINE.md) and [`docs/performance/reference-baseline.json`](../docs/performance/reference-baseline.json).
 

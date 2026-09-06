@@ -1,0 +1,17 @@
+{
+  "suiteName": "ai-sentinel-benchmark-foundation",
+  "commit": "candidate-commit",
+  "featureSchemaVersion": "1",
+  "deploymentMode": "in-process",
+  "stateBackend": "local-memory",
+  "environment": {
+    "javaVersion": "21.0.10",
+    "os": "Linux",
+    "architecture": "x86_64",
+    "processors": 8,
+    "maxHeapBytes": 2147483648
+  },
+  "run": {
+    "jmhArgs": "-f 2 -wi 5 -i 5 -w 1s -r 1s"
+  }
+}
