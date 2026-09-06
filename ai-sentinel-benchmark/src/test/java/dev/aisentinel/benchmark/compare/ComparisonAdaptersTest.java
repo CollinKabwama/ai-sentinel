@@ -34,7 +34,24 @@ class ComparisonAdaptersTest {
 
         assertThat(set.profile()).isEqualTo("reference");
         assertThat(set.commit()).isEqualTo("candidate-commit");
+        assertThat(set.dirtyTree()).isNull();
         assertThat(set.environment().os()).isEqualTo("Mac OS X");
+    }
+
+    @Test
+    void loadsRawJmhCandidateDirtyTreeFromSiblingManifest() throws Exception {
+        Path candidate = tempDir.resolve("jmh-dirty.json");
+        Path manifest = tempDir.resolve("manifest-dirty.json");
+        Files.copy(fixture("jmh-pass-fixture.json"), candidate);
+        Files.writeString(manifest, Files.readString(fixture("manifest-reference-fixture.json"))
+            .replace("\"jmhArgs\": \"-f 2 -wi 5 -i 5 -w 1s -r 1s\"", """
+                "jmhArgs": "-f 2 -wi 5 -i 5 -w 1s -r 1s",
+                    "dirtyTree": "true"
+                """));
+
+        NormalizedBenchmarkSet set = ComparisonAdapters.loadRawJmhCandidate(candidate);
+
+        assertThat(set.dirtyTree()).isTrue();
     }
 
     @Test

@@ -46,8 +46,12 @@ final class UnitConverter {
     private static Double toBytes(Double value, String unit) {
         return switch (unit) {
             case "bytes", "B/op" -> value;
+            case "kB" -> value * 1_000.0;
             case "KiB" -> value * 1024.0;
-            case "MiB", "MB/sec" -> value * 1024.0 * 1024.0;
+            case "MB" -> value * 1_000_000.0;
+            case "MiB" -> value * 1024.0 * 1024.0;
+            case "GB" -> value * 1_000_000_000.0;
+            case "GiB" -> value * 1024.0 * 1024.0 * 1024.0;
             default -> null;
         };
     }
@@ -55,8 +59,12 @@ final class UnitConverter {
     private static Double fromBytes(Double bytes, String unit) {
         return switch (unit) {
             case "bytes", "B/op" -> bytes;
+            case "kB" -> bytes / 1_000.0;
             case "KiB" -> bytes / 1024.0;
-            case "MiB", "MB/sec" -> bytes / (1024.0 * 1024.0);
+            case "MB" -> bytes / 1_000_000.0;
+            case "MiB" -> bytes / (1024.0 * 1024.0);
+            case "GB" -> bytes / 1_000_000_000.0;
+            case "GiB" -> bytes / (1024.0 * 1024.0 * 1024.0);
             default -> null;
         };
     }

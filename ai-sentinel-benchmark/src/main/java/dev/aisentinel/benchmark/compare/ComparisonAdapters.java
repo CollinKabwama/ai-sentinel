@@ -92,7 +92,8 @@ final class ComparisonAdapters {
         }
         String profile = manifestRoot == null ? null : profileFromArgs(text(manifestRoot.path("run"), "jmhArgs"));
         String commit = manifestRoot == null ? null : text(manifestRoot, "commit");
-        return new NormalizedBenchmarkSet(ComparisonFamily.JMH, "raw-jmh", "1", path, commit, null, profile, env, metrics);
+        Boolean dirtyTree = manifestRoot == null ? null : booleanValue(manifestRoot.path("run"), "dirtyTree");
+        return new NormalizedBenchmarkSet(ComparisonFamily.JMH, "raw-jmh", "1", path, commit, dirtyTree, profile, env, metrics);
     }
 
     static NormalizedBenchmarkSet loadDeployment(Path path) throws IOException {
@@ -246,12 +247,22 @@ final class ComparisonAdapters {
 
     private static Double number(JsonNode node, String field) {
         JsonNode child = node.get(field);
-        return child == null || child.isNull() ? null : child.asDouble();
+        return numericValue(child);
     }
 
     private static Double field(JsonNode node, String field) {
         JsonNode child = node.get(field);
-        return child == null || child.isNull() ? null : child.asDouble();
+        return numericValue(child);
+    }
+
+    private static Double numericValue(JsonNode child) {
+        if (child == null || child.isNull()) {
+            return null;
+        }
+        if (!child.isNumber()) {
+            return Double.NaN;
+        }
+        return child.doubleValue();
     }
 
     private static String firstResultText(JsonNode root, String field) {
@@ -272,9 +283,13 @@ final class ComparisonAdapters {
     private static Boolean firstResultBoolean(JsonNode root, String field) {
         JsonNode results = root.path("results");
         if (results.isArray() && !results.isEmpty()) {
-            JsonNode child = results.get(0).get(field);
-            return child == null || child.isNull() ? null : child.asBoolean();
+            return booleanValue(results.get(0), field);
         }
         return null;
+    }
+
+    private static Boolean booleanValue(JsonNode node, String field) {
+        JsonNode child = node.get(field);
+        return child == null || child.isNull() ? null : child.asBoolean();
     }
 }

@@ -57,6 +57,22 @@ class BenchmarkComparisonMainTest {
     }
 
     @Test
+    void malformedInputReturnsToolErrorCode() throws Exception {
+        Path malformed = tempDir.resolve("malformed.json");
+        Path output = tempDir.resolve("report.json");
+        Files.writeString(malformed, "{not-json");
+
+        int code = BenchmarkComparisonMain.run(new String[] {
+            "--family", "jmh",
+            "--baseline", fixture("reference-baseline-fixture.json").toString(),
+            "--candidate", malformed.toString(),
+            "--output", output.toString()
+        }, System.out, System.err);
+
+        assertThat(code).isEqualTo(2);
+    }
+
+    @Test
     void deploymentAndResourceComparisonsAreSupported() throws Exception {
         Path outputA = tempDir.resolve("deployment-report.json");
         Path outputB = tempDir.resolve("resource-report.json");

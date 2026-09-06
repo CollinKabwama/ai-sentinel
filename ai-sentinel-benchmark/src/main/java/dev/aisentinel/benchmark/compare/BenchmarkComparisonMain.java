@@ -35,7 +35,7 @@ public final class BenchmarkComparisonMain {
             out.println();
             out.println("Comparison report: " + outputPath.toAbsolutePath());
             return ComparisonEngine.exitCode(report);
-        } catch (IllegalArgumentException e) {
+        } catch (Exception e) {
             err.println(e.getMessage());
             return 2;
         }

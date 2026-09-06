@@ -46,6 +46,7 @@ final class ComparisonReportWriter {
                 out.printf(" %s", comparison.params());
             }
             out.println();
+            out.printf("status: %s%n", comparison.comparabilityStatus());
             out.printf("baseline: %s %s%n", display(comparison.baselineValue()), comparison.unit());
             out.printf("candidate: %s %s%n", display(comparison.candidateValue()), comparison.unit());
             out.printf("delta: %s", display(comparison.absoluteDelta()));

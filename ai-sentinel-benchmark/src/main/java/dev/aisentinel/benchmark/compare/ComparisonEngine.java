@@ -102,6 +102,10 @@ final class ComparisonEngine {
             reasons.add(ComparisonReason.VALUE_MISSING);
             status = ComparabilityStatus.NOT_COMPARABLE;
         }
+        if (!finite(baselineMetric.value()) || !finite(candidateValue)) {
+            reasons.add(ComparisonReason.INVALID_VALUE);
+            status = ComparabilityStatus.NOT_COMPARABLE;
+        }
         if (status == ComparabilityStatus.NOT_COMPARABLE) {
             return new MetricComparison(
                 baselineMetric.benchmarkId(), baselineMetric.params(), baselineMetric.metric(), baselineMetric.unit(),
@@ -152,7 +156,7 @@ final class ComparisonEngine {
                                                      NormalizedMetric baselineMetric,
                                                      NormalizedMetric candidateMetric,
                                                      List<ComparisonReason> reasons) {
-        if (baseline.profile() != null && candidate.profile() != null && !baseline.profile().equals(candidate.profile())) {
+        if (isBlank(baseline.profile()) || isBlank(candidate.profile()) || !baseline.profile().equals(candidate.profile())) {
             reasons.add(ComparisonReason.PROFILE_MISMATCH);
             return ComparabilityStatus.NOT_COMPARABLE;
         }
@@ -160,11 +164,20 @@ final class ComparisonEngine {
             reasons.add(ComparisonReason.MEASUREMENT_METHOD_MISMATCH);
             return ComparabilityStatus.NOT_COMPARABLE;
         }
-        boolean envMismatch = !equalsNullSafe(baseline.environment().os(), candidate.environment().os())
-            || !equalsNullSafe(baseline.environment().architecture(), candidate.environment().architecture())
+        if (!schemasCompatible(baseline, candidate)) {
+            reasons.add(ComparisonReason.SCHEMA_VERSION_MISMATCH);
+            return ComparabilityStatus.NOT_COMPARABLE;
+        }
+        if (!measurementMethodsCompatible(baselineMetric, candidateMetric)) {
+            reasons.add(ComparisonReason.MEASUREMENT_METHOD_MISMATCH);
+            return ComparabilityStatus.NOT_COMPARABLE;
+        }
+        boolean envMismatch = environmentMissing(baseline.environment()) || environmentMissing(candidate.environment())
+            || !baseline.environment().os().equals(candidate.environment().os())
+            || !baseline.environment().architecture().equals(candidate.environment().architecture())
             || !sameJavaMajor(baseline.environment().javaVersion(), candidate.environment().javaVersion())
-            || !equalsNullSafe(baseline.environment().logicalCpus(), candidate.environment().logicalCpus())
-            || !equalsNullSafe(baseline.environment().maxHeapBytes(), candidate.environment().maxHeapBytes());
+            || !baseline.environment().logicalCpus().equals(candidate.environment().logicalCpus())
+            || !baseline.environment().maxHeapBytes().equals(candidate.environment().maxHeapBytes());
         if (candidate.dirtyTree() != null && candidate.dirtyTree()) {
             reasons.add(ComparisonReason.DIRTY_CANDIDATE);
             return ComparabilityStatus.INFORMATIONAL_ONLY;
@@ -177,14 +190,47 @@ final class ComparisonEngine {
     }
 
     private static boolean sameJavaMajor(String a, String b) {
-        if (a == null || b == null) {
-            return true;
-        }
         return a.split("\\.")[0].equals(b.split("\\.")[0]);
     }
 
-    private static boolean equalsNullSafe(Object left, Object right) {
-        return left == null || right == null || left.equals(right);
+    private static boolean schemasCompatible(NormalizedBenchmarkSet baseline, NormalizedBenchmarkSet candidate) {
+        if (isBlank(baseline.schemaVersion()) || isBlank(candidate.schemaVersion())) {
+            return false;
+        }
+        if (baseline.family() == ComparisonFamily.JMH) {
+            return ("reference-baseline".equals(baseline.schemaVersion()) && "raw-jmh".equals(candidate.schemaVersion()))
+                || baseline.schemaVersion().equals(candidate.schemaVersion());
+        }
+        return baseline.schemaVersion().equals(candidate.schemaVersion());
+    }
+
+    private static boolean measurementMethodsCompatible(NormalizedMetric baselineMetric, NormalizedMetric candidateMetric) {
+        if (isBlank(baselineMetric.measurementMethod()) || isBlank(candidateMetric.measurementMethod())) {
+            return false;
+        }
+        if (baselineMetric.family() == ComparisonFamily.JMH) {
+            return ("reference-jmh".equals(baselineMetric.measurementMethod())
+                && "raw-jmh".equals(candidateMetric.measurementMethod()))
+                || baselineMetric.measurementMethod().equals(candidateMetric.measurementMethod());
+        }
+        return baselineMetric.measurementMethod().equals(candidateMetric.measurementMethod());
+    }
+
+    private static boolean environmentMissing(EnvironmentFingerprint environment) {
+        return environment == null
+            || isBlank(environment.os())
+            || isBlank(environment.architecture())
+            || isBlank(environment.javaVersion())
+            || environment.logicalCpus() == null
+            || environment.maxHeapBytes() == null;
+    }
+
+    private static boolean finite(Double value) {
+        return value == null || Double.isFinite(value);
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private static MetricComparison missing(NormalizedMetric metric, ComparisonReason reason) {

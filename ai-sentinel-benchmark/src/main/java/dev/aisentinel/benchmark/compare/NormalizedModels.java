@@ -50,7 +50,7 @@ record NormalizedMetric(
     }
 
     String key() {
-        return family + "|" + benchmarkId + "|" + params + "|" + metric + "|" + unit + "|" + concurrency
+        return family + "|" + benchmarkId + "|" + params + "|" + metric + "|" + concurrency
             + "|" + deploymentMode + "|" + stateBackend;
     }
 }
