@@ -16,7 +16,7 @@ import java.util.Objects;
  * @param correlationId         caller correlation / request id
  * @param timestampEpochMillis  request timestamp (epoch millis)
  * @param method                HTTP method
- * @param path                  request path/URI
+ * @param path                  request path without query string or fragment
  * @param identityKey           opaque identity key (local adapters typically supply identity hash)
  * @param identityType          optional identity kind (e.g. {@code HASH}, {@code ANONYMOUS})
  * @param tenantId              optional tenant
@@ -25,7 +25,7 @@ import java.util.Objects;
  * @param sessionNew            whether the session is new for this request
  * @param remoteAddress         optional client address as known to the adapter
  * @param headers               normalized lowercase header map (secrets not required)
- * @param parameters            first-value query/form parameters
+ * @param parameters            shape-only parameter placeholders used for count semantics; raw names/values are not required
  * @param attributes            bounded application attributes
  * @param trustSignals          optional known trust signal weights in {@code [0,1]}
  */

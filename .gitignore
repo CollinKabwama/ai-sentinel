@@ -6,6 +6,10 @@ docs/*
 !docs/migration.md
 !docs/testing.md
 !docs/README.md
+!docs/planning/
+docs/planning/*
+!docs/planning/ENGINEERING_ROADMAP_TRACKER.md
+!docs/planning/ENGINEERING_ROADMAP_CANVAS.md
 !docs/contracts/
 !docs/contracts/**
 !docs/performance/

@@ -92,6 +92,16 @@ class EvaluationEventContractTest {
     }
 
     @Test
+    void endpointKeyRejectsQueryAndFragmentDelimiters() {
+        assertThatThrownBy(() -> eventBuilder().endpointKey("route:/api/orders?token=secret").build())
+            .isInstanceOf(EvaluationContractException.class)
+            .hasMessageContaining("endpointKey");
+        assertThatThrownBy(() -> eventBuilder().endpointKey("route:/api/orders#fragment").build())
+            .isInstanceOf(EvaluationContractException.class)
+            .hasMessageContaining("endpointKey");
+    }
+
+    @Test
     void immutableCollectionsAreDefensivelyCopied() {
         List<EvaluationStatus> statuses = new ArrayList<>();
         statuses.add(EvaluationStatus.COMPLETE);

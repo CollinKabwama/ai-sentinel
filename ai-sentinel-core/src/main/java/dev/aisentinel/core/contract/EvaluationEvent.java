@@ -46,6 +46,7 @@ public record EvaluationEvent(
         observedAt = Objects.requireNonNull(observedAt, "observedAt");
         identityKey = requireNotBlank("identityKey", identityKey);
         endpointKey = requireNotBlank("endpointKey", endpointKey);
+        requireNoQueryOrFragment("endpointKey", endpointKey);
         featureSchemaVersion = FeatureSchema.requireSupportedVersion(requireNotBlank(
             "featureSchemaVersion", featureSchemaVersion));
         features = Objects.requireNonNull(features, "features");
@@ -75,6 +76,12 @@ public record EvaluationEvent(
 
     private static String normalizeOptional(String value) {
         return value == null ? "" : value;
+    }
+
+    private static void requireNoQueryOrFragment(String field, String value) {
+        if (value.indexOf('?') >= 0 || value.indexOf('#') >= 0) {
+            throw new EvaluationContractException(field + " must not contain query or fragment delimiters");
+        }
     }
 
     private static void requireScore(String field, Double value) {

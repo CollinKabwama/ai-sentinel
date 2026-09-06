@@ -44,6 +44,7 @@ The evaluation-event schema version is independent from the feature schema versi
   Stable pseudonymous identity key. This is not intended to carry raw usernames, emails, subjects, or account IDs.
 - `endpointKey`
   Normalized route or stable endpoint identifier. It should not include query strings, tokens, or session identifiers.
+  Endpoint keys containing query or fragment delimiters are rejected by the Java contract.
 - `featureSchemaVersion`
   Version of the feature contract used to interpret `features`.
 - `features`
@@ -133,4 +134,6 @@ For event schema `"1"`:
 
 ## Current Boundary
 
-This contract definition does not by itself implement production export, persistence, replay, telemetry pipelines, or dataset writers. Separate infrastructure can build on the same versioned event shape.
+This contract definition now serves as the canonical exported evaluation record for dataset tooling. The portable dataset envelope and checksum/ordering semantics are defined in [`DATASET_EXPORT.md`](DATASET_EXPORT.md).
+
+It still does not by itself implement replay, detection evaluation, or the official reference dataset.
