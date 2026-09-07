@@ -87,7 +87,7 @@ Evidence:
 | ENG-019 | Resource measurement extension | DONE | ENG-009 | `ResourceBenchmarkMain.java`; `ResourceSupport.java`; `scripts/run-resource-benchmarks.sh`; docs/tests | Preserve and use | No |
 | ENG-020 | Benchmark regression/comparison tooling | DONE | ENG-009, ENG-016, ENG-017, ENG-019 | `BenchmarkComparisonMain.java`; `ComparisonAdapters.java`; `benchmark-comparison-policy.json`; scripts/tests | CI-host gating remains future work | No |
 | ENG-021 | Dataset/export contract and policy | DONE | ENG-004, ENG-005 | `EvaluationDatasetWriter.java`; `EvaluationDatasetManifest.java`; `EvaluationDatasetSchemas.java`; `docs/contracts/DATASET_EXPORT.md`; `EvaluationDatasetWriterTest.java`; `EvaluationContractMapperPrivacyTest.java` | Populate the first tracked reference dataset in a separate workstream | No |
-| ENG-022 | Deterministic replay platform | NOT_STARTED | ENG-021, ENG-008 | No replay CLI/platform found | Build reusable replay/evaluate tooling over the dataset/export contract and tracked reference dataset | Yes |
+| ENG-022 | Deterministic replay platform | DONE | ENG-021, ENG-008 | `dev.aisentinel.core.replay` package; `ReferenceDatasetReplayMain.java`; `ReplayEngineTest.java`; `scripts/replay-reference-dataset.sh`; `evaluation/DETERMINISTIC_REPLAY.md` | Preserve deterministic replay evidence contract and extend scorer support only with explicit artifact/config validation | No |
 | ENG-023 | Detection evaluation framework | PARTIAL | ENG-022 | scenario/regression tests such as `DetectorQualityRegressionTest.java`; `DetectionScenarioRunner.java` | No confusion matrix, precision/recall, ROC/PR, labeled evaluation datasets, or reusable evaluation reports | Yes |
 | ENG-024 | Detection reference baseline | NOT_STARTED | ENG-022, ENG-023, ENG-008 | No tracked detection-quality baseline found | Establish official dataset-backed evaluation baseline | Yes |
 | ENG-025 | Scorer plug-in contract and integration hardening | PARTIAL | ENG-004 | `AnomalyScorer.java`; `CompositeScorer.java`; `IsolationForestScorer.java` | Missing formal scorer descriptor/health/schema-support contract and candidate isolation lifecycle | Yes |
@@ -589,7 +589,7 @@ Important retained invariants:
 
 ### Deterministic replay platform
 
-Status: `NOT_STARTED`
+Status: `DONE`
 
 Objective:
 
@@ -600,15 +600,33 @@ Dependencies:
 - `ENG-008`
 - `ENG-021`
 
-Planned deliverables:
+Delivered:
 
-- replay/evaluate CLI or equivalent reusable entrypoint
-- replay input validation
-- provenance-aware result output
+- reusable replay dataset loader, replay-safe input projection, replay engine, deterministic result writer, and output validator under `ai-sentinel-core/src/main/java/dev/aisentinel/core/replay/`;
+- deterministic replay result contract via `results.jsonl` plus replay-run `manifest.json`;
+- explicit `EvaluationEvent` field separation between replay inputs, historical reference outputs, and provenance/context;
+- reference-dataset developer entrypoint via `ReferenceDatasetReplayMain.java` and `scripts/replay-reference-dataset.sh`;
+- focused replay proof coverage for append-order semantics, identity isolation, warmup continuity, scenario continuity, mutation sensitivity, checksum rejection, invalid-score handling, and identical-run determinism;
+- durable usage and boundary documentation in `evaluation/DETERMINISTIC_REPLAY.md`.
 
-Definition of done:
+Evidence:
 
-- repository contains reusable replay infrastructure rather than only ad hoc tests
+- `ai-sentinel-core/src/main/java/dev/aisentinel/core/replay/ReplayDatasetLoader.java`
+- `ai-sentinel-core/src/main/java/dev/aisentinel/core/replay/ReplayEngine.java`
+- `ai-sentinel-core/src/main/java/dev/aisentinel/core/replay/ReplayRunWriter.java`
+- `ai-sentinel-core/src/main/java/dev/aisentinel/core/replay/ReplayOutputValidator.java`
+- `ai-sentinel-core/src/main/java/dev/aisentinel/core/replay/ReferenceDatasetReplayMain.java`
+- `ai-sentinel-core/src/test/java/dev/aisentinel/core/replay/ReplayEngineTest.java`
+- `scripts/replay-reference-dataset.sh`
+- `evaluation/DETERMINISTIC_REPLAY.md`
+
+Important retained invariants:
+
+- replay consumes ordered `FeatureSnapshot` observations rather than reconstructing raw HTTP requests;
+- historical `EvaluationEvent` outputs and annotations are not replay inputs;
+- replay state starts fresh per run but does not reset at scenario boundaries;
+- dataset timestamps, schema versions, checksums, and provenance are validated explicitly;
+- replay evidence remains distinct from detection evaluation and from the official detection baseline.
 
 ### Detection reference baseline
 
@@ -792,15 +810,13 @@ Important deviations from a naive older roadmap:
 
 ## 9. Immediate Queue
 
-1. Reference synthetic / evaluation dataset
-2. Deterministic replay platform
-3. Detection evaluation framework
-4. Official detection reference baseline
-5. Scorer plug-in contract and model lifecycle hardening
-6. Shadow scoring
-7. Remaining deployment/degradation evidence, including `.NET -> Java` and stronger distributed coverage
-8. Model lifecycle plus champion/challenger
-9. Pilot observability, analyst feedback, and deployment readiness
+1. Detection evaluation framework
+2. Official detection reference baseline
+3. Scorer plug-in contract and model lifecycle hardening
+4. Shadow scoring
+5. Remaining deployment/degradation evidence, including `.NET -> Java` and stronger distributed coverage
+6. Model lifecycle plus champion/challenger
+7. Pilot observability, analyst feedback, and deployment readiness
 
 ## 10. Deferred / Explicitly Out of Scope
 
