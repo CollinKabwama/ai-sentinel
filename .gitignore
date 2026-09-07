@@ -8,6 +8,10 @@ docs/*
 !docs/README.md
 !docs/contracts/
 !docs/contracts/**
+!docs/planning/
+docs/planning/*
+!docs/planning/ENGINEERING_ROADMAP_CANVAS.md
+!docs/planning/ENGINEERING_ROADMAP_TRACKER.md
 !docs/performance/
 !docs/performance/**
 

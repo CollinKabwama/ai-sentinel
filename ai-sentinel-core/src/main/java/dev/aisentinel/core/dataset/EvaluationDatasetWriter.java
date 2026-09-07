@@ -50,6 +50,30 @@ public final class EvaluationDatasetWriter implements AutoCloseable {
                                    String transformationVersion,
                                    String description,
                                    String scenario) throws IOException {
+        this(
+            outputDirectory,
+            datasetId,
+            aiSentinelVersion,
+            featureSchemaVersion,
+            evaluationEventSchemaVersion,
+            sourceClassification,
+            transformationVersion,
+            description,
+            scenario,
+            Instant.now()
+        );
+    }
+
+    public EvaluationDatasetWriter(Path outputDirectory,
+                                   String datasetId,
+                                   String aiSentinelVersion,
+                                   String featureSchemaVersion,
+                                   String evaluationEventSchemaVersion,
+                                   String sourceClassification,
+                                   String transformationVersion,
+                                   String description,
+                                   String scenario,
+                                   Instant createdAt) throws IOException {
         this.outputDirectory = Objects.requireNonNull(outputDirectory, "outputDirectory");
         this.datasetId = requireNotBlank("datasetId", datasetId);
         this.aiSentinelVersion = requireNotBlank("aiSentinelVersion", aiSentinelVersion);
@@ -59,7 +83,7 @@ public final class EvaluationDatasetWriter implements AutoCloseable {
         this.transformationVersion = requireNotBlank("transformationVersion", transformationVersion);
         this.description = description == null ? "" : description;
         this.scenario = scenario == null ? "" : scenario;
-        this.createdAt = Instant.now();
+        this.createdAt = Objects.requireNonNull(createdAt, "createdAt");
 
         Files.createDirectories(outputDirectory);
         Path eventsFile = outputDirectory.resolve(EvaluationDatasetSchemas.EVENTS_FILE_NAME);
