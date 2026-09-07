@@ -1,7 +1,7 @@
 # AI-Sentinel Engineering Roadmap Canvas
 
 This canvas is the short visual companion to the authoritative tracker:
-`docs/planning/ENGINEERING_ROADMAP_TRACKER.md`
+`docs/planning/ENGINEERING_ROADMAP_TRACKER.md`.
 
 If the tracker and canvas disagree, the tracker wins.
 
@@ -20,29 +20,29 @@ If the tracker and canvas disagree, the tracker wins.
   - accepted in-process reference performance baseline tracked
   - resource measurement and benchmark comparison tooling complete
 - Current maturity boundary:
-  - core runtime, benchmark foundations, dataset/export, and the first reference dataset are in place
-  - next work is deterministic replay, detection evaluation, and candidate-model/pilot rails
+  - dataset/export, reference dataset, and deterministic replay are in place
+  - next work is detection evaluation, official detection baseline, and candidate-model/pilot rails
 
 ## Roadmap At A Glance
 
-| Stage | Capability | Status | Next Action |
+| Area | Capability | Status | Next Action |
 |---|---|---|---|
-| 1 | Stable `0.3.0` baseline and MONITOR-safe runtime | ✓ DONE | Preserve as the engineering baseline |
-| 2 | Framework-independent core, starter integration, scorer baseline, remote runtime | ✓ DONE | Keep compatibility and safety invariants intact |
-| 3 | Benchmark foundation, reference performance baseline, resource metrics, comparison tooling | ✓ DONE | Use as evidence for future changes |
-| 4 | Versioned feature schema v1 | ✓ DONE | Preserve as the current feature contract |
-| 5 | Versioned evaluation event contract v1 | ◐ PARTIAL | Connect it to production emission, replay, and evidence flows |
-| 6 | Dataset / export contract and privacy policy | ✓ DONE | Preserve the accepted export boundary and privacy rules |
-| 7 | Reference synthetic / evaluation dataset | ✓ DONE | Preserve deterministic generation, annotations, and privacy guarantees |
-| 8 | Deterministic replay platform | → NEXT | Replay the reference dataset through controlled scorer/config paths |
-| 9 | Detection evaluation framework | ◐ PARTIAL | Add reusable metrics and reports beyond scenario tests |
-| 10 | Official detection reference baseline | ○ PLANNED | Establish a tracked quality baseline distinct from performance |
-| 11 | Scorer plug-in / candidate-model integration hardening | ◐ PARTIAL | Add descriptor, schema support, health, and lifecycle rules |
-| 12 | Shadow scoring | ○ PLANNED | Add observational-only dual scoring with disagreement capture |
-| 13 | Model lifecycle and champion/challenger | ◐ PARTIAL / ○ PLANNED | Harden registry governance, then compare champion vs challenger |
-| 14 | Pilot observability / analyst feedback / deployment readiness | ◐ PARTIAL | Turn generic telemetry into pilot evidence flows |
-| 15 | Controlled MONITOR pilot | ○ PLANNED | Run only after evidence and reliability prerequisites exist |
-| 16 | Evidence-driven next release | ○ PLANNED | Scope release from evidence, not roadmap optimism |
+| Runtime safety | Stable `0.3.0` baseline and MONITOR-safe runtime | ✓ DONE | Preserve as the engineering baseline |
+| Runtime architecture | Framework-independent core, starter integration, scorer baseline, remote runtime | ✓ DONE | Keep compatibility and safety invariants intact |
+| Benchmarks | Benchmark foundation, reference performance baseline, resource metrics, comparison tooling | ✓ DONE | Use as evidence for future changes |
+| Feature contract | Versioned feature schema v1 | ✓ DONE | Preserve as the current feature contract |
+| Evaluation event contract | Versioned evaluation event contract v1 | ◐ PARTIAL | Connect it to production emission and broader evidence flows |
+| Dataset contract | Dataset / export contract and privacy policy | ✓ DONE | Preserve the accepted export boundary and privacy rules |
+| Reference data | Reference synthetic / evaluation dataset | ✓ DONE | Preserve deterministic generation, annotations, and privacy guarantees |
+| Replay | Deterministic replay platform | ✓ DONE | Preserve replay determinism and configuration provenance |
+| Detection evaluation | Detection evaluation framework | → NEXT | Add reusable metrics and reports beyond scenario tests |
+| Detection baseline | Official detection reference baseline | ○ PLANNED | Establish a tracked quality baseline distinct from performance |
+| Scorer lifecycle | Scorer plug-in / candidate-model integration hardening | ◐ PARTIAL | Add descriptor, schema support, health, and lifecycle rules |
+| Shadow scoring | Non-authoritative candidate scoring | ○ PLANNED | Add observational-only dual scoring with disagreement capture |
+| Model governance | Model lifecycle and champion/challenger | ◐ PARTIAL / ○ PLANNED | Harden registry governance, then compare champion vs challenger |
+| Pilot readiness | Pilot observability / analyst feedback / deployment readiness | ◐ PARTIAL | Turn generic telemetry into pilot evidence flows |
+| Pilot | Controlled MONITOR pilot | ○ PLANNED | Run only after evidence and reliability prerequisites exist |
+| Release planning | Evidence-driven next release | ○ PLANNED | Scope release from evidence, not roadmap optimism |
 
 ## Visual Dependency Flow
 
@@ -53,8 +53,8 @@ flowchart TD
     C --> D[Evaluation Event Contract v1 ◐]
     D --> E[Dataset / Export Contract ✓]
     E --> F[Reference Synthetic or Evaluation Dataset ✓]
-    F --> G[Deterministic Replay →]
-    G --> H[Detection Evaluation Framework ◐]
+    F --> G[Deterministic Replay ✓]
+    G --> H[Detection Evaluation Framework →]
     H --> I[Detection Reference Baseline ○]
     I --> J[Scorer Integration Hardening ◐]
     J --> K[Shadow Scoring ○]
@@ -81,17 +81,16 @@ flowchart TD
 
 ## Immediate Engineering Queue
 
-1. Deterministic replay platform
-2. Detection evaluation framework
-3. Official detection reference baseline
-4. Scorer plug-in / candidate-model integration hardening
-5. Shadow scoring
-6. Remaining deployment/degradation evidence
-7. Model lifecycle and champion/challenger
-8. Pilot observability, analyst feedback, and deployment readiness
+1. Detection evaluation framework
+2. Official detection reference baseline
+3. Scorer plug-in / candidate-model integration hardening
+4. Shadow scoring
+5. Remaining deployment/degradation evidence
+6. Model lifecycle and champion/challenger
+7. Pilot observability, analyst feedback, and deployment readiness
 
 ## Synchronization Rule
 
 - The tracker is the source of truth.
 - Every future planning or implementation task must update the tracker first.
-- Then update this canvas so the stage status, queue, and findings remain aligned.
+- Then update this canvas so the status, queue, and findings remain aligned.
