@@ -5,7 +5,7 @@ import dev.aisentinel.core.dataset.reference.ReferenceDatasetExpectedClass;
 import java.util.Objects;
 
 /**
- * Independent labeled truth for a future detection evaluation observation.
+ * Independent labeled truth for a detection evaluation observation.
  */
 public record EvaluationTruth(
     ReferenceDatasetExpectedClass expectedClass,

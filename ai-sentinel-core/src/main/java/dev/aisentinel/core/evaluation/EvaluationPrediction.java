@@ -41,6 +41,14 @@ public record EvaluationPrediction(
     public boolean hasValidDetectorScore() {
         return anomalyScore != null
             && !evaluationStatuses.contains(EvaluationStatus.INVALID_SCORE)
-            && !evaluationStatuses.contains(EvaluationStatus.REMOTE_EVALUATION_FAILURE);
+            && !evaluationStatuses.contains(EvaluationStatus.REMOTE_EVALUATION_FAILURE)
+            && !isModelUnavailableFallbackOnly();
+    }
+
+    private boolean isModelUnavailableFallbackOnly() {
+        return evaluationStatuses.contains(EvaluationStatus.MODEL_UNAVAILABLE)
+            && evaluationStatuses.contains(EvaluationStatus.MODEL_FALLBACK_USED)
+            && !evaluationStatuses.contains(EvaluationStatus.STATISTICAL_LIVE)
+            && !evaluationStatuses.contains(EvaluationStatus.STATISTICAL_WARMUP);
     }
 }
