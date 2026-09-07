@@ -1,45 +1,51 @@
-# Detection Evaluation Contracts
+# Detection Evaluation
 
-This document defines the evaluation-alignment boundary for AI-Sentinel.
+This document defines the framework-independent evaluation boundary for AI-Sentinel detection quality.
 
-It introduces a deterministic, framework-independent join between:
+It covers:
 
-- independent reference annotations
-- deterministic replay output
+- deterministic alignment between independent reference annotations and replay output
+- explicit anomaly-score classification for offline metrics
+- deterministic dataset-level and scenario-level confusion-matrix accounting
 
-The result is an ordered set of evaluation observations for later metric work.
+It does not establish an official detection baseline.
 
-This increment does not compute metrics and does not establish an official detection baseline.
+## Evaluation Architecture
 
-## Purpose
+The evaluation flow is intentionally one-way:
 
-This contract creates the smallest durable boundary needed for later detection metrics without weakening the replay boundary or reinterpreting labels as model inputs.
+```text
+reference annotations -> independent truth
+reference dataset -> deterministic replay -> current replay detector evidence
+truth + replay evidence -> aligned observations -> detection metrics
+```
 
-The evaluation layer exists to answer:
+Not:
 
-- what is the expected truth for an observation?
-- what is the replay-produced prediction for that observation?
-- how do we align them deterministically and safely?
+```text
+annotations + dataset -> replay or scoring
+```
 
-It does not answer:
+This preserves:
 
-- precision/recall/F1
-- TP/TN/FP/FN
-- ROC/PR analysis
-- delay/recovery metrics
-- official baseline acceptance rules
+- `LABEL != FEATURE`
+- `SCORER OUTPUT != GROUND TRUTH`
+- `POLICY ACTION != DETECTOR PREDICTION`
+
+Metrics operate only after alignment. They do not influence replay, scoring, baseline learning, policy, or enforcement.
 
 ## Inputs
 
-The alignment layer consumes three existing contract families:
+The evaluation layer consumes existing contract families:
 
 - source dataset structure from `EvaluationDatasetManifest` and replay-loaded source events
 - independent reference truth from `ReferenceDatasetAnnotations`
 - replay prediction output from `ReplayResult`
 
-The alignment implementation lives in:
+The main implementations live in:
 
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/ReferenceEvaluationAligner.java`
+- `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionMetricsCalculator.java`
 
 ## Ground-Truth Source
 
@@ -51,37 +57,68 @@ Specifically:
 - `ReferenceDatasetScenarioAnnotation.anomalyExpected`
 - `ReferenceDatasetScenarioAnnotation.maliciousnessAsserted`
 
-These values are independent labels. They are not replay input, not scorer input, and not policy input.
+For anomaly-quality metrics, the binary target is the accepted `anomalyExpected` field:
 
-## Detector Evidence Source
+- `NORMAL` -> expected anomalous = `false`
+- `SYNTHETIC_ANOMALOUS` -> expected anomalous = `true`
+- `LEGITIMATE_ANOMALOUS` -> expected anomalous = `true`
 
-Detector evidence comes only from replay output.
+Maliciousness is separate diagnostic truth. It does not change anomaly confusion accounting.
 
-This alignment layer does not convert policy action into a binary anomaly prediction. `MONITOR`,
-`THROTTLE`, `BLOCK`, and `QUARANTINE` are policy/enforcement outputs, not ground truth and not
-the detector classification boundary for metrics.
+## Replay Detector Evidence
 
-The aligned observation preserves replay detector evidence:
+Detector evidence comes from the replay anomaly score preserved on `EvaluationPrediction`.
 
-- replay anomaly score when valid
-- prediction source: replay score evidence
+The selected score for offline anomaly evaluation is:
 
-The observation also preserves diagnostic replay evidence:
+- `EvaluationPrediction.anomalyScore`
 
-- replay policy score when valid
-- replay action
-- replay evaluation statuses
+This is the accepted replay detector score boundary because it is the scorer-produced anomaly signal already separated from:
 
-Later metric code must apply an explicit evaluation classification rule to the replay score evidence.
-That rule is intentionally not introduced here.
+- policy score
+- policy action
+- historical event output
+- ground truth annotations
 
-No maliciousness prediction is inferred from:
+The metric layer does not reconstruct scorer internals or duplicate policy logic. It consumes the replay detector evidence already materialized by the accepted replay and alignment contracts.
 
-- `BLOCK`
-- `QUARANTINE`
-- high score
-- warmup behavior
-- degradation status
+## Policy-Action Separation
+
+`ALLOW`, `MONITOR`, `THROTTLE`, `BLOCK`, and `QUARANTINE` remain diagnostic replay outputs only.
+
+They do not determine binary anomaly prediction for metrics.
+
+In particular:
+
+- `MONITOR` does not automatically mean predicted normal
+- `THROTTLE`, `BLOCK`, and `QUARANTINE` do not automatically mean predicted anomalous
+- warmup `MONITOR` does not automatically become a positive detection
+
+## Classification Rule
+
+Offline anomaly classification is explicit and caller-supplied.
+
+`DetectionClassificationConfiguration` requires:
+
+- one explicit `anomalyThreshold`
+- finite value in `[0,1]`
+- no hidden default threshold
+
+The threshold boundary is inclusive:
+
+```text
+predicted anomalous := anomalyScore >= anomalyThreshold
+```
+
+This behavior is deterministic for:
+
+- scores below the threshold
+- scores exactly equal to the threshold
+- scores above the threshold
+- score `0`
+- score `1`
+
+The threshold is not derived from policy action, policy thresholds, or reference-corpus outcomes.
 
 ## Alignment Rules
 
@@ -97,6 +134,7 @@ The aligner rejects:
 
 - missing replay event for an evaluable annotation
 - replay result referencing an unknown source event
+- replay result fields that do not match the source event
 - duplicate replay event ids
 - annotation event ids not present in the source corpus
 - conflicting scenario membership for the same evaluable event
@@ -110,9 +148,9 @@ No fuzzy matching is used.
 
 Evaluation observations preserve dataset append order.
 
-The source dataset order remains authoritative. Alignment iterates the replay-loaded dataset event order and emits observations only for evaluable event ids in that same order.
+The source dataset order remains authoritative. Alignment iterates replay-loaded source events and emits evaluable observations in that same order.
 
-The evaluation layer does not sort by timestamp and does not rely on hash iteration order.
+Metric aggregation is deterministic over those aligned observations. Dataset-level counts do not depend on ordering. Scenario summaries preserve first-appearance order from the aligned observations rather than relying on unordered map iteration.
 
 ## Scenario Attribution
 
@@ -122,6 +160,8 @@ Each aligned observation carries:
 - `scenarioCategory`
 
 Scenario metadata is evaluation metadata only. It is not a feature and is never provided to replay scoring.
+
+Scenario-level metric aggregation is supported without introducing temporal semantics. It groups observations by scenario identity while preserving stable first-appearance order.
 
 ## Evaluable Event Rule
 
@@ -146,27 +186,6 @@ For the current tracked reference corpus:
 
 The 84 aligned observations are the events currently declared evaluable by the annotation contract under the rule above.
 
-## Label-Isolation Rule
-
-The direction is intentionally one-way:
-
-```text
-replay(dataset events) -> replay results -> join with annotations -> evaluation observations
-```
-
-Not:
-
-```text
-annotations + dataset events -> replay/scoring
-```
-
-This preserves:
-
-- `LABEL != FEATURE`
-- `SCORER OUTPUT != GROUND TRUTH`
-
-The evaluation contracts do not expose `FeatureSnapshot`, request bodies, headers, or arbitrary metadata maps.
-
 ## Historical Output Semantics
 
 Historical fields embedded in `EvaluationEvent` are prior observations, not truth:
@@ -176,29 +195,101 @@ Historical fields embedded in `EvaluationEvent` are prior observations, not trut
 - historical statuses
 - historical risk factors
 
-The alignment layer uses current replay output for prediction evidence and independent annotations for truth.
+Current replay output is the prediction evidence source. Independent annotations are the truth source.
 
 Therefore:
 
 - historical event output != replay prediction
 - replay prediction != ground truth
 
-## Invalid and Failure Semantics
+## Invalid, Degraded, and Excluded Predictions
 
-Existing safety rules remain intact:
+The metrics layer distinguishes valid classified predictions from excluded predictions whose detector evidence is unavailable.
 
-- `INVALID SCORE != MAXIMUM RISK`
-- infrastructure failure != attack
-- anomalous != malicious
+An observation is excluded from confusion-matrix accounting when the accepted evaluation contract says the detector score is unavailable, including:
 
-If replay output carries statuses such as:
-
+- missing anomaly score
 - `INVALID_SCORE`
 - `REMOTE_EVALUATION_FAILURE`
 
-those statuses are preserved as diagnostics and mark the detector score as unavailable for later
-classification. They do not automatically become positive anomaly truth and do not create
-maliciousness claims.
+Excluded observations:
+
+- do not become true negatives
+- do not become false negatives
+- do not become positive detections
+- are counted explicitly as excluded/non-evaluable predictions
+
+This preserves:
+
+- `INVALID SCORE != MAXIMUM RISK`
+- `INFRASTRUCTURE FAILURE != ATTACK`
+
+## Fallback Semantics
+
+Fallback and model-availability statuses remain diagnostic unless they invalidate the accepted replay detector evidence.
+
+The scorer layer owns whether a fallback contributes to the replay anomaly score. The metrics layer does not reverse-engineer scorer internals.
+
+With current contracts:
+
+- a valid replay anomaly score remains classifiable when diagnostic fallback statuses are accompanied by statistical detector evidence such as `STATISTICAL_LIVE` or `STATISTICAL_WARMUP`
+- a model-unavailable fallback-only score is excluded because it is an operational placeholder, not model inference evidence
+- invalid or unavailable replay detector evidence remains excluded
+- composite scoring already excludes fallback-only Isolation Forest values from the blended detector score unless genuine model output is available
+
+This keeps degradation diagnostics visible without silently converting them into positive or negative anomaly labels.
+
+## Confusion Matrix
+
+For each evaluable prediction:
+
+- expected anomalous + predicted anomalous -> true positive
+- expected normal + predicted normal -> true negative
+- expected normal + predicted anomalous -> false positive
+- expected anomalous + predicted normal -> false negative
+
+Confusion-matrix accounting is immutable and deterministic.
+
+## Metrics
+
+The metrics layer computes:
+
+- precision = `TP / (TP + FP)`
+- recall = `TP / (TP + FN)`
+- F1 using the equivalent count form `2TP / (2TP + FP + FN)`
+- false positive rate = `FP / (FP + TN)`
+- false negative rate = `FN / (FN + TP)`
+
+All defined ratio values are finite and constrained to `[0,1]`.
+
+## Zero-Denominator Behavior
+
+The framework distinguishes mathematically zero from undefined.
+
+`DetectionMetricValue` represents:
+
+- `defined = true` with a finite value in `[0,1]`
+- `defined = false` with no numeric value
+
+Undefined cases include:
+
+- precision when `TP + FP = 0`
+- recall and false negative rate when `TP + FN = 0`
+- false positive rate when `FP + TN = 0`
+- F1 when `2TP + FP + FN = 0`
+
+No metric emits `NaN`, `+Infinity`, or `-Infinity`.
+
+## Legitimate Anomalous Behavior
+
+`LEGITIMATE_ANOMALOUS` contributes to anomaly truth as anomalous.
+
+Therefore it may correctly produce:
+
+- true positive if detected as anomalous
+- false negative if not detected as anomalous
+
+It is not automatically malicious and must not be reclassified as a false positive merely because the behavior is legitimate.
 
 ## Privacy
 
@@ -216,15 +307,18 @@ It does not introduce:
 
 ## Current Limitations
 
-This contract does not yet provide:
+This layer intentionally does not yet provide:
 
-- metric computation
-- score-distribution reports
-- scenario summaries
-- temporal delay/recovery analysis
-- official baseline evidence
+- delay or recovery metrics
+- stabilization or warmup-duration metrics
+- ROC or PR curves
+- AUC
+- threshold optimization
+- threshold auto-selection
+- report files or evidence bundles
+- official baseline acceptance rules
 
-It is the aligned-input layer for those later increments.
+It provides reusable measurement primitives only.
 
 ## Explicit Boundaries
 
@@ -235,18 +329,20 @@ The following remain true:
 - `SYNTHETIC DATA != PRODUCTION TRAFFIC`
 - `LABEL != FEATURE`
 - `SCORER OUTPUT != GROUND TRUTH`
+- `POLICY ACTION != DETECTOR PREDICTION`
 - `ANOMALOUS != MALICIOUS`
+- `INVALID SCORE != MAXIMUM RISK`
+- `INFRASTRUCTURE FAILURE != ATTACK`
 - `PERFORMANCE != DETECTION EFFECTIVENESS`
 
 ## What Remains For Later Evaluation Work
 
-Later work can build on these aligned observations to add:
+Later work can build on these metrics to add:
 
-- confusion-matrix accounting
-- precision/recall/F1
-- false-positive and false-negative rates
-- ROC/PR analysis
-- delay/recovery and warmup analysis
-- scenario and dataset reports
+- delay and recovery analysis
+- warmup and stabilization analysis
+- ROC or PR analysis
+- evidence/report generation
+- official detection baseline work
 
-Those later increments remain separate from the official detection baseline tracked in Stage 10.
+Those later capabilities remain separate from baseline establishment and quality acceptance.
