@@ -11,6 +11,7 @@ import java.util.Objects;
  * Pure deterministic anomaly-quality metric calculation over aligned evaluation observations.
  */
 public final class DetectionMetricsCalculator {
+    private static final DetectionEvaluationClassifier CLASSIFIER = new DetectionEvaluationClassifier();
 
     public DetectionEvaluationMetrics compute(ReferenceEvaluationAlignment alignment,
                                               DetectionClassificationConfiguration classification) {
@@ -55,22 +56,23 @@ public final class DetectionMetricsCalculator {
         void record(EvaluationObservation observation, DetectionClassificationConfiguration classification) {
             Objects.requireNonNull(observation, "observation");
             Objects.requireNonNull(classification, "classification");
-            EvaluationPrediction prediction = observation.prediction();
-            if (!prediction.hasValidDetectorScore()) {
+            DetectionEvaluationClassifier.ClassifiedPrediction classified = CLASSIFIER.classify(
+                observation.prediction(),
+                classification
+            );
+            if (!classified.evaluable()) {
                 excludedPredictionCount++;
                 return;
             }
-            double anomalyScore = Objects.requireNonNull(prediction.anomalyScore(), "prediction.anomalyScore");
-            boolean predictedAnomalous = classification.isPredictedAnomalous(anomalyScore);
             boolean expectedAnomalous = observation.truth().anomalousExpected();
             evaluablePredictionCount++;
             if (expectedAnomalous) {
-                if (predictedAnomalous) {
+                if (classified.predictedAnomalous()) {
                     truePositives++;
                 } else {
                     falseNegatives++;
                 }
-            } else if (predictedAnomalous) {
+            } else if (classified.predictedAnomalous()) {
                 falsePositives++;
             } else {
                 trueNegatives++;

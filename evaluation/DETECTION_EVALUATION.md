@@ -7,6 +7,7 @@ It covers:
 - deterministic alignment between independent reference annotations and replay output
 - explicit anomaly-score classification for offline metrics
 - deterministic dataset-level and scenario-level confusion-matrix accounting
+- deterministic temporal interpretation of aligned anomaly predictions
 
 It does not establish an official detection baseline.
 
@@ -17,7 +18,7 @@ The evaluation flow is intentionally one-way:
 ```text
 reference annotations -> independent truth
 reference dataset -> deterministic replay -> current replay detector evidence
-truth + replay evidence -> aligned observations -> detection metrics
+truth + replay evidence -> aligned observations -> detection metrics -> temporal evaluation
 ```
 
 Not:
@@ -46,6 +47,7 @@ The main implementations live in:
 
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/ReferenceEvaluationAligner.java`
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionMetricsCalculator.java`
+- `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/TemporalDetectionEvaluator.java`
 
 ## Ground-Truth Source
 
@@ -150,7 +152,7 @@ Evaluation observations preserve dataset append order.
 
 The source dataset order remains authoritative. Alignment iterates replay-loaded source events and emits evaluable observations in that same order.
 
-Metric aggregation is deterministic over those aligned observations. Dataset-level counts do not depend on ordering. Scenario summaries preserve first-appearance order from the aligned observations rather than relying on unordered map iteration.
+Metric aggregation and temporal evaluation are deterministic over those aligned observations. Dataset-level counts do not depend on ordering. Scenario summaries and temporal segments preserve first-appearance order from the aligned observations rather than relying on unordered map iteration.
 
 ## Scenario Attribution
 
@@ -161,7 +163,7 @@ Each aligned observation carries:
 
 Scenario metadata is evaluation metadata only. It is not a feature and is never provided to replay scoring.
 
-Scenario-level metric aggregation is supported without introducing temporal semantics. It groups observations by scenario identity while preserving stable first-appearance order.
+Scenario-level metric aggregation is supported without introducing temporal semantics. Temporal evaluation reuses the same scenario attribution and ordered observation sequence.
 
 ## Evaluable Event Rule
 
@@ -262,6 +264,124 @@ The metrics layer computes:
 
 All defined ratio values are finite and constrained to `[0,1]`.
 
+## Temporal Evaluation
+
+Temporal evaluation remains downstream of:
+
+- alignment
+- detector-score classification
+- evaluable detector-evidence rules
+
+It does not re-run replay, re-label truth, or reinterpret policy action as detector prediction.
+
+`DETECTION DELAY != REQUEST LATENCY`
+
+Temporal detection delay measures how many ordered evaluation observations elapse between anomalous truth onset and the first positive detector classification. It is not application request latency.
+
+## Temporal Units
+
+The framework supports two deterministic temporal units:
+
+- observation-count delay derived from aligned source order
+- event-time delay derived from `EvaluationObservation.observedAt()` and represented as `java.time.Duration`
+
+Observation-count delay is always supported because alignment preserves deterministic source ordering.
+
+Event-time delay is supported only because aligned observations already carry deterministic timestamps. Temporal evaluation rejects scenario-local timestamp regressions rather than silently correcting them.
+
+## Anomaly Segments
+
+Temporal evaluation groups each scenario's aligned observations into contiguous truth segments based on `EvaluationTruth.anomalousExpected()`.
+
+For each anomalous segment:
+
+- anomaly onset = first observation in the contiguous anomalous truth segment
+- anomaly window end = last observation in that anomalous truth segment
+- first detection = first evaluable replay prediction classified anomalous by the explicit threshold rule
+
+Multiple anomalous segments are supported per scenario when the ordered truth sequence contains repeated anomalous periods.
+
+## Detection Delay
+
+Detection delay uses a zero-based elapsed-observation convention:
+
+- first anomalous observation detected immediately -> delay `0`
+- second anomalous observation is first detection -> delay `1`
+- third anomalous observation is first detection -> delay `2`
+
+The temporal result tracks both:
+
+- `detectionObservationDelay`: source-position distance from anomaly onset
+- `evaluableObservationDelay`: number of prior evaluable detector opportunities before first detection
+
+If detection occurs, `detectionTimeDelay` is the duration between anomaly onset and first detection.
+
+## Undetected and Censored Segments
+
+If no positive detector classification occurs during an anomalous segment:
+
+- `detected = false`
+- first detection is absent
+- delays are absent
+
+This means not detected within the observed evaluation window. It does not claim detection is impossible beyond the observed window.
+
+## Recovery and Stabilization
+
+When an anomalous truth segment is immediately followed by a contiguous normal truth segment, temporal evaluation computes recovery from that normal recovery segment.
+
+Recovery onset is:
+
+- the first expected-normal observation following the anomalous segment
+
+Stabilization is:
+
+- the earliest expected-normal observation from which all remaining observations in that contiguous normal recovery segment are evaluable and predicted normal
+
+This avoids treating a transient single normal prediction as stable recovery.
+
+If stabilization occurs, the result exposes:
+
+- `recoveryObservationDelay`
+- `evaluableRecoveryObservationDelay`
+- `recoveryTimeDelay`
+
+If no stable normal classification occurs before the recovery window ends, recovery remains explicitly unstabilized.
+
+The current tracked reference corpus contains no observed recovery windows: each anomalous evaluable scenario ends at the end of its anomaly evaluation window. Recovery semantics are covered by unit fixtures and remain compatible with future scenarios that include anomalous-to-normal evaluation transitions.
+
+## Warmup and Context Separation
+
+Temporal evaluation uses the accepted evaluation observation set only.
+
+It does not measure onset or delay from scenario baseline/context events that were excluded by the alignment contract.
+
+Warmup is not inferred from:
+
+- `MONITOR`
+- the replay policy action
+- any special meaning attached to score `0.4`
+
+If an explicitly evaluable observation is still in statistical warmup, it remains part of temporal evaluation according to the same detector-evidence rules used by metrics.
+
+## Unavailable Detector Evidence in Temporal Evaluation
+
+Temporal evaluation reuses the accepted evaluability boundary shared with classification metrics.
+
+Unavailable detector evidence includes:
+
+- missing anomaly score
+- `INVALID_SCORE`
+- `REMOTE_EVALUATION_FAILURE`
+- model-unavailable fallback-only placeholder evidence
+
+Unavailable observations:
+
+- do not become positive or negative classifications
+- still count toward source-position delay
+- do not count as prior evaluable detector opportunities
+- do not satisfy stable recovery
+
 ## Zero-Denominator Behavior
 
 The framework distinguishes mathematically zero from undefined.
@@ -309,8 +429,7 @@ It does not introduce:
 
 This layer intentionally does not yet provide:
 
-- delay or recovery metrics
-- stabilization or warmup-duration metrics
+- warmup-duration metrics
 - ROC or PR curves
 - AUC
 - threshold optimization
@@ -337,10 +456,10 @@ The following remain true:
 
 ## What Remains For Later Evaluation Work
 
-Later work can build on these metrics to add:
+Later work can build on these metrics and temporal results to add:
 
-- delay and recovery analysis
-- warmup and stabilization analysis
+- aggregate temporal summaries
+- warmup-duration and broader stabilization analysis
 - ROC or PR analysis
 - evidence/report generation
 - official detection baseline work
