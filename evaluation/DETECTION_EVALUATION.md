@@ -8,6 +8,7 @@ It covers:
 - explicit anomaly-score classification for offline metrics
 - deterministic dataset-level and scenario-level confusion-matrix accounting
 - deterministic temporal interpretation of aligned anomaly predictions
+- deterministic evidence and report generation from accepted evaluation results
 
 It does not establish an official detection baseline.
 
@@ -18,7 +19,7 @@ The evaluation flow is intentionally one-way:
 ```text
 reference annotations -> independent truth
 reference dataset -> deterministic replay -> current replay detector evidence
-truth + replay evidence -> aligned observations -> detection metrics -> temporal evaluation
+truth + replay evidence -> aligned observations -> detection metrics -> temporal evaluation -> evidence generation
 ```
 
 Not:
@@ -48,6 +49,8 @@ The main implementations live in:
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/ReferenceEvaluationAligner.java`
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionMetricsCalculator.java`
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/TemporalDetectionEvaluator.java`
+- `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionEvaluationEvidenceGenerator.java`
+- `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionEvaluationEvidenceWriter.java`
 
 ## Ground-Truth Source
 
@@ -382,6 +385,181 @@ Unavailable observations:
 - do not count as prior evaluable detector opportunities
 - do not satisfy stable recovery
 
+## Evidence and Report Generation
+
+Evidence generation is downstream-only.
+
+It consumes accepted evaluation results and provenance:
+
+- `ReferenceEvaluationAlignment`
+- `DetectionClassificationConfiguration`
+- `DetectionEvaluationMetrics`
+- `TemporalDetectionEvaluation`
+- existing dataset and replay provenance already established by deterministic replay and dataset contracts
+
+It does not:
+
+- rerun replay
+- reclassify scores independently
+- re-derive truth
+- redefine temporal segments
+- choose or optimize thresholds
+
+`REPORT != BASELINE`
+
+The generated evidence answers:
+
+- what deterministic inputs were evaluated
+- which explicit threshold was used
+- what structural counts and metrics were produced
+- what temporal segment and recovery results were produced
+
+It does not decide whether those results are formally approved or acceptable.
+
+## Canonical Artifacts
+
+The current evidence writer produces a caller-directed output directory containing:
+
+- `evaluation.json`
+- `evaluation.md`
+
+`evaluation.json` is the canonical machine-readable artifact.
+
+`evaluation.md` is a deterministic human-readable rendering generated from the same evidence model rather than a second calculation path.
+
+The output directory itself is caller-selected. Canonical artifact contents do not include local absolute filesystem paths.
+
+`WrittenEvidence` returns SHA-256 hashes and byte counts for the exact UTF-8 bytes read back from the published `evaluation.json` and `evaluation.md` files. Those artifact hashes are not embedded into `evaluation.json`, avoiding self-referential content.
+
+## Evidence Schema and Provenance
+
+The canonical evidence model records:
+
+- evidence schema version
+- report kind
+- reference dataset provenance
+- replay provenance
+- explicit classification threshold and boundary semantics
+- structural counts
+- confusion matrix
+- metrics
+- scenario-level metrics
+- temporal scenario and segment results
+- deterministic limitations statements
+
+Threshold provenance is always explicit. There is no default threshold in the evidence model, writer, or reference-corpus entrypoint.
+
+## Deterministic Serialization
+
+Canonical evidence serialization is deterministic by design:
+
+- fixed property ordering
+- stable list ordering
+- accepted scenario first-appearance ordering
+- accepted temporal segment ordering
+- UTF-8 output
+- final newline on canonical artifacts
+- no wall-clock generation timestamp in canonical content
+- no destination-path leakage into canonical content
+- Markdown-sensitive evidence strings are escaped before human-readable rendering
+
+Repeated generation over identical accepted inputs and configuration should produce byte-identical `evaluation.json` and `evaluation.md` contents.
+
+## Numeric and Undefined Metric Handling
+
+Machine-readable evidence preserves full accepted metric precision using the existing `double` values.
+
+Undefined metrics remain explicitly undefined in JSON as:
+
+- `defined = false`
+- `value = null`
+
+They are not rewritten as:
+
+- `NaN`
+- `Infinity`
+- `0`
+
+Markdown renders undefined metrics conservatively as `undefined`.
+
+## Structural Evidence
+
+The report includes deterministic structural counts such as:
+
+- reference event count
+- scenario count
+- aligned evaluation observation count
+- expected normal observation count
+- expected anomalous observation count
+- evaluable prediction count
+- excluded prediction count
+- anomalous segment counts
+- recovery-window counts
+
+These counts reconcile with the accepted metrics and temporal results rather than introducing a second accounting path.
+
+## Scenario and Temporal Evidence
+
+Scenario metrics remain in accepted first-appearance order.
+
+Temporal reporting includes, per anomalous segment where available:
+
+- segment index
+- anomaly onset
+- anomaly window end
+- whether the segment was detected within the observed anomaly window
+- first detection
+- source observation delay
+- evaluable-opportunity delay
+- event-time delay
+- unavailable detector-evidence count
+- recovery-window presence
+- stable recovery status
+- recovery delay
+
+The report layer does not reinterpret these semantics. It renders the accepted temporal contracts directly.
+
+## No-Overwrite and Partial-Write Behavior
+
+The evidence writer does not silently overwrite an existing evidence directory.
+
+It writes canonical artifacts into a temporary directory, validates the rendered outputs, and only then moves the completed directory into place.
+
+That prevents `evaluation.json` from appearing finalized without its matching `evaluation.md`.
+
+The temporary directory is created as a sibling of the requested output directory. Publication first attempts an atomic directory move and falls back to a normal no-replace move when the filesystem does not support atomic directory moves.
+
+## Privacy Boundary for Evidence
+
+Evidence artifacts remain within the accepted privacy boundary.
+
+They do not expose:
+
+- raw identity keys from evaluation observations
+- raw endpoints
+- raw headers
+- authorization values
+- cookies
+- query values
+- request or response bodies
+- `FeatureSnapshot`
+
+Evidence operates on accepted privacy-safe identifiers, counts, scenario metadata, and deterministic provenance only.
+
+## Reference-Corpus Evidence Generation
+
+`ReferenceDetectionEvaluationEvidenceMain` orchestrates the real pipeline for the tracked reference corpus:
+
+1. load the tracked reference dataset
+2. run deterministic replay
+3. align independent truth with replay output
+4. compute accepted detection metrics
+5. compute accepted temporal evaluation
+6. construct deterministic evidence
+7. write `evaluation.json` and `evaluation.md`
+
+The entrypoint requires an explicit threshold. It does not infer one from policy thresholds or corpus outcomes.
+
 ## Zero-Denominator Behavior
 
 The framework distinguishes mathematically zero from undefined.
@@ -434,10 +612,10 @@ This layer intentionally does not yet provide:
 - AUC
 - threshold optimization
 - threshold auto-selection
-- report files or evidence bundles
+- official baseline establishment
 - official baseline acceptance rules
 
-It provides reusable measurement primitives only.
+It provides reusable measurement and evidence-generation primitives only.
 
 ## Explicit Boundaries
 
@@ -458,10 +636,10 @@ The following remain true:
 
 Later work can build on these metrics and temporal results to add:
 
+- formal approval of an official detection baseline
 - aggregate temporal summaries
 - warmup-duration and broader stabilization analysis
 - ROC or PR analysis
-- evidence/report generation
-- official detection baseline work
+- richer comparison/report packaging if later evidence requires it
 
 Those later capabilities remain separate from baseline establishment and quality acceptance.
