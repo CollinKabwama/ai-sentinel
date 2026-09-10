@@ -137,3 +137,9 @@ For event schema `"1"`:
 This contract definition now serves as the canonical exported evaluation record for dataset tooling. The portable dataset envelope and checksum/ordering semantics are defined in [`DATASET_EXPORT.md`](DATASET_EXPORT.md).
 
 It still does not by itself implement replay, detection evaluation, or the official reference dataset.
+
+Those capabilities are documented separately:
+
+- reference corpus: [`../../evaluation/REFERENCE_DATASET.md`](../../evaluation/REFERENCE_DATASET.md)
+- deterministic replay: [`../../evaluation/DETERMINISTIC_REPLAY.md`](../../evaluation/DETERMINISTIC_REPLAY.md)
+- detection evaluation framework: [`../../evaluation/DETECTION_EVALUATION.md`](../../evaluation/DETECTION_EVALUATION.md)

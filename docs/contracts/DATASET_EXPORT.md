@@ -26,6 +26,12 @@ This contract is intended to support later:
 
 It does not itself implement replay, detection metrics, or the official reference dataset.
 
+Those layers are documented separately:
+
+- reference corpus: [`../../evaluation/REFERENCE_DATASET.md`](../../evaluation/REFERENCE_DATASET.md)
+- deterministic replay: [`../../evaluation/DETERMINISTIC_REPLAY.md`](../../evaluation/DETERMINISTIC_REPLAY.md)
+- detection evaluation framework: [`../../evaluation/DETECTION_EVALUATION.md`](../../evaluation/DETECTION_EVALUATION.md)
+
 ## Record Model
 
 AI-Sentinel exports `EvaluationEvent` records directly rather than introducing a duplicate dataset-only DTO.
