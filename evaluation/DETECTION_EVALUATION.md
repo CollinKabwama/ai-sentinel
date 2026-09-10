@@ -17,9 +17,13 @@ It does not establish an official detection baseline.
 The evaluation flow is intentionally one-way:
 
 ```text
-reference annotations -> independent truth
-reference dataset -> deterministic replay -> current replay detector evidence
-truth + replay evidence -> aligned observations -> detection metrics -> temporal evaluation -> evidence generation
+reference dataset + annotations
+  -> deterministic replay
+  -> truth/replay alignment
+  -> explicit classification
+  -> detection metrics
+  -> temporal evaluation
+  -> deterministic evidence (evaluation.json / evaluation.md)
 ```
 
 Not:
@@ -36,6 +40,58 @@ This preserves:
 
 Metrics operate only after alignment. They do not influence replay, scoring, baseline learning, policy, or enforcement.
 
+### Complete-run orchestration
+
+`DetectionEvaluationRunner` is the reusable, framework-independent orchestration boundary for one complete offline evaluation. It composes accepted stage components and does not reimplement scoring, classification, metrics, temporal segmentation, or evidence serialization.
+
+`ReferenceDetectionEvaluationEvidenceMain` is a thin CLI adapter over that runner for the tracked reference corpus. It parses arguments, locates accepted inputs, requires an explicit `--threshold`, selects an output destination, and invokes the runner.
+
+Material configuration for one run is explicit caller input:
+
+- reference dataset identity and annotation file
+- `ReplayConfiguration`
+- `DetectionClassificationConfiguration` (caller-supplied anomaly threshold)
+
+There is no hidden threshold default, policy-derived threshold, or corpus-derived threshold selection.
+
+### Cross-stage consistency
+
+Independently valid stage outputs may still be an invalid complete evaluation when combined. The framework rejects contradictory combinations at the narrowest appropriate boundary, including:
+
+- dataset / annotation identity and schema mismatch
+- replay output that does not bind to the evaluated dataset
+- metrics / temporal / evidence threshold provenance mismatch
+- scenario identity or category drift across metrics and temporal sections
+- structural count contradictions in the evidence model
+
+### State isolation
+
+Each complete run starts from fresh replay state. Prior successful runs, prior classification configurations, and prior failed runs must not alter a later independent evaluation of the same inputs.
+
+### Framework acceptance scope
+
+Framework hardening establishes technical readiness of the evaluation machinery:
+
+- determinism
+- integrity
+- reproducibility
+- contract consistency
+- provenance
+- privacy
+- failure behavior
+
+It does **not** establish detector quality acceptance.
+
+Explicitly:
+
+- `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`
+- `REPORT != BASELINE`
+- `REFERENCE DATASET != DETECTION BASELINE`
+- `DIAGNOSTIC RESULT != ACCEPTANCE CRITERION`
+- `DETECTION DELAY != REQUEST LATENCY`
+
+Diagnostic precision/recall/FPR/FNR/delay values may appear in evidence for inspection. They are not pass/fail quality gates and do not approve current detection efficacy.
+
 ## Inputs
 
 The evaluation layer consumes existing contract families:
@@ -46,11 +102,13 @@ The evaluation layer consumes existing contract families:
 
 The main implementations live in:
 
+- `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionEvaluationRunner.java`
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/ReferenceEvaluationAligner.java`
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionMetricsCalculator.java`
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/TemporalDetectionEvaluator.java`
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionEvaluationEvidenceGenerator.java`
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionEvaluationEvidenceWriter.java`
+- `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/ReferenceDetectionEvaluationEvidenceMain.java`
 
 ## Ground-Truth Source
 
@@ -548,15 +606,25 @@ Evidence operates on accepted privacy-safe identifiers, counts, scenario metadat
 
 ## Reference-Corpus Evidence Generation
 
-`ReferenceDetectionEvaluationEvidenceMain` orchestrates the real pipeline for the tracked reference corpus:
+`DetectionEvaluationRunner` orchestrates the real pipeline. The tracked-corpus CLI
+`ReferenceDetectionEvaluationEvidenceMain` is a thin adapter that:
 
-1. load the tracked reference dataset
-2. run deterministic replay
-3. align independent truth with replay output
-4. compute accepted detection metrics
-5. compute accepted temporal evaluation
-6. construct deterministic evidence
-7. write `evaluation.json` and `evaluation.md`
+1. requires an explicit `--threshold`
+2. locates the tracked reference dataset and annotations
+3. constructs `ReplayConfiguration.referenceDefaults()` and explicit classification configuration
+4. invokes the runner
+5. prints publication summary metadata
+
+The runner itself:
+
+1. loads and consistency-checks dataset/annotation identity
+2. runs deterministic replay
+3. validates replay output against the evaluated dataset and configuration
+4. aligns independent truth with replay output
+5. computes accepted detection metrics
+6. computes accepted temporal evaluation
+7. constructs deterministic evidence under the same explicit classification configuration
+8. writes `evaluation.json` and `evaluation.md`
 
 The entrypoint requires an explicit threshold. It does not infer one from policy thresholds or corpus outcomes.
 
@@ -614,14 +682,20 @@ This layer intentionally does not yet provide:
 - threshold auto-selection
 - official baseline establishment
 - official baseline acceptance rules
+- detector-quality pass/fail gates over precision/recall/FPR/FNR/delay
 
-It provides reusable measurement and evidence-generation primitives only.
+It provides reusable measurement, orchestration, and evidence-generation primitives only.
+
+Framework hardening may conclude that the evaluation machinery is ready to generate a *candidate* official reference baseline. That conclusion is not itself baseline establishment or quality approval.
 
 ## Explicit Boundaries
 
 The following remain true:
 
+- `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`
+- `REPORT != BASELINE`
 - `REFERENCE DATASET != DETECTION BASELINE`
+- `DIAGNOSTIC RESULT != ACCEPTANCE CRITERION`
 - `REFERENCE DATASET != TRAINING DATASET`
 - `SYNTHETIC DATA != PRODUCTION TRAFFIC`
 - `LABEL != FEATURE`
@@ -631,6 +705,8 @@ The following remain true:
 - `INVALID SCORE != MAXIMUM RISK`
 - `INFRASTRUCTURE FAILURE != ATTACK`
 - `PERFORMANCE != DETECTION EFFECTIVENESS`
+- `DETECTION DELAY != REQUEST LATENCY`
+- `IN-PROCESS EVALUATION != FULL APPLICATION REQUEST LATENCY`
 
 ## What Remains For Later Evaluation Work
 

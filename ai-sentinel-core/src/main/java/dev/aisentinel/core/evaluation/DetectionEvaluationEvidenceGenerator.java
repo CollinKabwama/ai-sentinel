@@ -20,14 +20,24 @@ public final class DetectionEvaluationEvidenceGenerator {
                                                 ReferenceEvaluationAlignment alignment,
                                                 ReplayRunManifest replayManifest,
                                                 DetectionEvaluationMetrics metrics,
-                                                TemporalDetectionEvaluation temporal) {
+                                                TemporalDetectionEvaluation temporal,
+                                                DetectionClassificationConfiguration classification) {
         ReplayDataset safeDataset = Objects.requireNonNull(dataset, "dataset");
         ReferenceEvaluationAlignment safeAlignment = Objects.requireNonNull(alignment, "alignment");
         ReplayRunManifest safeReplayManifest = Objects.requireNonNull(replayManifest, "replayManifest");
         DetectionEvaluationMetrics safeMetrics = Objects.requireNonNull(metrics, "metrics");
         TemporalDetectionEvaluation safeTemporal = Objects.requireNonNull(temporal, "temporal");
+        DetectionClassificationConfiguration safeClassification =
+            Objects.requireNonNull(classification, "classification");
 
-        requireConsistentIds(safeDataset, safeAlignment, safeReplayManifest, safeMetrics, safeTemporal);
+        requireConsistentIds(
+            safeDataset,
+            safeAlignment,
+            safeReplayManifest,
+            safeMetrics,
+            safeTemporal,
+            safeClassification
+        );
         DetectionEvaluationEvidence.StructuralCounts counts = structuralCounts(safeAlignment, safeMetrics, safeTemporal);
         return new DetectionEvaluationEvidence(
             EVIDENCE_SCHEMA_VERSION,
@@ -57,7 +67,7 @@ public final class DetectionEvaluationEvidenceGenerator {
                 safeReplayManifest.resultsSha256()
             ),
             new DetectionEvaluationEvidence.ClassificationProvenance(
-                safeMetrics.classification().anomalyThreshold(),
+                safeClassification.anomalyThreshold(),
                 THRESHOLD_BOUNDARY
             ),
             counts,
@@ -67,11 +77,29 @@ public final class DetectionEvaluationEvidenceGenerator {
         );
     }
 
+    /**
+     * Builds evidence using the already-bound metrics classification.
+     * <p>
+     * This preserves the historical API without introducing a hidden default threshold:
+     * the metrics, temporal, and evidence classification are still reconciled by
+     * {@link #generate(ReplayDataset, ReferenceEvaluationAlignment, ReplayRunManifest,
+     * DetectionEvaluationMetrics, TemporalDetectionEvaluation, DetectionClassificationConfiguration)}.
+     */
+    public DetectionEvaluationEvidence generate(ReplayDataset dataset,
+                                                ReferenceEvaluationAlignment alignment,
+                                                ReplayRunManifest replayManifest,
+                                                DetectionEvaluationMetrics metrics,
+                                                TemporalDetectionEvaluation temporal) {
+        DetectionEvaluationMetrics safeMetrics = Objects.requireNonNull(metrics, "metrics");
+        return generate(dataset, alignment, replayManifest, safeMetrics, temporal, safeMetrics.classification());
+    }
+
     private static void requireConsistentIds(ReplayDataset dataset,
                                              ReferenceEvaluationAlignment alignment,
                                              ReplayRunManifest replayManifest,
                                              DetectionEvaluationMetrics metrics,
-                                             TemporalDetectionEvaluation temporal) {
+                                             TemporalDetectionEvaluation temporal,
+                                             DetectionClassificationConfiguration classification) {
         String datasetId = dataset.manifest().datasetId();
         String replayRunId = replayManifest.replayRunId();
         if (!datasetId.equals(alignment.datasetId())
@@ -94,9 +122,22 @@ public final class DetectionEvaluationEvidenceGenerator {
             || !dataset.annotations().schemaVersion().equals(replayManifest.annotationSchemaVersion())) {
             throw new IllegalArgumentException("replay manifest schema provenance must match replay dataset");
         }
-        if (!metrics.classification().equals(temporal.classification())) {
-            throw new IllegalArgumentException("metrics and temporal classification must match");
+        if (alignment.evaluableObservationCount() != metrics.totalObservationCount()) {
+            throw new IllegalArgumentException("alignment observation count must match metrics totalObservationCount");
         }
+        if (Double.compare(classification.anomalyThreshold(), metrics.classification().anomalyThreshold()) != 0
+            || Double.compare(classification.anomalyThreshold(), temporal.classification().anomalyThreshold()) != 0) {
+            throw new IllegalArgumentException("classification threshold must reconcile across metrics, temporal, and evidence");
+        }
+        if (!sameClassification(metrics.classification(), temporal.classification())
+            || !sameClassification(classification, metrics.classification())) {
+            throw new IllegalArgumentException("metrics and temporal classification must match explicit configuration");
+        }
+    }
+
+    private static boolean sameClassification(DetectionClassificationConfiguration left,
+                                              DetectionClassificationConfiguration right) {
+        return Double.compare(left.anomalyThreshold(), right.anomalyThreshold()) == 0;
     }
 
     private static DetectionEvaluationEvidence.StructuralCounts structuralCounts(ReferenceEvaluationAlignment alignment,

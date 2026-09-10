@@ -449,7 +449,8 @@ class DetectionEvaluationEvidenceTest {
             "results.jsonl",
             SHA_B
         );
-        return new DetectionEvaluationEvidenceGenerator().generate(dataset, alignment, replayManifest, metrics, temporal);
+        return new DetectionEvaluationEvidenceGenerator()
+            .generate(dataset, alignment, replayManifest, metrics, temporal, THRESHOLD);
     }
 
     private DetectionEvaluationEvidence sampleEvidence() {
@@ -727,7 +728,7 @@ class DetectionEvaluationEvidenceTest {
             TemporalDetectionEvaluation temporal =
                 new TemporalDetectionEvaluator().evaluate(alignment, classification);
             return new DetectionEvaluationEvidenceGenerator()
-                .generate(dataset, alignment, run.manifest(), metrics, temporal);
+                .generate(dataset, alignment, run.manifest(), metrics, temporal, classification);
         } finally {
             deleteRecursively(replayOutput);
         }
