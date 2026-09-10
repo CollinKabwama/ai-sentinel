@@ -120,5 +120,8 @@ Included in `ai-sentinel-core` / starter Surefire:
 - Multi-host distributed end-to-end behavior beyond documented Testcontainers coverage
 - Isolation Forest per-feature attribution
 - Fail-closed availability
+- Official detection baseline quality or production detection efficacy
 
 Preserve MONITOR-first adoption: [`deployment.md`](deployment.md).
+
+Offline detection-evaluation machinery (reference corpus, deterministic replay, complete-run evidence) is documented under [`../evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md). Framework readiness there is not detector-quality acceptance (`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`).
