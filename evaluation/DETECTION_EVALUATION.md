@@ -12,6 +12,13 @@ It covers:
 
 It does not establish an official detection baseline.
 
+## Related documentation
+
+- Reference dataset: [`REFERENCE_DATASET.md`](REFERENCE_DATASET.md)
+- Deterministic replay: [`DETERMINISTIC_REPLAY.md`](DETERMINISTIC_REPLAY.md)
+- Dataset/export contract: [`docs/contracts/DATASET_EXPORT.md`](../docs/contracts/DATASET_EXPORT.md)
+- Evaluation event contract: [`docs/contracts/EVALUATION_EVENT.md`](../docs/contracts/EVALUATION_EVENT.md)
+
 ## Evaluation Architecture
 
 The evaluation flow is intentionally one-way:
@@ -719,3 +726,5 @@ Later work can build on these metrics and temporal results to add:
 - richer comparison/report packaging if later evidence requires it
 
 Those later capabilities remain separate from baseline establishment and quality acceptance.
+
+Official Detection Reference Baseline establishment is a distinct follow-on capability. Completing framework hardening does not approve current detector quality.

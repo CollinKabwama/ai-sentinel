@@ -180,6 +180,18 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 
 ---
 
+## Offline detection evaluation
+
+Tracked evaluation corpus and offline tooling live under [`evaluation/`](evaluation/):
+
+- [`evaluation/REFERENCE_DATASET.md`](evaluation/REFERENCE_DATASET.md) — durable synthetic reference corpus
+- [`evaluation/DETERMINISTIC_REPLAY.md`](evaluation/DETERMINISTIC_REPLAY.md) — deterministic scoring/policy replay
+- [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md) — complete-run orchestration, metrics, temporal evaluation, and evidence
+
+These layers are engineering evidence machinery. They do **not** establish an official detection baseline or approve production detection efficacy (`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`).
+
+---
+
 ## Current limitations
 
 - **Stable baseline** — **0.3.0** is the first stable compatibility baseline and the current Maven Central line (tag `v0.3.0`). Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.

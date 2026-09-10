@@ -1,11 +1,19 @@
 # Deterministic Replay
 
-Deterministic replay consumes a compatible evaluation dataset and re-executes AI-Sentinel scoring and policy behavior over the recorded `FeatureSnapshot` sequence. It is an evidence-generation layer for future evaluation work, not the evaluation framework itself and not the official detection baseline.
+Deterministic replay consumes a compatible evaluation dataset and re-executes AI-Sentinel scoring and policy behavior over the recorded `FeatureSnapshot` sequence. It is the prediction-evidence stage of offline evaluation, not the complete detection-evaluation framework and not the official detection baseline.
 
 The current implementation lives in `ai-sentinel-core/src/main/java/dev/aisentinel/core/replay/` and writes portable replay artifacts as:
 
 - `results.jsonl`
 - `manifest.json`
+
+Complete offline evaluation orchestration (align → classify → metrics → temporal → evidence) lives in `DetectionEvaluationRunner` and is documented in [`DETECTION_EVALUATION.md`](DETECTION_EVALUATION.md).
+
+## Related documentation
+
+- Reference dataset: [`REFERENCE_DATASET.md`](REFERENCE_DATASET.md)
+- Detection evaluation framework: [`DETECTION_EVALUATION.md`](DETECTION_EVALUATION.md)
+- Dataset/export contract: [`docs/contracts/DATASET_EXPORT.md`](../docs/contracts/DATASET_EXPORT.md)
 
 ## Purpose
 
@@ -13,7 +21,7 @@ Deterministic replay exists to answer one narrow engineering question:
 
 - if dataset contents, scorer selection, policy configuration, feature schema, and replay mode are unchanged, do we reproduce equivalent machine-readable behavior?
 
-It does not currently compute confusion matrices, precision/recall, ROC/PR, threshold acceptance rules, or official benchmark-quality detection claims.
+Replay alone does not compute confusion matrices, precision/recall, ROC/PR, threshold acceptance rules, or official detection-quality claims. Those measurements, when produced, come from the separate detection-evaluation layer after alignment and an explicit caller-supplied classification threshold.
 
 ## Replay Boundary
 
@@ -170,7 +178,7 @@ The script compiles `ai-sentinel-core`, runs `dev.aisentinel.core.replay.Referen
 
 ## Boundaries Preserved
 
-This milestone deliberately preserves separation between:
+This layer deliberately preserves separation between:
 
 - reference dataset generation
 - deterministic replay
@@ -178,3 +186,5 @@ This milestone deliberately preserves separation between:
 - official detection baseline
 
 Replay validates annotations only as linked context. It does not interpret ground-truth labels as scorer inputs and does not compute quality metrics from them.
+
+`REPORT != BASELINE` and `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` remain true even when replay artifacts are consumed by a complete evaluation run.

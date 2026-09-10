@@ -42,7 +42,13 @@ evaluation/reference/
   annotations.json
 ```
 
-This dataset is repository-level rather than hidden under unit-test resources because future replay and detection-evaluation tooling will need a shared, durable location.
+This dataset is repository-level rather than hidden under unit-test resources so deterministic replay and detection-evaluation tooling can share one durable corpus location.
+
+## Related documentation
+
+- Dataset/export contract: [`docs/contracts/DATASET_EXPORT.md`](../docs/contracts/DATASET_EXPORT.md)
+- Deterministic replay: [`DETERMINISTIC_REPLAY.md`](DETERMINISTIC_REPLAY.md)
+- Detection evaluation framework: [`DETECTION_EVALUATION.md`](DETECTION_EVALUATION.md)
 
 ## Architecture
 
@@ -186,8 +192,9 @@ Validation checks include:
 
 ## Limitations
 
-- this milestone does not implement replay
-- this milestone does not compute precision/recall/F1/ROC/PR
-- this milestone does not establish a detection baseline
-- this milestone does not claim scorer efficacy
-- current observed outputs come from the present statistical decision stack and are included only as observations, not as authoritative labels
+- this dataset layer does not itself run replay or compute detection metrics
+- deterministic replay and offline evaluation live in sibling docs and core packages (see Related documentation)
+- this corpus does not establish a detection baseline
+- this corpus does not claim scorer efficacy or production representativeness
+- observed outputs in the event file come from the present statistical decision stack and are included only as observations, not as authoritative labels
+- diagnostic metrics produced later against this corpus remain diagnostic only (`DIAGNOSTIC RESULT != ACCEPTANCE CRITERION`)
