@@ -1,19 +1,13 @@
 package dev.aisentinel.core.evaluation;
 
-import dev.aisentinel.core.dataset.reference.ReferenceDatasetAnnotations;
-import dev.aisentinel.core.dataset.reference.ReferenceDatasetAnnotationsLoader;
 import dev.aisentinel.core.dataset.reference.ReferenceDatasetGenerator;
 import dev.aisentinel.core.replay.ReplayConfiguration;
-import dev.aisentinel.core.replay.ReplayDataset;
-import dev.aisentinel.core.replay.ReplayDatasetLoader;
-import dev.aisentinel.core.replay.ReplayEngine;
 
-import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * CLI entrypoint for generating deterministic evaluation evidence from the tracked reference corpus.
+ * Thin CLI adapter for generating deterministic evaluation evidence from the tracked reference corpus.
  */
 public final class ReferenceDetectionEvaluationEvidenceMain {
 
@@ -23,68 +17,29 @@ public final class ReferenceDetectionEvaluationEvidenceMain {
     public static void main(String[] args) throws Exception {
         Arguments parsed = Arguments.parse(args);
         Path output = parsed.outputDirectory().toAbsolutePath().normalize();
-        ReplayConfiguration replayConfiguration = ReplayConfiguration.referenceDefaults();
+        Path datasetDirectory = requireTrackedPath(ReferenceDatasetGenerator.TRACKED_DATASET_DIRECTORY);
+        Path annotationsFile = requireTrackedPath(ReferenceDatasetGenerator.TRACKED_ANNOTATIONS_FILE);
         DetectionClassificationConfiguration classification =
             new DetectionClassificationConfiguration(parsed.anomalyThreshold());
-        Path datasetDirectory = locateTrackedPath(ReferenceDatasetGenerator.TRACKED_DATASET_DIRECTORY);
-        Path annotationsFile = locateTrackedPath(ReferenceDatasetGenerator.TRACKED_ANNOTATIONS_FILE);
 
-        ReplayDataset dataset = new ReplayDatasetLoader().load(
+        DetectionEvaluationRunner.DetectionEvaluationRun run = new DetectionEvaluationRunner().evaluate(
             datasetDirectory,
-            annotationsFile
+            annotationsFile,
+            ReplayConfiguration.referenceDefaults(),
+            classification,
+            output
         );
-        ReferenceDatasetAnnotations annotations = new ReferenceDatasetAnnotationsLoader()
-            .load(annotationsFile);
-
-        Path replayDirectory = Files.createTempDirectory("reference-detection-evidence-replay-");
-        try {
-            ReplayEngine.ReplayRun replayRun = new ReplayEngine().run(dataset, replayConfiguration, replayDirectory);
-            ReferenceEvaluationAlignment alignment =
-                new ReferenceEvaluationAligner().align(dataset, annotations, replayRun.results());
-            DetectionEvaluationMetrics metrics =
-                new DetectionMetricsCalculator().compute(alignment, classification);
-            TemporalDetectionEvaluation temporal =
-                new TemporalDetectionEvaluator().evaluate(alignment, classification);
-            DetectionEvaluationEvidence evidence = new DetectionEvaluationEvidenceGenerator()
-                .generate(dataset, alignment, replayRun.manifest(), metrics, temporal);
-            DetectionEvaluationEvidenceWriter.WrittenEvidence written =
-                new DetectionEvaluationEvidenceWriter().write(output, evidence);
-            System.out.printf(
-                "detectionEvaluationEvidence output=%s jsonSha256=%s markdownSha256=%s aligned=%d scenarios=%d segments=%d%n",
-                written.outputDirectory(),
-                written.jsonSha256(),
-                written.markdownSha256(),
-                evidence.counts().alignedObservationCount(),
-                evidence.counts().scenarioCount(),
-                evidence.counts().anomalySegmentCount()
-            );
-        } finally {
-            deleteRecursively(replayDirectory);
-        }
+        System.out.println(
+            "detectionEvaluationEvidence output=" + run.writtenEvidence().outputDirectory()
+                + " jsonSha256=" + run.writtenEvidence().jsonSha256()
+                + " markdownSha256=" + run.writtenEvidence().markdownSha256()
+                + " aligned=" + run.evidence().counts().alignedObservationCount()
+                + " scenarios=" + run.evidence().counts().scenarioCount()
+                + " segments=" + run.evidence().counts().anomalySegmentCount()
+        );
     }
 
-    private static void deleteRecursively(Path path) throws IOException {
-        if (!Files.exists(path)) {
-            return;
-        }
-        try (var walk = Files.walk(path)) {
-            walk.sorted((left, right) -> right.getNameCount() - left.getNameCount())
-                .forEach(candidate -> {
-                    try {
-                        Files.deleteIfExists(candidate);
-                    } catch (IOException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
-        } catch (RuntimeException e) {
-            if (e.getCause() instanceof IOException io) {
-                throw io;
-            }
-            throw e;
-        }
-    }
-
-    private static Path locateTrackedPath(Path relativePath) {
+    static Path requireTrackedPath(Path relativePath) {
         Path candidate = relativePath.toAbsolutePath().normalize();
         if (Files.exists(candidate)) {
             return candidate;
@@ -97,7 +52,7 @@ public final class ReferenceDetectionEvaluationEvidenceMain {
             }
             current = current.getParent();
         }
-        return relativePath.toAbsolutePath().normalize();
+        throw new IllegalArgumentException("tracked path not found: " + relativePath);
     }
 
     record Arguments(Path outputDirectory, double anomalyThreshold) {
@@ -149,12 +104,19 @@ public final class ReferenceDetectionEvaluationEvidenceMain {
             if (value == null || value.isBlank()) {
                 throw new IllegalArgumentException("missing value for --output");
             }
-            return Path.of(value);
+            return Path.of(value.trim());
         }
 
         private static double parseThreshold(String value) {
+            if (value == null || value.isBlank()) {
+                throw new IllegalArgumentException("invalid --threshold: " + value);
+            }
+            String trimmed = value.trim();
+            if (trimmed.isEmpty()) {
+                throw new IllegalArgumentException("invalid --threshold: " + value);
+            }
             try {
-                double threshold = Double.parseDouble(value);
+                double threshold = Double.parseDouble(trimmed);
                 if (!Double.isFinite(threshold) || threshold < 0.0 || threshold > 1.0) {
                     throw new IllegalArgumentException("invalid --threshold: " + value);
                 }
