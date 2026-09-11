@@ -1,6 +1,6 @@
 # Developer scripts
 
-Optional **Python 3.7+** helpers (standard library only). They assume the demo app is running and **`/actuator/sentinel`** is exposed.
+Helpers for local development. Python scripts assume the demo app is running and **`/actuator/sentinel`** is exposed. Shell scripts under this directory also cover offline evaluation corpus work and opt-in JMH benchmarks.
 
 ---
 
@@ -111,3 +111,46 @@ Builds `ai-sentinel-benchmark` and runs the shaded JMH jar. **Not** part of norm
 Official measured baseline: [`docs/performance/REFERENCE_BASELINE.md`](../docs/performance/REFERENCE_BASELINE.md).
 
 Details: [`docs/performance/BENCHMARKING.md`](../docs/performance/BENCHMARKING.md).
+
+---
+
+## Offline evaluation corpus helpers
+
+These scripts operate on the tracked synthetic corpus under [`evaluation/reference/`](../evaluation/reference/). They do not establish an official detection baseline.
+
+### Regenerate / compare reference dataset (`generate-reference-dataset.sh`)
+
+```bash
+./scripts/generate-reference-dataset.sh          # generate to a temp dir and compare to tracked artifacts
+./scripts/generate-reference-dataset.sh --write  # refresh tracked artifacts intentionally
+```
+
+Details: [`evaluation/REFERENCE_DATASET.md`](../evaluation/REFERENCE_DATASET.md).
+
+### Replay the reference dataset (`replay-reference-dataset.sh`)
+
+```bash
+./scripts/replay-reference-dataset.sh
+./scripts/replay-reference-dataset.sh build/reference-replay
+```
+
+Compiles `ai-sentinel-core`, runs `ReferenceDatasetReplayMain`, and prints the output path plus checksums.
+
+Details: [`evaluation/DETERMINISTIC_REPLAY.md`](../evaluation/DETERMINISTIC_REPLAY.md).
+
+### Complete detection-evaluation evidence
+
+There is no dedicated shell wrapper yet. After compiling `ai-sentinel-core`, run the thin CLI adapter with an **explicit** `--threshold`:
+
+```bash
+mvn -q -pl ai-sentinel-core -DskipTests compile dependency:build-classpath \
+  -Dmdep.outputFile=/tmp/ai-sentinel-cp.txt
+java -cp "ai-sentinel-core/target/classes:$(cat /tmp/ai-sentinel-cp.txt)" \
+  dev.aisentinel.core.evaluation.ReferenceDetectionEvaluationEvidenceMain \
+  --threshold 0.5 \
+  --output build/reference-detection-evaluation-evidence
+```
+
+Any numeric threshold here is caller-supplied for that run only. It is not recommended, approved, or official.
+
+Details: [`evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md).

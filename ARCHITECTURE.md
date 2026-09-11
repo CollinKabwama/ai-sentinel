@@ -35,11 +35,14 @@ ai-sentinel/
 ├── ai-sentinel-spring-boot-starter/  # Current Servlet filter, auto-config, actuator, Micrometer
 ├── ai-sentinel-trainer/              # Optional app: Kafka consumer, IF training, filesystem registry publisher
 ├── ai-sentinel-demo/                 # Reference Spring Boot application
+├── evaluation/                       # Tracked synthetic corpus + offline replay/evaluation docs
 ├── dotnet/                           # Reference ASP.NET Core remote adapter (no C# scoring engine)
-└── scripts/                          # Optional Python traffic / training helpers
+└── scripts/                          # Optional Python helpers, evaluation corpus scripts, JMH runners
 ```
 
 There is **no** `ai-sentinel-dashboard` module; visualize via Prometheus/Grafana or logs.
+
+Offline detection evaluation (`dev.aisentinel.core.replay`, `dev.aisentinel.core.evaluation`) is engineering evidence machinery against the tracked corpus. It is **not** part of the request path and does not establish an official detection baseline. See [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md).
 
 ---
 
@@ -313,6 +316,7 @@ Dedicated distributed meters (`aisentinel.distributed.*`, `aisentinel.identity.t
 Canonical release-gate command and characterization inventory: [`docs/testing.md`](docs/testing.md).
 
 - **Unit tests** — `ai-sentinel-core`: scorers, policy boundaries, resolver logic, enforcement maps, IF buffer and retrain behavior, codec/metadata.
+- **Offline evaluation** — deterministic replay, alignment, metrics, temporal evaluation, evidence, and complete-run hardening under `dev.aisentinel.core.replay` / `dev.aisentinel.core.evaluation`. Framework readiness is not detector-quality acceptance; see [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md).
 - **Architecture tests** — `CoreIndependenceArchTest` (no Spring/servlet/`reactor.*` in core); starter `StarterServletBoundaryArchTest` (servlet types only under `autoconfigure.web`).
 - **Spring slice tests** — `ai-sentinel-spring-boot-starter`: auto-configuration, actuator JSON shape, filter/proxy integration, model registry beans (`dev.aisentinel.autoconfigure.model.*`).
 - **Distributed / Redis** — `dev.aisentinel.validation.*` and related tests: Testcontainers Redis (`@Testcontainers(disabledWithoutDocker = true)`). **Docker** (or a Docker-compatible CI agent) is required to run those tests; they are skipped when Docker is unavailable. These suites prove **single-JVM** coordination through Redis (often with a second Lettuce client as a stand-in peer). They are **not** a multi-process / multi-host proof — see [`docs/deployment.md`](docs/deployment.md) distributed notes.
