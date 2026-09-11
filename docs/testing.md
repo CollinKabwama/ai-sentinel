@@ -45,11 +45,11 @@ Expected shape (may grow if tests are added):
 
 | Module | Typical tests | Notes |
 |--------|---------------|--------|
-| `ai-sentinel-core` | ~555 | Includes characterization + architecture |
+| `ai-sentinel-core` | ~725 | Includes characterization, architecture, and offline evaluation |
 | `ai-sentinel-spring-boot-starter` | ~264 | Includes 5 Docker/Testcontainers skips when Docker is unavailable |
 | `ai-sentinel-trainer` | 16 | |
 | `ai-sentinel-demo` | 4 | |
-| **Total** | **~850** | 0 failures / 0 errors; infra skips may apply |
+| **Total** | **~1000+** | 0 failures / 0 errors; infra skips may apply; grows as suites expand |
 
 The reactor also compiles **`ai-sentinel-benchmark`**. Its **support-code** unit tests are included in the total above; the JMH suite does **not** run on `verify`. See [`performance/BENCHMARKING.md`](performance/BENCHMARKING.md). Official measured 0.3.0 reference values (not CI gates / not SLAs): [`performance/REFERENCE_BASELINE.md`](performance/REFERENCE_BASELINE.md).
 
@@ -85,6 +85,10 @@ required**. Passing `mvn clean verify` already executes them.
 | `AutomaticRelearnPoisoningRegressionTest` | No automatic relearn poisoning path |
 | `CompositeScorerIsolationForestBlendTest` | IF fallback excluded from blend unless `MODEL` |
 | `CoreIndependenceArchTest` / starter ArchUnit | Framework boundary guards |
+| `DetectionEvaluationFrameworkHardeningTest` | Complete-run offline evaluation orchestration / isolation / determinism |
+| `DetectionEvaluationEvidenceTest` | Evidence generation and writer contracts |
+
+These offline evaluation tests validate framework machinery. Passing them is **not** detector-quality acceptance (`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`). See [`../evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md).
 
 ### Focused characterization command
 
