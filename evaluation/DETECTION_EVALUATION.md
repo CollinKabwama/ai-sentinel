@@ -635,6 +635,25 @@ The runner itself:
 
 The entrypoint requires an explicit threshold. It does not infer one from policy thresholds or corpus outcomes.
 
+### Running the tracked-corpus CLI
+
+From the repository root, after compiling `ai-sentinel-core`:
+
+```bash
+mvn -q -pl ai-sentinel-core -DskipTests compile dependency:build-classpath \
+  -Dmdep.outputFile=/tmp/ai-sentinel-cp.txt
+java -cp "ai-sentinel-core/target/classes:$(cat /tmp/ai-sentinel-cp.txt)" \
+  dev.aisentinel.core.evaluation.ReferenceDetectionEvaluationEvidenceMain \
+  --threshold 0.5 \
+  --output build/reference-detection-evaluation-evidence
+```
+
+`--threshold` is required and must be a finite value in `[0, 1]`. `--output` is optional and defaults to `build/reference-detection-evaluation-evidence`.
+
+Any threshold used for a local or CI diagnostic run is caller-supplied for that run only. It is not a recommended, approved, or official anomaly threshold.
+
+Corpus regeneration and replay-only helpers live in [`scripts/README.md`](../scripts/README.md).
+
 ## Zero-Denominator Behavior
 
 The framework distinguishes mathematically zero from undefined.
