@@ -44,6 +44,7 @@ When your PR **deprecates** functionality (but keeps it working for a transition
 | **ai-sentinel-trainer** | Optional standalone Spring Boot app: consumes training candidates (Kafka when enabled), trains IF, publishes to a filesystem model registry. See [`ai-sentinel-trainer/README.md`](ai-sentinel-trainer/README.md). |
 | **ai-sentinel-demo** | Reference Spring Boot app for local runs and smoke tests. |
 | **dotnet/** | Reference ASP.NET Core remote adapter (`AI.Sentinel.AspNetCore`) — consumes remote evaluation HTTP API; no C# scoring engine. See [`dotnet/README.md`](dotnet/README.md). |
+| **evaluation/** | Tracked synthetic reference corpus plus offline replay/evaluation docs. Engineering evidence only — not an official detection baseline. Start at [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md). |
 
 ---
 
@@ -53,6 +54,7 @@ When your PR **deprecates** functionality (but keeps it working for a transition
 2. **`SentinelDecisionEngine`** — [`.../decision/SentinelDecisionEngine.java`](ai-sentinel-core/src/main/java/dev/aisentinel/core/decision/SentinelDecisionEngine.java) — framework-free risk decision returning `RiskDecision` (never writes the HTTP response).
 3. **`SentinelFilter`** — [`ai-sentinel-spring-boot-starter/.../SentinelFilter.java`](ai-sentinel-spring-boot-starter/src/main/java/dev/aisentinel/autoconfigure/web/SentinelFilter.java) — servlet entry point and adapter boundary.
 4. **`SentinelAutoConfiguration`** — [`.../SentinelAutoConfiguration.java`](ai-sentinel-spring-boot-starter/src/main/java/dev/aisentinel/autoconfigure/config/SentinelAutoConfiguration.java) — beans and `@ConditionalOnMissingBean` extension points.
+5. **Offline evaluation** — `dev.aisentinel.core.replay` and `dev.aisentinel.core.evaluation` (including `DetectionEvaluationRunner`) for deterministic replay and complete-run evidence against [`evaluation/reference/`](evaluation/reference/). See [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md).
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/configuration.md`](docs/configuration.md) for the full picture.
 
@@ -111,7 +113,7 @@ mvn clean install
 
 To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter` at the version in the parent `pom.xml` (currently **0.3.0** — the same coordinate published to Maven Central, tag `v0.3.0`). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
 
-Characterization and release-gate testing: [`docs/testing.md`](docs/testing.md). Upgrading from the previous published line: [`docs/migration.md`](docs/migration.md). Docs index and reading order: [`docs/README.md`](docs/README.md).
+Characterization and release-gate testing: [`docs/testing.md`](docs/testing.md). Upgrading from the previous published line: [`docs/migration.md`](docs/migration.md). Docs index and reading order: [`docs/README.md`](docs/README.md). Offline evaluation corpus helpers: [`scripts/README.md`](scripts/README.md) and [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md).
 
 **Publishing to Maven Central:** see **[`RELEASING.md`](RELEASING.md)** for the full release checklist (Central Portal, GPG, `-Prelease` deploy).
 
