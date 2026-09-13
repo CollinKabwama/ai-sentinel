@@ -49,6 +49,7 @@ This dataset is repository-level rather than hidden under unit-test resources so
 - Dataset/export contract: [`docs/contracts/DATASET_EXPORT.md`](../docs/contracts/DATASET_EXPORT.md)
 - Deterministic replay: [`DETERMINISTIC_REPLAY.md`](DETERMINISTIC_REPLAY.md)
 - Detection evaluation framework: [`DETECTION_EVALUATION.md`](DETECTION_EVALUATION.md)
+- Official Detection Reference Baseline (threshold decision; capture pending): [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md)
 
 ## Architecture
 

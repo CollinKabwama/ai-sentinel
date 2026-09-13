@@ -17,6 +17,7 @@ It does **not** establish an Official Detection Reference Baseline.
 
 - Reference dataset: [`REFERENCE_DATASET.md`](REFERENCE_DATASET.md)
 - Deterministic replay: [`DETERMINISTIC_REPLAY.md`](DETERMINISTIC_REPLAY.md)
+- Official Detection Reference Baseline (threshold decision; capture not yet complete): [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md)
 - Dataset/export contract: [`docs/contracts/DATASET_EXPORT.md`](../docs/contracts/DATASET_EXPORT.md)
 - Evaluation event contract: [`docs/contracts/EVALUATION_EVENT.md`](../docs/contracts/EVALUATION_EVENT.md)
 - Performance baseline (not detection quality): [`docs/performance/REFERENCE_BASELINE.md`](../docs/performance/REFERENCE_BASELINE.md)
@@ -663,9 +664,13 @@ java -cp "ai-sentinel-core/target/classes:$(cat /tmp/ai-sentinel-cp.txt)" \
 
 `--threshold` is required and must be a finite value in `[0, 1]`. `--output` is optional and defaults to `build/reference-detection-evaluation-evidence`.
 
-Any threshold used for a local or CI diagnostic run is caller-supplied for that run only. It is not a recommended, approved, or official anomaly threshold.
+Any threshold used for a local or CI diagnostic run is caller-supplied for that run only. The general evaluation framework has no hidden default.
+
+For Official Detection Reference Baseline capture specifically, `0.5` is the authorized **reference classification threshold**. That decision is recorded in [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md). It is not a production, enforcement, optimal, or recommended deployment threshold.
 
 `DIAGNOSTIC RESULT != ACCEPTANCE CRITERION`
+
+`REFERENCE THRESHOLD != PRODUCTION THRESHOLD`
 
 Corpus regeneration and replay-only helpers live in [`scripts/README.md`](../scripts/README.md).
 
@@ -765,15 +770,24 @@ The following remain true:
 
 ## What Remains For Later Evaluation Work
 
-The next separate engineering capability is:
+The reference classification threshold decision for baseline reproducibility is
+recorded in [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md)
+(`0.5`). The Official Detection Reference Baseline itself is **not yet captured**.
 
-- **Official Detection Reference Baseline** — deliberate tracked quality baseline, reference configuration governance, and acceptance rules
+Next separate engineering work:
+
+- **Official Detection Reference Baseline definition and capture** — tracked
+  baseline artifacts bound to accepted evaluation evidence under the reference
+  classification threshold
 
 Later work may also add:
 
+- baseline verification / drift detection
+- baseline lifecycle / governance / recapture hardening
 - aggregate temporal summaries
 - warmup-duration and broader stabilization analysis
 - ROC or PR analysis
 - richer comparison/report packaging if later evidence requires it
 
-Those capabilities remain separate from framework completion. Completing the Detection Evaluation Framework does not approve current detector quality.
+Those capabilities remain separate from framework completion. Completing the
+Detection Evaluation Framework does not approve current detector quality.
