@@ -12,13 +12,15 @@ for the published library line.
 
 - Opt-in JMH **benchmark foundation** module (`ai-sentinel-benchmark`) for in-process latency/throughput measurement (not an SLA gate). See [`docs/performance/BENCHMARKING.md`](docs/performance/BENCHMARKING.md).
 - Offline **detection evaluation framework** orchestration (`DetectionEvaluationRunner`) with deterministic evidence generation for the tracked reference corpus. See [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md). Framework readiness is not detector-quality acceptance.
+- Initial **Official Detection Reference Baseline** definition and capture (`evaluation/detection-reference-baseline/`) under reference classification threshold `0.5`. See [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Not production efficacy, not a quality gate; verification/drift and lifecycle/governance remain.
 
 ### Changed
 
 - Operator docs now state that **0.3.0** is published to Maven Central (tag `v0.3.0`). japicmp still compares against **0.2.0** until a separate baseline retarget.
 - Linked README, SECURITY, migration, deployment, docs index, CONTRIBUTING, and the ASP.NET adapter README to the published **0.3.0** release / Central coordinate.
 - Cross-linked reference dataset, deterministic replay, and detection-evaluation docs so offline evaluation stages are discoverable from project entry points.
-- Synchronized project and evaluation docs after Detection Evaluation Framework completion: framework is documented as complete; Official Detection Reference Baseline remains the next maturity boundary; performance baseline docs distinguish detection quality.
+- Synchronized project and evaluation docs after Detection Evaluation Framework completion: framework is documented as complete; performance baseline docs distinguish detection quality.
+- Documented Official Detection Reference Baseline initial capture and remaining verification/lifecycle boundaries.
 
 ### Fixed
 

@@ -208,18 +208,19 @@ The **Detection Evaluation Framework** is complete on the current development li
 - [`evaluation/REFERENCE_DATASET.md`](evaluation/REFERENCE_DATASET.md) — durable synthetic reference corpus
 - [`evaluation/DETERMINISTIC_REPLAY.md`](evaluation/DETERMINISTIC_REPLAY.md) — deterministic scoring/policy replay
 - [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md) — complete-run orchestration, metrics, temporal evaluation, evidence, and framework guarantees
+- [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md) — Official Detection Reference Baseline definition and initial capture
 
-These layers are offline engineering evidence machinery. They do **not** establish an Official Detection Reference Baseline or approve production detection efficacy.
+These layers are offline engineering evidence machinery. Initial Official Detection Reference Baseline capture records current reference-corpus detector behavior under threshold `0.5`. That does **not** approve production detection efficacy or create quality gates.
 
-`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `REPORT != BASELINE` · `REFERENCE DATASET != DETECTION BASELINE` · `DIAGNOSTIC RESULT != ACCEPTANCE CRITERION`
+`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `BASELINE != QUALITY GATE` · `REFERENCE DATASET != DETECTION BASELINE` · `DIAGNOSTIC RESULT != ACCEPTANCE CRITERION`
 
-The next separate maturity boundary is the **Official Detection Reference Baseline** (deliberate quality baseline governance — not created by running the framework alone).
+Remaining baseline maturity work: verification/drift detection and lifecycle/governance hardening.
 
 ---
 
 ## Current limitations
 
-- **Official Detection Reference Baseline** — Not established. Framework readiness is not detector-quality acceptance.
+- **Official Detection Reference Baseline** — Initial definition/capture exists under [`evaluation/detection-reference-baseline/`](evaluation/detection-reference-baseline/); verification/drift and lifecycle/governance remain. Capture is not detector-quality acceptance or production approval.
 - **Stable software baseline** — **0.3.0** is the first stable compatibility baseline and the current Maven Central line (tag `v0.3.0`). Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
 - **MONITOR default** — Default `ai.sentinel.mode=MONITOR` (observe/learn; no client denial). Explicit `ENFORCE` enables client denial only after ENFORCE preconditions. Full mode matrix, restart behavior, and the availability-first **failure-mode profile**: [`docs/deployment.md`](docs/deployment.md). Statistical warmup is a lifecycle state (`EvaluationStatus.STATISTICAL_WARMUP`), not evidence of abuse; default warmup action is `MONITOR`. Default baseline learning skips `THROTTLE`/`BLOCK`/`QUARANTINE` risk (`ALLOW_OR_MONITOR`).
 - **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository).
