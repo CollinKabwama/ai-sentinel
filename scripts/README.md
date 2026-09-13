@@ -156,3 +156,14 @@ Any numeric threshold here is caller-supplied for that run only. It is not recom
 `DIAGNOSTIC RESULT != ACCEPTANCE CRITERION`
 
 Details: [`evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md).
+
+### Official Detection Reference Baseline capture
+
+```bash
+./scripts/capture-detection-reference-baseline.sh
+./scripts/capture-detection-reference-baseline.sh /tmp/detection-reference-baseline-preview
+```
+
+Uses `DetectionReferenceBaselineConfiguration.officialReference()` (reference classification threshold `0.5`). This is **not** a general evaluator default and is **not** the performance reference baseline. Refuses an existing destination (no overwrite flags).
+
+Details: [`evaluation/DETECTION_REFERENCE_BASELINE.md`](../evaluation/DETECTION_REFERENCE_BASELINE.md).

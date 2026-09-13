@@ -1,6 +1,6 @@
 # Deterministic Replay
 
-Deterministic replay consumes a compatible evaluation dataset and re-executes AI-Sentinel scoring and policy behavior over the recorded `FeatureSnapshot` sequence. It is the prediction-evidence stage of offline evaluation, not the complete detection-evaluation framework and not the official detection baseline.
+Deterministic replay consumes a compatible evaluation dataset and re-executes AI-Sentinel scoring and policy behavior over the recorded `FeatureSnapshot` sequence. It is the prediction-evidence stage of offline evaluation, not the complete detection-evaluation framework and not the official detection baseline. Replay remains a required upstream stage for reproducible Official Detection Reference Baseline capture.
 
 The current implementation lives in `ai-sentinel-core/src/main/java/dev/aisentinel/core/replay/` and writes portable replay artifacts as:
 
@@ -13,7 +13,7 @@ Complete offline evaluation orchestration (align → classify → metrics → te
 
 - Reference dataset: [`REFERENCE_DATASET.md`](REFERENCE_DATASET.md)
 - Detection evaluation framework: [`DETECTION_EVALUATION.md`](DETECTION_EVALUATION.md)
-- Official Detection Reference Baseline (threshold decision; capture pending): [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md)
+- Official Detection Reference Baseline (replay supplies reproducible scoring/policy provenance for capture): [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md)
 - Dataset/export contract: [`docs/contracts/DATASET_EXPORT.md`](../docs/contracts/DATASET_EXPORT.md)
 
 ## Purpose
