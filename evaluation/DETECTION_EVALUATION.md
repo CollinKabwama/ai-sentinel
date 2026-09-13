@@ -11,13 +11,15 @@ It covers:
 - deterministic evidence and report generation from accepted evaluation results
 - reusable complete-run orchestration and framework hardening guarantees
 
-It does **not** establish an Official Detection Reference Baseline.
+Deterministic evidence from this framework feeds the tracked Official Detection
+Reference Baseline. Framework completion alone is still not detector-quality
+acceptance.
 
 ## Related documentation
 
 - Reference dataset: [`REFERENCE_DATASET.md`](REFERENCE_DATASET.md)
 - Deterministic replay: [`DETERMINISTIC_REPLAY.md`](DETERMINISTIC_REPLAY.md)
-- Official Detection Reference Baseline (threshold decision; capture not yet complete): [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md)
+- Official Detection Reference Baseline: [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md)
 - Dataset/export contract: [`docs/contracts/DATASET_EXPORT.md`](../docs/contracts/DATASET_EXPORT.md)
 - Evaluation event contract: [`docs/contracts/EVALUATION_EVENT.md`](../docs/contracts/EVALUATION_EVENT.md)
 - Performance baseline (not detection quality): [`docs/performance/REFERENCE_BASELINE.md`](../docs/performance/REFERENCE_BASELINE.md)
@@ -34,6 +36,7 @@ reference dataset + annotations
   -> detection metrics (+ scenario metrics)
   -> temporal evaluation
   -> deterministic evidence (evaluation.json / evaluation.md)
+  -> Official Detection Reference Baseline capture (tracked artifacts)
 ```
 
 Not:
@@ -684,7 +687,7 @@ Against the tracked reference corpus on the current development line, complete e
 - **8** anomaly segments
 - **0** recovery windows
 
-Expected-class and metric counts depend on the explicit caller-supplied threshold and are diagnostic only. They are not Official Detection Reference Baseline values and must not be treated as quality acceptance.
+Expected-class and metric counts depend on the explicit caller-supplied threshold and are diagnostic only for ad-hoc runs. Official baseline values are the tracked artifacts under [`detection-reference-baseline/`](detection-reference-baseline/) and must not be treated as quality acceptance.
 
 ## Zero-Denominator Behavior
 
@@ -738,14 +741,15 @@ This layer intentionally does not yet provide:
 - AUC
 - threshold optimization
 - threshold auto-selection
-- Official Detection Reference Baseline establishment
-- official baseline acceptance rules
+- official baseline acceptance / quality gates
+- generalized baseline verification / drift detection
+- baseline lifecycle / governance / recapture workflows
 - detector-quality pass/fail gates over precision/recall/FPR/FNR/delay
 - production detection-efficacy evidence
 
 It provides reusable measurement, orchestration, evidence-generation, and complete-run hardening primitives.
 
-The evaluation machinery is ready to *support generation of candidate baseline evidence*. That readiness is not itself Official Detection Reference Baseline establishment or quality approval.
+Initial Official Detection Reference Baseline definition and capture is documented in [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md). Framework acceptance remains distinct from detection-quality acceptance.
 
 ## Explicit Boundaries
 
@@ -770,20 +774,15 @@ The following remain true:
 
 ## What Remains For Later Evaluation Work
 
-The reference classification threshold decision for baseline reproducibility is
-recorded in [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md)
-(`0.5`). The Official Detection Reference Baseline itself is **not yet captured**.
-
-Next separate engineering work:
-
-- **Official Detection Reference Baseline definition and capture** — tracked
-  baseline artifacts bound to accepted evaluation evidence under the reference
-  classification threshold
-
-Later work may also add:
+The Official Detection Reference Baseline initial definition and capture is
+documented in [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md)
+(reference classification threshold `0.5`). Remaining baseline work:
 
 - baseline verification / drift detection
 - baseline lifecycle / governance / recapture hardening
+
+Later evaluation work may also add:
+
 - aggregate temporal summaries
 - warmup-duration and broader stabilization analysis
 - ROC or PR analysis
