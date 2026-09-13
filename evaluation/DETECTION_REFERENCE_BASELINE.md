@@ -2,12 +2,13 @@
 
 ## Status
 
-Initial **definition and capture** of the Official Detection Reference Baseline is
-merged on the current development line.
+The Official Detection Reference Baseline capability is **DONE** on the current
+development line:
 
-**Verification and drift detection** is merged on the current development line.
-
-**Lifecycle and governance hardening** is implemented and awaits independent review.
+- **definition and capture** — tracked deterministic baseline artifacts
+- **verification and drift detection** — read-only MATCH / DRIFT reporting
+- **lifecycle and governance** — candidate create/approve/reject/promote, history
+  retention, and governed rollback
 
 Tracked artifacts:
 
@@ -24,6 +25,9 @@ Additive lifecycle directories (created by maintainer commands; not required for
 Related framework documentation: [`DETECTION_EVALUATION.md`](DETECTION_EVALUATION.md).
 
 `DETECTION BASELINE != PRODUCTION EFFICACY` · `BASELINE != QUALITY GATE` · `DRIFT != REGRESSION` · `DRIFT != APPROVAL`
+
+Capability completion does **not** establish production efficacy, ENFORCE
+readiness, or detector-quality acceptance for production traffic.
 
 ## Definition
 
@@ -374,10 +378,15 @@ HISTORY RETENTION / OPTIONAL ROLLBACK
 - `DRIFT != APPROVAL`
 - `DRIFT != REGRESSION`
 - `CANDIDATE != OFFICIAL BASELINE`
+- `APPROVAL != PROMOTION`
 - `APPROVAL != AUTOMATIC PROMOTION`
 - `PROMOTION != PRODUCTION DEPLOYMENT`
 - `METRIC DELTA != GOVERNANCE DECISION`
 - `BASELINE CHANGE != PRODUCTION ACCEPTANCE`
+
+A **baseline candidate** is a proposed replacement for the official reference
+baseline evidence set. It is distinct from a future **scorer/model candidate**
+artifact evaluated under scorer plug-in / shadow-scoring work.
 
 Verification remains read-only. Drift is evidence for humans, never an
 auto-approve or auto-promote policy. There are no acceptable-drift lists,
@@ -419,7 +428,8 @@ Official canonical artifacts stay in place. Candidates and history are siblings.
 6. leaves the official baseline untouched
 
 Candidate identity is an explicit `--candidate-id` (validated; no path traversal).
-Capture reuses Iteration-1 machinery and official reference threshold `0.5`.
+Capture reuses the existing Official Detection Reference Baseline capture
+machinery and official reference threshold `0.5`.
 
 ### Approval and rejection
 
@@ -452,9 +462,11 @@ Promotion requires an approved, non-stale, non-identical candidate. It:
 
 Identical candidates (`MATCH`) are refused as no-op — no meaningless history.
 
-Publication safety: history is written before official mutation. Individual
-artifact publish uses temp siblings then replace. Mid-failure recovery source is
-the retained history snapshot. Do not claim cross-filesystem absolute atomicity.
+Publication safety is best-effort recoverable filesystem publication: history is
+written before official mutation; individual artifact publish uses temp siblings
+then replace; mid-failure recovery source is the retained history snapshot with
+restore attempts where practical. Do not claim crash-proof multi-file atomicity
+or cross-filesystem transactional guarantees.
 
 ### Rollback
 
@@ -542,6 +554,7 @@ At minimum:
 - `DIFFERENCE != FAILURE`
 - `VERIFICATION RESULT != PRODUCTION ACCEPTANCE`
 - `CANDIDATE != OFFICIAL BASELINE`
+- `APPROVAL != PROMOTION`
 - `APPROVAL != AUTOMATIC PROMOTION`
 - `PROMOTION != PRODUCTION DEPLOYMENT`
 - `METRIC DELTA != GOVERNANCE DECISION`

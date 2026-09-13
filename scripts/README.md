@@ -185,10 +185,17 @@ Does not modify official baseline artifacts.
 ./scripts/lifecycle-detection-reference-baseline.sh create-candidate --candidate-id <id>
 ./scripts/lifecycle-detection-reference-baseline.sh approve-candidate \
   --candidate-id <id> --rationale "..." --approver "..."
+./scripts/lifecycle-detection-reference-baseline.sh reject-candidate \
+  --candidate-id <id> --rationale "..." --approver "..."
 ./scripts/lifecycle-detection-reference-baseline.sh promote-candidate --candidate-id <id>
+./scripts/lifecycle-detection-reference-baseline.sh rollback \
+  --history-id <id> --rationale "..." --approver "..."
 ./scripts/lifecycle-detection-reference-baseline.sh list-history
 ```
 
-Explicit candidate approval/promotion with historical retention and rollback.
-Drift is never auto-approved. No `--force` / `--overwrite` / threshold tuning.
+Explicit baseline-candidate approval/promotion with historical retention and rollback.
+A baseline candidate is a proposed replacement for official baseline evidence; it is
+not a scorer/model candidate. Drift is never auto-approved. No `--force` /
+`--overwrite` / threshold tuning / Git automation. Approver metadata is declarative
+(`SUPPLIED APPROVER IDENTIFIER != VERIFIED HUMAN IDENTITY`).
 Details: [`evaluation/DETECTION_REFERENCE_BASELINE.md`](../evaluation/DETECTION_REFERENCE_BASELINE.md).
