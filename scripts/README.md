@@ -167,3 +167,14 @@ Details: [`evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATI
 Uses `DetectionReferenceBaselineConfiguration.officialReference()` (reference classification threshold `0.5`). This is **not** a general evaluator default and is **not** the performance reference baseline. Refuses an existing destination (no overwrite flags).
 
 Details: [`evaluation/DETECTION_REFERENCE_BASELINE.md`](../evaluation/DETECTION_REFERENCE_BASELINE.md).
+
+### Official Detection Reference Baseline verification
+
+```bash
+./scripts/verify-detection-reference-baseline.sh
+./scripts/verify-detection-reference-baseline.sh evaluation/detection-reference-baseline /tmp/baseline-verify-report
+```
+
+Compares a fresh official-reference evaluation against the tracked baseline.
+Exit `0` = `MATCH`; `1` = `DRIFT_DETECTED` (difference, not quality rejection).
+Does not modify official baseline artifacts.

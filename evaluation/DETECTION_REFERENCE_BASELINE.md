@@ -3,7 +3,9 @@
 ## Status
 
 Initial **definition and capture** of the Official Detection Reference Baseline is
-implemented on the current development line and awaits independent review.
+merged on the current development line.
+
+**Verification and drift detection** is implemented and awaits independent review.
 
 Tracked artifacts:
 
@@ -13,12 +15,11 @@ Tracked artifacts:
 
 Related framework documentation: [`DETECTION_EVALUATION.md`](DETECTION_EVALUATION.md).
 
-Still remaining (not part of this capture capability):
+Still remaining:
 
-- generalized baseline verification / drift detection
 - baseline lifecycle / governance / recapture / replacement approval
 
-`DETECTION BASELINE != PRODUCTION EFFICACY` · `BASELINE != QUALITY GATE`
+`DETECTION BASELINE != PRODUCTION EFFICACY` · `BASELINE != QUALITY GATE` · `DRIFT != REGRESSION`
 
 ## Definition
 
@@ -226,6 +227,118 @@ PII, local filesystem paths, usernames, or hostnames.
 
 `PSEUDONYMIZED != ANONYMOUS`
 
+## Verification and drift detection
+
+Verification answers:
+
+> Does a fresh deterministic evaluation still reproduce the currently tracked
+> Official Detection Reference Baseline, and if not, what changed?
+
+It does **not** approve drift, replace the baseline, promote candidates, or
+decide product quality.
+
+`DRIFT != REGRESSION` · `DIFFERENCE != FAILURE` · `VERIFICATION RESULT != PRODUCTION ACCEPTANCE`
+
+### Flow
+
+```text
+TRACKED OFFICIAL BASELINE
+        +
+CURRENT REPOSITORY INPUTS
+        ↓
+FRESH DETERMINISTIC REPLAY/EVALUATION
+        ↓
+CURRENT CANONICAL EVIDENCE
+        ↓
+BASELINE VERIFIER
+        ↓
+VERIFICATION / DRIFT REPORT
+```
+
+Official baseline artifacts remain read-only. Fresh evidence is ephemeral
+unless an explicit verification report output directory is requested (never
+inside the official baseline directory).
+
+### Overall statuses
+
+| Status | Meaning |
+| --- | --- |
+| `MATCH` | Baseline valid; current evaluation succeeded; complete comparison contract matches |
+| `DRIFT_DETECTED` | Baseline valid; current evaluation succeeded; one or more dimensions differ |
+| `BASELINE_INTEGRITY_FAILURE` | Tracked baseline is invalid/tampered; comparison is not trustworthy |
+| `CURRENT_EVALUATION_FAILURE` | Current replay/evaluation could not complete; no fabricated drift values |
+
+`DRIFT_DETECTED` means technical difference, not release rejection.
+
+### Drift categories
+
+- `DATASET_PROVENANCE`
+- `ANNOTATION_PROVENANCE`
+- `REPLAY_PROVENANCE`
+- `SCORER_PROVENANCE`
+- `POLICY_PROVENANCE`
+- `CLASSIFICATION_CONFIGURATION`
+- `STRUCTURAL_EVIDENCE`
+- `DETECTION_METRICS`
+- `TEMPORAL_EVIDENCE`
+- `GENERATED_EVIDENCE`
+
+Comparison is exact/deterministic against accepted evidence values. No epsilon
+tolerances, severity ratings, acceptable-drift lists, or quality gates.
+
+### Persisted baseline integrity
+
+Before comparison, verification loads and validates the persisted baseline:
+
+- JSON syntax and supported schema
+- required fields / baseline ID / kind / threshold
+- artifact file-name path safety (no traversal / symlink artifacts)
+- exact `evaluation.json` / `evaluation.md` SHA-256 and byte counts vs manifest
+- manifest provenance/structure reconciliation against `evaluation.json`
+
+Unknown additive JSON object fields are ignored after required known fields are
+validated. Duplicate object keys are rejected.
+
+### Verification command
+
+```bash
+./scripts/verify-detection-reference-baseline.sh
+./scripts/verify-detection-reference-baseline.sh evaluation/detection-reference-baseline /tmp/baseline-verify-report
+```
+
+Equivalent:
+
+```bash
+java -cp "..." dev.aisentinel.core.evaluation.ReferenceDetectionBaselineVerifyMain \
+  --baseline evaluation/detection-reference-baseline \
+  --output /tmp/baseline-verify-report
+```
+
+Official verification always uses
+`DetectionReferenceBaselineConfiguration.officialReference()` (threshold `0.5`).
+There is no CLI option to change the official verification threshold.
+
+### Exit codes
+
+| Code | Status |
+| --- | --- |
+| 0 | `MATCH` |
+| 1 | `DRIFT_DETECTED` |
+| 2 | `BASELINE_INTEGRITY_FAILURE` |
+| 3 | `CURRENT_EVALUATION_FAILURE` |
+| 4 | invalid usage |
+
+Nonzero for drift is automation-friendly and does **not** mean quality rejection.
+
+Optional `--output` writes deterministic `verification.json` / `verification.md`
+and refuses an existing destination (no `--force`).
+
+### Report schema
+
+Verification reports use independent schema version `1`
+(`official-detection-reference-baseline-verification`), distinct from the
+baseline artifact schema.
+
 ## Limitations
 
 At minimum:
@@ -242,15 +355,14 @@ At minimum:
 - no controlled MONITOR pilot evidence is established
 - no ENFORCE production approval is established
 - observed metrics are not quality gates
+- verification detects difference only; it does not approve/replace baselines
 
 ## Future work
 
-- **Verification / drift detection** — compare a fresh current run against the
-  official baseline
 - **Lifecycle / governance** — replacement approval, promotion, rollback,
   recapture authorization
 
-Do not treat capture integrity validation as generalized drift detection.
+Do not treat verification/drift detection as lifecycle/governance.
 
 ## Explicit boundaries
 
@@ -273,3 +385,6 @@ Do not treat capture integrity validation as generalized drift detection.
 - `INVALID SCORE != MAXIMUM RISK`
 - `REPORT != BASELINE` (until deliberately published as this baseline)
 - `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`
+- `DRIFT != REGRESSION`
+- `DIFFERENCE != FAILURE`
+- `VERIFICATION RESULT != PRODUCTION ACCEPTANCE`

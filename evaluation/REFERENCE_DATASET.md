@@ -25,7 +25,9 @@ It is not:
 
 The Official Detection Reference Baseline is a separate tracked record of
 detector behavior **against** this dataset under the reference evaluation
-configuration. See [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md).
+configuration. Fresh baseline verification re-evaluates the currently tracked
+corpus and compares provenance (including dataset/events SHA-256) against that
+baseline; see [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md).
 
 `REFERENCE DATASET != DETECTION BASELINE`
 
