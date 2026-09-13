@@ -29,8 +29,9 @@ configuration. Fresh baseline verification re-evaluates the currently tracked
 corpus and compares provenance (including dataset/events SHA-256) against that
 baseline. Lifecycle candidate creation may also capture against intentional
 corpus updates; dataset provenance drift remains evidence for explicit human
-governance, not automatic approval. See
-[`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md).
+governance, not automatic approval. Here “candidate” means a **baseline
+candidate** (proposed official baseline evidence), not a scorer/model candidate.
+See [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md).
 
 `REFERENCE DATASET != DETECTION BASELINE`
 

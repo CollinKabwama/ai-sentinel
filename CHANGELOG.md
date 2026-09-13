@@ -14,7 +14,7 @@ for the published library line.
 - Offline **detection evaluation framework** orchestration (`DetectionEvaluationRunner`) with deterministic evidence generation for the tracked reference corpus. See [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md). Framework readiness is not detector-quality acceptance.
 - Initial **Official Detection Reference Baseline** definition and capture (`evaluation/detection-reference-baseline/`) under reference classification threshold `0.5`. See [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Not production efficacy, not a quality gate.
 - Official Detection Reference Baseline **verification and drift detection** (`DetectionReferenceBaselineVerifier`, `scripts/verify-detection-reference-baseline.sh`). Drift means difference, not defect.
-- Official Detection Reference Baseline **lifecycle and governance** (`DetectionReferenceBaselineLifecycle`, `scripts/lifecycle-detection-reference-baseline.sh`): candidate create/approve/reject/promote, history retention, rollback. Drift is never auto-approved; awaiting independent review.
+- Official Detection Reference Baseline **lifecycle and governance** (`DetectionReferenceBaselineLifecycle`, `scripts/lifecycle-detection-reference-baseline.sh`): baseline-candidate create/approve/reject/promote, history retention, rollback. Drift is never auto-approved. Capability complete (not production efficacy / not a quality gate).
 
 ### Changed
 
@@ -22,7 +22,7 @@ for the published library line.
 - Linked README, SECURITY, migration, deployment, docs index, CONTRIBUTING, and the ASP.NET adapter README to the published **0.3.0** release / Central coordinate.
 - Cross-linked reference dataset, deterministic replay, and detection-evaluation docs so offline evaluation stages are discoverable from project entry points.
 - Synchronized project and evaluation docs after Detection Evaluation Framework completion: framework is documented as complete; performance baseline docs distinguish detection quality.
-- Documented Official Detection Reference Baseline initial capture and remaining verification/lifecycle boundaries.
+- Documented Official Detection Reference Baseline capture, verification/drift, and lifecycle/governance as a completed offline engineering capability (still not production efficacy).
 
 ### Fixed
 
