@@ -13,6 +13,7 @@ Complete offline evaluation orchestration (align → classify → metrics → te
 
 - Reference dataset: [`REFERENCE_DATASET.md`](REFERENCE_DATASET.md)
 - Detection evaluation framework: [`DETECTION_EVALUATION.md`](DETECTION_EVALUATION.md)
+- Official Detection Reference Baseline (threshold decision; capture pending): [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md)
 - Dataset/export contract: [`docs/contracts/DATASET_EXPORT.md`](../docs/contracts/DATASET_EXPORT.md)
 
 ## Purpose
