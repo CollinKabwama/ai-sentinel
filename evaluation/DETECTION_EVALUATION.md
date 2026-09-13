@@ -1,6 +1,6 @@
-# Detection Evaluation
+# Detection Evaluation Framework
 
-This document defines the framework-independent evaluation boundary for AI-Sentinel detection quality.
+This document is the technical reference for AI-Sentinel's completed offline **Detection Evaluation Framework**.
 
 It covers:
 
@@ -9,8 +9,9 @@ It covers:
 - deterministic dataset-level and scenario-level confusion-matrix accounting
 - deterministic temporal interpretation of aligned anomaly predictions
 - deterministic evidence and report generation from accepted evaluation results
+- reusable complete-run orchestration and framework hardening guarantees
 
-It does not establish an official detection baseline.
+It does **not** establish an Official Detection Reference Baseline.
 
 ## Related documentation
 
@@ -18,6 +19,7 @@ It does not establish an official detection baseline.
 - Deterministic replay: [`DETERMINISTIC_REPLAY.md`](DETERMINISTIC_REPLAY.md)
 - Dataset/export contract: [`docs/contracts/DATASET_EXPORT.md`](../docs/contracts/DATASET_EXPORT.md)
 - Evaluation event contract: [`docs/contracts/EVALUATION_EVENT.md`](../docs/contracts/EVALUATION_EVENT.md)
+- Performance baseline (not detection quality): [`docs/performance/REFERENCE_BASELINE.md`](../docs/performance/REFERENCE_BASELINE.md)
 
 ## Evaluation Architecture
 
@@ -28,7 +30,7 @@ reference dataset + annotations
   -> deterministic replay
   -> truth/replay alignment
   -> explicit classification
-  -> detection metrics
+  -> detection metrics (+ scenario metrics)
   -> temporal evaluation
   -> deterministic evidence (evaluation.json / evaluation.md)
 ```
@@ -44,6 +46,7 @@ This preserves:
 - `LABEL != FEATURE`
 - `SCORER OUTPUT != GROUND TRUTH`
 - `POLICY ACTION != DETECTOR PREDICTION`
+- `ANOMALOUS != MALICIOUS`
 
 Metrics operate only after alignment. They do not influence replay, scoring, baseline learning, policy, or enforcement.
 
@@ -61,7 +64,9 @@ Material configuration for one run is explicit caller input:
 
 There is no hidden threshold default, policy-derived threshold, or corpus-derived threshold selection.
 
-### Cross-stage consistency
+Shared classification for aggregate metrics and temporal evaluation uses the package-private `DetectionEvaluationClassifier`, which depends only on detector evidence and the explicit classification configuration.
+
+### Cross-stage consistency / framework hardening
 
 Independently valid stage outputs may still be an invalid complete evaluation when combined. The framework rejects contradictory combinations at the narrowest appropriate boundary, including:
 
@@ -71,19 +76,21 @@ Independently valid stage outputs may still be an invalid complete evaluation wh
 - scenario identity or category drift across metrics and temporal sections
 - structural count contradictions in the evidence model
 
-### State isolation
+Complete-run hardening also covers:
 
-Each complete run starts from fresh replay state. Prior successful runs, prior classification configurations, and prior failed runs must not alter a later independent evaluation of the same inputs.
+- state isolation across independent runs
+- failed-run isolation
+- output-path independence for canonical artifact bytes
+- deterministic repeated execution for fixed accepted inputs
+- privacy boundaries on evidence contents
 
 ### Framework acceptance scope
 
 Framework hardening establishes technical readiness of the evaluation machinery:
 
-- determinism
-- integrity
-- reproducibility
-- contract consistency
-- provenance
+- correctness of contracts and reconciliation
+- determinism and reproducibility
+- provenance integrity
 - privacy
 - failure behavior
 
@@ -96,6 +103,8 @@ Explicitly:
 - `REFERENCE DATASET != DETECTION BASELINE`
 - `DIAGNOSTIC RESULT != ACCEPTANCE CRITERION`
 - `DETECTION DELAY != REQUEST LATENCY`
+- `PERFORMANCE != DETECTION EFFECTIVENESS`
+- `REFERENCE PERFORMANCE BASELINE != DETECTION REFERENCE BASELINE`
 
 Diagnostic precision/recall/FPR/FNR/delay values may appear in evidence for inspection. They are not pass/fail quality gates and do not approve current detection efficacy.
 
@@ -110,10 +119,14 @@ The evaluation layer consumes existing contract families:
 The main implementations live in:
 
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionEvaluationRunner.java`
+- `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionClassificationConfiguration.java`
+- `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionEvaluationClassifier.java` (package-private)
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/ReferenceEvaluationAligner.java`
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionMetricsCalculator.java`
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/TemporalDetectionEvaluator.java`
+- `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionEvaluationEvidence.java`
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionEvaluationEvidenceGenerator.java`
+- `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionEvaluationEvidenceValidator.java`
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/DetectionEvaluationEvidenceWriter.java`
 - `ai-sentinel-core/src/main/java/dev/aisentinel/core/evaluation/ReferenceDetectionEvaluationEvidenceMain.java`
 
@@ -416,7 +429,7 @@ If stabilization occurs, the result exposes:
 
 If no stable normal classification occurs before the recovery window ends, recovery remains explicitly unstabilized.
 
-The current tracked reference corpus contains no observed recovery windows: each anomalous evaluable scenario ends at the end of its anomaly evaluation window. Recovery semantics are covered by unit fixtures and remain compatible with future scenarios that include anomalous-to-normal evaluation transitions.
+The current tracked reference corpus contains **no observed recovery windows**: each anomalous evaluable scenario ends at the end of its anomaly evaluation window. The framework still implements recovery/stabilization evaluation and covers those semantics with focused unit fixtures. Do not treat the absence of corpus recovery windows as absence of recovery support.
 
 ## Warmup and Context Separation
 
@@ -652,7 +665,21 @@ java -cp "ai-sentinel-core/target/classes:$(cat /tmp/ai-sentinel-cp.txt)" \
 
 Any threshold used for a local or CI diagnostic run is caller-supplied for that run only. It is not a recommended, approved, or official anomaly threshold.
 
+`DIAGNOSTIC RESULT != ACCEPTANCE CRITERION`
+
 Corpus regeneration and replay-only helpers live in [`scripts/README.md`](../scripts/README.md).
+
+### Reference-corpus structural facts (diagnostic)
+
+Against the tracked reference corpus on the current development line, complete evaluation runs currently align:
+
+- **136** source events
+- **11** scenarios
+- **84** aligned evaluation observations
+- **8** anomaly segments
+- **0** recovery windows
+
+Expected-class and metric counts depend on the explicit caller-supplied threshold and are diagnostic only. They are not Official Detection Reference Baseline values and must not be treated as quality acceptance.
 
 ## Zero-Denominator Behavior
 
@@ -706,13 +733,14 @@ This layer intentionally does not yet provide:
 - AUC
 - threshold optimization
 - threshold auto-selection
-- official baseline establishment
+- Official Detection Reference Baseline establishment
 - official baseline acceptance rules
 - detector-quality pass/fail gates over precision/recall/FPR/FNR/delay
+- production detection-efficacy evidence
 
-It provides reusable measurement, orchestration, and evidence-generation primitives only.
+It provides reusable measurement, orchestration, evidence-generation, and complete-run hardening primitives.
 
-Framework hardening may conclude that the evaluation machinery is ready to generate a *candidate* official reference baseline. That conclusion is not itself baseline establishment or quality approval.
+The evaluation machinery is ready to *support generation of candidate baseline evidence*. That readiness is not itself Official Detection Reference Baseline establishment or quality approval.
 
 ## Explicit Boundaries
 
@@ -731,19 +759,21 @@ The following remain true:
 - `INVALID SCORE != MAXIMUM RISK`
 - `INFRASTRUCTURE FAILURE != ATTACK`
 - `PERFORMANCE != DETECTION EFFECTIVENESS`
+- `REFERENCE PERFORMANCE BASELINE != DETECTION REFERENCE BASELINE`
 - `DETECTION DELAY != REQUEST LATENCY`
 - `IN-PROCESS EVALUATION != FULL APPLICATION REQUEST LATENCY`
 
 ## What Remains For Later Evaluation Work
 
-Later work can build on these metrics and temporal results to add:
+The next separate engineering capability is:
 
-- formal approval of an official detection baseline
+- **Official Detection Reference Baseline** — deliberate tracked quality baseline, reference configuration governance, and acceptance rules
+
+Later work may also add:
+
 - aggregate temporal summaries
 - warmup-duration and broader stabilization analysis
 - ROC or PR analysis
 - richer comparison/report packaging if later evidence requires it
 
-Those later capabilities remain separate from baseline establishment and quality acceptance.
-
-Official Detection Reference Baseline establishment is a distinct follow-on capability. Completing framework hardening does not approve current detector quality.
+Those capabilities remain separate from framework completion. Completing the Detection Evaluation Framework does not approve current detector quality.
