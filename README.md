@@ -208,19 +208,19 @@ The **Detection Evaluation Framework** is complete on the current development li
 - [`evaluation/REFERENCE_DATASET.md`](evaluation/REFERENCE_DATASET.md) — durable synthetic reference corpus
 - [`evaluation/DETERMINISTIC_REPLAY.md`](evaluation/DETERMINISTIC_REPLAY.md) — deterministic scoring/policy replay
 - [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md) — complete-run orchestration, metrics, temporal evaluation, evidence, and framework guarantees
-- [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md) — Official Detection Reference Baseline definition and initial capture
+- [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md) — Official Detection Reference Baseline (capture, verification/drift, lifecycle/governance)
 
-These layers are offline engineering evidence machinery. Initial Official Detection Reference Baseline capture records current reference-corpus detector behavior under threshold `0.5`. Verification/drift detection compares fresh evaluation against that tracked baseline. Lifecycle/governance provides explicit candidate approval and promotion with historical retention. None of these approve production detection efficacy or create quality gates.
+These layers are offline engineering evidence machinery. The Official Detection Reference Baseline records current reference-corpus detector behavior under threshold `0.5`, verifies fresh deterministic evaluation against that tracked baseline, and provides explicit **baseline-candidate** approval/promotion with historical retention (not scorer/model-candidate integration). None of these approve production detection efficacy or create quality gates.
 
 `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `BASELINE != QUALITY GATE` · `DRIFT != REGRESSION` · `DRIFT != APPROVAL` · `REFERENCE DATASET != DETECTION BASELINE`
 
-Remaining after lifecycle review/merge: mark the Official Detection Reference Baseline capability DONE, then scorer plug-in / candidate-model integration hardening.
+Next engineering maturity boundary after baseline closure: scorer plug-in / candidate-model integration hardening (then shadow scoring).
 
 ---
 
 ## Current limitations
 
-- **Official Detection Reference Baseline** — Capture, verification/drift, and lifecycle/governance tooling exist under [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Lifecycle awaits independent review before the capability is marked DONE. Drift means difference, not detector-quality acceptance or production approval.
+- **Official Detection Reference Baseline** — Capture, verification/drift, and lifecycle/governance are complete under [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Drift means difference, not detector-quality acceptance or production approval. Next: scorer plug-in / candidate-model integration hardening.
 - **Stable software baseline** — **0.3.0** is the first stable compatibility baseline and the current Maven Central line (tag `v0.3.0`). Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
 - **MONITOR default** — Default `ai.sentinel.mode=MONITOR` (observe/learn; no client denial). Explicit `ENFORCE` enables client denial only after ENFORCE preconditions. Full mode matrix, restart behavior, and the availability-first **failure-mode profile**: [`docs/deployment.md`](docs/deployment.md). Statistical warmup is a lifecycle state (`EvaluationStatus.STATISTICAL_WARMUP`), not evidence of abuse; default warmup action is `MONITOR`. Default baseline learning skips `THROTTLE`/`BLOCK`/`QUARANTINE` risk (`ALLOW_OR_MONITOR`).
 - **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository).
