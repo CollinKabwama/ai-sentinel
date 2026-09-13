@@ -44,7 +44,7 @@ When your PR **deprecates** functionality (but keeps it working for a transition
 | **ai-sentinel-trainer** | Optional standalone Spring Boot app: consumes training candidates (Kafka when enabled), trains IF, publishes to a filesystem model registry. See [`ai-sentinel-trainer/README.md`](ai-sentinel-trainer/README.md). |
 | **ai-sentinel-demo** | Reference Spring Boot app for local runs and smoke tests. |
 | **dotnet/** | Reference ASP.NET Core remote adapter (`AI.Sentinel.AspNetCore`) — consumes remote evaluation HTTP API; no C# scoring engine. See [`dotnet/README.md`](dotnet/README.md). |
-| **evaluation/** | Tracked synthetic reference corpus plus offline replay/evaluation docs. Engineering evidence only — not an official detection baseline. Start at [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md). |
+| **evaluation/** | Completed offline Detection Evaluation Framework docs and tracked synthetic corpus. Engineering evidence only — not an Official Detection Reference Baseline. Start at [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md). |
 
 ---
 

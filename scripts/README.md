@@ -153,4 +153,6 @@ java -cp "ai-sentinel-core/target/classes:$(cat /tmp/ai-sentinel-cp.txt)" \
 
 Any numeric threshold here is caller-supplied for that run only. It is not recommended, approved, or official.
 
+`DIAGNOSTIC RESULT != ACCEPTANCE CRITERION`
+
 Details: [`evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md).

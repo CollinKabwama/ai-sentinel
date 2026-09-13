@@ -1,6 +1,8 @@
 # AI-Sentinel
 
-**Zero-trust–oriented API defense** — continuous identity-keyed behavioral risk evaluation and adaptive application response. The Java decision core is framework-independent; the primary in-process integration is a **Java 21 Spring Boot/Servlet** library. The same engine can be reached over an authenticated **remote evaluation HTTP API**, with a reference **ASP.NET Core** client under [`dotnet/`](dotnet/).
+**Zero Trust–aligned behavioral-risk and adaptive application-security tooling** for HTTP/API workloads. It continuously evaluates post-authentication behavior and enables risk-informed application responses as that behavior changes. It is designed to **complement** identity, authorization, device, network, and monitoring controls — not to replace them, and not as a complete Zero Trust architecture or certification claim.
+
+The Java decision core is framework-independent; the primary in-process integration is a **Java 21 Spring Boot/Servlet** library. The same engine can be reached over an authenticated **remote evaluation HTTP API**, with a reference **ASP.NET Core** client under [`dotnet/`](dotnet/).
 
 ---
 
@@ -18,6 +20,8 @@ AI-Sentinel evaluates each request using privacy-oriented behavioral features (r
 
 ## Key capabilities
 
+### Runtime
+
 - **Identity-aware security** — Optional integration with Spring Security and HTTP sessions to resolve `IdentityContext` and attach trust metadata to the request.
 - **Behavioral trust** — Per-identity baselines and trust scores derived from request history, drift signals, and burst patterns.
 - **Anomaly detection** — Statistical baselines plus an optional in-core Isolation Forest model.
@@ -25,6 +29,23 @@ AI-Sentinel evaluates each request using privacy-oriented behavioral features (r
 - **Adaptive enforcement** — Threshold-driven actions (throttle, block, quarantine) with monitor-only mode and startup grace.
 - **Distributed state (optional)** — Redis-backed cluster quarantine and throttle, asynchronous **training candidate** export, a standalone **trainer** application, and filesystem **model registry** refresh on serving nodes.
 - **Distributed behavioral baselines (optional)** — Redis-backed continuity for per-identity behavioral baselines across instances, with fail-open fallback to in-memory storage when Redis is slow or unavailable.
+
+### Offline Detection Evaluation Framework
+
+Engineering evidence machinery (not part of the request path):
+
+- privacy-safe reference corpus and independent annotations
+- deterministic replay
+- truth/replay alignment
+- explicit detector classification (caller-supplied threshold)
+- aggregate and scenario metrics
+- temporal anomaly evaluation (detection delay, recovery/stabilization semantics)
+- deterministic `evaluation.json` / `evaluation.md` evidence
+- reusable `DetectionEvaluationRunner` orchestration
+
+Details: [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md).
+
+`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `REPORT != BASELINE` · `REFERENCE DATASET != DETECTION BASELINE`
 
 ---
 
@@ -182,19 +203,24 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 
 ## Offline detection evaluation
 
-Tracked evaluation corpus and offline tooling live under [`evaluation/`](evaluation/):
+The **Detection Evaluation Framework** is complete on the current development line. Tracked corpus and docs live under [`evaluation/`](evaluation/):
 
 - [`evaluation/REFERENCE_DATASET.md`](evaluation/REFERENCE_DATASET.md) — durable synthetic reference corpus
 - [`evaluation/DETERMINISTIC_REPLAY.md`](evaluation/DETERMINISTIC_REPLAY.md) — deterministic scoring/policy replay
-- [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md) — complete-run orchestration, metrics, temporal evaluation, and evidence
+- [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md) — complete-run orchestration, metrics, temporal evaluation, evidence, and framework guarantees
 
-These layers are engineering evidence machinery. They do **not** establish an official detection baseline or approve production detection efficacy (`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`).
+These layers are offline engineering evidence machinery. They do **not** establish an Official Detection Reference Baseline or approve production detection efficacy.
+
+`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `REPORT != BASELINE` · `REFERENCE DATASET != DETECTION BASELINE` · `DIAGNOSTIC RESULT != ACCEPTANCE CRITERION`
+
+The next separate maturity boundary is the **Official Detection Reference Baseline** (deliberate quality baseline governance — not created by running the framework alone).
 
 ---
 
 ## Current limitations
 
-- **Stable baseline** — **0.3.0** is the first stable compatibility baseline and the current Maven Central line (tag `v0.3.0`). Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
+- **Official Detection Reference Baseline** — Not established. Framework readiness is not detector-quality acceptance.
+- **Stable software baseline** — **0.3.0** is the first stable compatibility baseline and the current Maven Central line (tag `v0.3.0`). Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
 - **MONITOR default** — Default `ai.sentinel.mode=MONITOR` (observe/learn; no client denial). Explicit `ENFORCE` enables client denial only after ENFORCE preconditions. Full mode matrix, restart behavior, and the availability-first **failure-mode profile**: [`docs/deployment.md`](docs/deployment.md). Statistical warmup is a lifecycle state (`EvaluationStatus.STATISTICAL_WARMUP`), not evidence of abuse; default warmup action is `MONITOR`. Default baseline learning skips `THROTTLE`/`BLOCK`/`QUARANTINE` risk (`ALLOW_OR_MONITOR`).
 - **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository).
 - **Trainer `eventId` dedup** is JVM-local; multiple trainer instances are not coordinated without external design.
@@ -205,6 +231,7 @@ These layers are engineering evidence machinery. They do **not** establish an of
 - **IF enabled without a loaded model** — fallback score is visible in telemetry/actuator, but the composite blend uses the statistical score only until mode is `MODEL`.
 - **Characterization test fidelity** — sudden-step detector scenarios use controlled `RequestFeatures` (not full extractor E2E). Production `requestsPerWindow` is a rolling bucket count that increments per request (~`1, 2, 3, …`), so a synthetic `10 → 100` step cannot be produced through the extractor alone.
 - **Custom SPI breaking change** — core SPIs take `HttpRequestView` / `EnforcementResponse` (not servlet types); starter auto-config consumers are unaffected.
+- **Performance vs detection** — In-process JMH/resource baselines measure cost, not detection effectiveness (`PERFORMANCE != DETECTION EFFECTIVENESS`). See [`docs/performance/REFERENCE_BASELINE.md`](docs/performance/REFERENCE_BASELINE.md).
 
 ---
 

@@ -128,4 +128,4 @@ Included in `ai-sentinel-core` / starter Surefire:
 
 Preserve MONITOR-first adoption: [`deployment.md`](deployment.md).
 
-Offline detection-evaluation machinery (reference corpus, deterministic replay, complete-run evidence) is documented under [`../evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md). Framework readiness there is not detector-quality acceptance (`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`).
+Offline detection-evaluation machinery (reference corpus, deterministic replay, complete-run evidence) is documented under [`../evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md). The Detection Evaluation Framework is complete; framework readiness is not detector-quality acceptance (`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`). The next maturity boundary is the Official Detection Reference Baseline.

@@ -8,7 +8,7 @@
 | `testing.md` | Tracked characterization and release-gate testing |
 | [`contracts/`](contracts/FEATURE_SCHEMA.md) | Versioned feature-schema, evaluation-event, and dataset-export contract documentation |
 | [`performance/`](performance/BENCHMARKING.md) | Tracked JMH benchmark foundation + [0.3.0 reference baseline](performance/REFERENCE_BASELINE.md) (not an SLA) |
-| [`../evaluation/`](../evaluation/DETECTION_EVALUATION.md) | Offline reference dataset, deterministic replay, and detection-evaluation framework docs (not an official detection baseline) |
+| [`../evaluation/`](../evaluation/DETECTION_EVALUATION.md) | Completed offline Detection Evaluation Framework (reference corpus, replay, metrics, temporal evidence). Not an Official Detection Reference Baseline. |
 | [`../dotnet/README.md`](../dotnet/README.md) | ASP.NET Core reference adapter (remote client; not gitignored) |
 | `planning/` | Local planning notes remain gitignored unless separately allowlisted |
 | `detection/` | Local characterization evidence (gitignored) |

@@ -12,7 +12,15 @@ They are **NOT**:
 - minimum performance guarantees;
 - hardware-independent results;
 - security efficacy claims;
-- partner workload benchmarks.
+- partner workload benchmarks;
+- a Detection Evaluation Framework result;
+- an Official Detection Reference Baseline.
+
+`REFERENCE PERFORMANCE BASELINE != DETECTION REFERENCE BASELINE`
+
+`PERFORMANCE != DETECTION EFFECTIVENESS`
+
+Offline detection metrics and evidence are documented separately in [`../../evaluation/DETECTION_EVALUATION.md`](../../evaluation/DETECTION_EVALUATION.md).
 
 The benchmark captures relative engineering reference points that are intended to make future changes comparable against a known **0.3.0** baseline.
 

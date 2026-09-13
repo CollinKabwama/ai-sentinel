@@ -20,6 +20,14 @@ Synthetic JMH results on a developer or CI host are **not**:
 - universal throughput claims;
 - detection-quality evidence (precision/recall/FPR/…).
 
+`BENCHMARK RESULT != PRODUCTION SLA`
+
+`PERFORMANCE != DETECTION EFFECTIVENESS`
+
+`REFERENCE PERFORMANCE BASELINE != DETECTION REFERENCE BASELINE`
+
+Detection Evaluation Framework docs: [`../../evaluation/DETECTION_EVALUATION.md`](../../evaluation/DETECTION_EVALUATION.md).
+
 Do not publish marketing claims from these runs without a separately scoped measurement program on representative hardware.
 
 ## Module layout
