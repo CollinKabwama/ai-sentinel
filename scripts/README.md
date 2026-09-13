@@ -178,3 +178,17 @@ Details: [`evaluation/DETECTION_REFERENCE_BASELINE.md`](../evaluation/DETECTION_
 Compares a fresh official-reference evaluation against the tracked baseline.
 Exit `0` = `MATCH`; `1` = `DRIFT_DETECTED` (difference, not quality rejection).
 Does not modify official baseline artifacts.
+
+### Official Detection Reference Baseline lifecycle
+
+```bash
+./scripts/lifecycle-detection-reference-baseline.sh create-candidate --candidate-id <id>
+./scripts/lifecycle-detection-reference-baseline.sh approve-candidate \
+  --candidate-id <id> --rationale "..." --approver "..."
+./scripts/lifecycle-detection-reference-baseline.sh promote-candidate --candidate-id <id>
+./scripts/lifecycle-detection-reference-baseline.sh list-history
+```
+
+Explicit candidate approval/promotion with historical retention and rollback.
+Drift is never auto-approved. No `--force` / `--overwrite` / threshold tuning.
+Details: [`evaluation/DETECTION_REFERENCE_BASELINE.md`](../evaluation/DETECTION_REFERENCE_BASELINE.md).

@@ -86,6 +86,62 @@ public final class DetectionReferenceBaselineVerifier {
         return verify(baselineDirectory, datasetDirectory, annotationsFile, replayConfiguration, classification, null);
     }
 
+    /**
+     * Compares two persisted baseline directories using the same drift contract as verification.
+     * <p>
+     * Does not mutate either directory. Lifecycle candidate comparison uses this entry.
+     * In the returned result, {@code current*} fields describe {@code otherBaselineDirectory}.
+     */
+    public DetectionReferenceBaselineVerificationResult comparePersisted(Path officialBaselineDirectory,
+                                                                         Path otherBaselineDirectory) {
+        DetectionReferenceBaselineLoader.LoadedBaseline official;
+        DetectionReferenceBaselineLoader.LoadedBaseline other;
+        try {
+            official = loader.load(officialBaselineDirectory);
+            other = loader.load(otherBaselineDirectory);
+        } catch (DetectionReferenceBaselineIntegrityException e) {
+            return integrityFailure(e.getMessage());
+        }
+
+        boolean jsonEqual = Arrays.equals(official.evaluationJsonBytes(), other.evaluationJsonBytes());
+        boolean markdownEqual =
+            Arrays.equals(official.evaluationMarkdownBytes(), other.evaluationMarkdownBytes());
+        List<DetectionReferenceBaselineDriftEntry> drifts = DetectionReferenceBaselineComparator.compare(
+            official.manifest(),
+            official.snapshot(),
+            other.snapshot(),
+            official.manifest().annotationsSha256(),
+            other.manifest().annotationsSha256(),
+            official.evaluationJsonSha256(),
+            other.evaluationJsonSha256(),
+            official.evaluationMarkdownSha256(),
+            other.evaluationMarkdownSha256(),
+            jsonEqual,
+            markdownEqual
+        );
+        DetectionReferenceBaselineVerificationStatus status = drifts.isEmpty()
+            ? DetectionReferenceBaselineVerificationStatus.MATCH
+            : DetectionReferenceBaselineVerificationStatus.DRIFT_DETECTED;
+        return new DetectionReferenceBaselineVerificationResult(
+            DetectionReferenceBaselineVerificationSchemas.VERIFICATION_SCHEMA_VERSION,
+            DetectionReferenceBaselineVerificationSchemas.REPORT_KIND,
+            status,
+            official.manifest().baselineId(),
+            official.manifest().baselineSchemaVersion(),
+            official.manifestSha256(),
+            official.evaluationJsonSha256(),
+            official.evaluationMarkdownSha256(),
+            other.evaluationJsonSha256(),
+            other.evaluationMarkdownSha256(),
+            jsonEqual,
+            markdownEqual,
+            status == DetectionReferenceBaselineVerificationStatus.MATCH
+                ? "persisted baselines match the complete comparison contract"
+                : "persisted baselines differ under the defined comparison contract",
+            drifts
+        );
+    }
+
     DetectionReferenceBaselineVerificationResult verify(Path baselineDirectory,
                                                         Path datasetDirectory,
                                                         Path annotationsFile,
