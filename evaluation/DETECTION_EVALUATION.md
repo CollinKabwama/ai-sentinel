@@ -742,13 +742,12 @@ This layer intentionally does not yet provide:
 - threshold optimization
 - threshold auto-selection
 - official baseline acceptance / quality gates
-- baseline lifecycle / governance / recapture workflows
 - detector-quality pass/fail gates over precision/recall/FPR/FNR/delay
 - production detection-efficacy evidence
 
 It provides reusable measurement, orchestration, evidence-generation, and complete-run hardening primitives.
 
-Official Detection Reference Baseline capture and verification/drift detection are documented in [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md). Framework acceptance remains distinct from detection-quality acceptance. Drift means difference, not defect.
+Official Detection Reference Baseline capture, verification/drift detection, and lifecycle/governance are documented in [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md). Framework acceptance remains distinct from detection-quality acceptance. Drift means difference, not defect; lifecycle approval is explicit and never automatic.
 
 ## Explicit Boundaries
 
@@ -773,12 +772,11 @@ The following remain true:
 
 ## What Remains For Later Evaluation Work
 
-The Official Detection Reference Baseline initial definition/capture and
-verification/drift detection are documented in
+The Official Detection Reference Baseline (capture, verification/drift, and
+lifecycle/governance) is documented in
 [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md)
-(reference classification threshold `0.5`). Remaining baseline work:
-
-- baseline lifecycle / governance / recapture hardening
+(reference classification threshold `0.5`). Lifecycle awaits independent review
+before the baseline capability is marked DONE.
 
 Later evaluation work may also add:
 

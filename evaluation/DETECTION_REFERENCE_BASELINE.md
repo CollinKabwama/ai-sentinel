@@ -5,7 +5,9 @@
 Initial **definition and capture** of the Official Detection Reference Baseline is
 merged on the current development line.
 
-**Verification and drift detection** is implemented and awaits independent review.
+**Verification and drift detection** is merged on the current development line.
+
+**Lifecycle and governance hardening** is implemented and awaits independent review.
 
 Tracked artifacts:
 
@@ -13,13 +15,15 @@ Tracked artifacts:
 - [`detection-reference-baseline/evaluation.json`](detection-reference-baseline/evaluation.json)
 - [`detection-reference-baseline/evaluation.md`](detection-reference-baseline/evaluation.md)
 
+Additive lifecycle directories (created by maintainer commands; not required for MATCH):
+
+- `candidates/<candidateId>/`
+- `history/<historyId>/`
+- `governance/`
+
 Related framework documentation: [`DETECTION_EVALUATION.md`](DETECTION_EVALUATION.md).
 
-Still remaining:
-
-- baseline lifecycle / governance / recapture / replacement approval
-
-`DETECTION BASELINE != PRODUCTION EFFICACY` · `BASELINE != QUALITY GATE` · `DRIFT != REGRESSION`
+`DETECTION BASELINE != PRODUCTION EFFICACY` · `BASELINE != QUALITY GATE` · `DRIFT != REGRESSION` · `DRIFT != APPROVAL`
 
 ## Definition
 
@@ -339,6 +343,158 @@ Verification reports use independent schema version `1`
 (`official-detection-reference-baseline-verification`), distinct from the
 baseline artifact schema.
 
+## Lifecycle and governance
+
+Lifecycle answers:
+
+> When current deterministic behavior intentionally changes, how can a new
+> baseline candidate be created, reviewed, approved, promoted, retained,
+> audited, and rolled back without silently rewriting engineering history?
+
+```text
+CURRENT REPOSITORY TRUTH
+        ↓
+EXISTING DETERMINISTIC CAPTURE
+        ↓
+CANDIDATE BASELINE ARTIFACTS
+        ↓
+EXISTING VERIFIER / COMPARATOR
+        ↓
+CANDIDATE COMPARISON
+        ↓
+EXPLICIT APPROVAL / REJECTION
+        ↓
+OPTIONAL EXPLICIT PROMOTION
+        ↓
+HISTORY RETENTION / OPTIONAL ROLLBACK
+```
+
+### Governance principles
+
+- `DRIFT != APPROVAL`
+- `DRIFT != REGRESSION`
+- `CANDIDATE != OFFICIAL BASELINE`
+- `APPROVAL != AUTOMATIC PROMOTION`
+- `PROMOTION != PRODUCTION DEPLOYMENT`
+- `METRIC DELTA != GOVERNANCE DECISION`
+- `BASELINE CHANGE != PRODUCTION ACCEPTANCE`
+
+Verification remains read-only. Drift is evidence for humans, never an
+auto-approve or auto-promote policy. There are no acceptable-drift lists,
+severity ratings, quality gates, or threshold-optimization options.
+
+### Layout (additive)
+
+```text
+evaluation/detection-reference-baseline/
+  manifest.json
+  evaluation.json
+  evaluation.md
+  candidates/<candidateId>/
+    baseline/{manifest.json,evaluation.json,evaluation.md}
+    candidate.json
+    comparison.json
+    comparison.md
+    decision.json            # after approve/reject
+    decision.sha256          # hash receipt for decision.json
+    promotion.json           # after successful promotion
+  history/<baselineId>-<manifestHashPrefix>/
+    baseline/{...}
+    retention.json
+  governance/
+    rollback-*.json
+```
+
+Official canonical artifacts stay in place. Candidates and history are siblings.
+
+### Candidate create
+
+`DetectionReferenceBaselineLifecycle.createCandidate` / CLI `create-candidate`:
+
+1. validates the current official baseline
+2. captures a fresh deterministic baseline into an isolated candidate directory
+3. compares candidate vs official using `DetectionReferenceBaselineVerifier.comparePersisted`
+4. writes deterministic comparison + candidate governance metadata
+5. refuses overwrite
+6. leaves the official baseline untouched
+
+Candidate identity is an explicit `--candidate-id` (validated; no path traversal).
+Capture reuses Iteration-1 machinery and official reference threshold `0.5`.
+
+### Approval and rejection
+
+Approval and rejection require explicit `--rationale` and `--approver`.
+
+`SUPPLIED APPROVER IDENTIFIER != VERIFIED HUMAN IDENTITY`
+
+This repository tooling provides deterministic governance evidence. It does not
+provide cryptographic human identity, RBAC, legal approval, or deployment IAM.
+
+Rejected candidates are terminal for promotion. Create a new candidate to
+reconsider. Identical repeated decisions are treated as stable no-ops; conflicting
+decision bytes are refused.
+
+### Stale-candidate protection
+
+Each candidate binds source official baseline ID and artifact hashes. If the
+official baseline changes before approval/promotion, lifecycle reports
+`CANDIDATE_STALE` and refuses the action. Candidates are not auto-rebased.
+
+### Promotion
+
+Promotion requires an approved, non-stale, non-identical candidate. It:
+
+1. retains the current official baseline under `history/`
+2. stages and validates the candidate as the future official set
+3. publishes only the three official artifact files (lifecycle siblings untouched)
+4. writes immutable promotion/retention records
+5. refuses when history destination already exists
+
+Identical candidates (`MATCH`) are refused as no-op — no meaningless history.
+
+Publication safety: history is written before official mutation. Individual
+artifact publish uses temp siblings then replace. Mid-failure recovery source is
+the retained history snapshot. Do not claim cross-filesystem absolute atomicity.
+
+### Rollback
+
+Rollback is an explicit new governance event, not history rewrite:
+
+1. validates the historical target
+2. retains the current official baseline into a new history entry
+3. republishes the historical baseline as official
+4. writes a rollback governance record
+5. never deletes prior history
+
+Tampered history cannot be rolled back.
+
+### Lifecycle CLI
+
+```bash
+./scripts/lifecycle-detection-reference-baseline.sh create-candidate --candidate-id <id>
+./scripts/lifecycle-detection-reference-baseline.sh approve-candidate \
+  --candidate-id <id> --rationale "..." --approver "..."
+./scripts/lifecycle-detection-reference-baseline.sh reject-candidate \
+  --candidate-id <id> --rationale "..." --approver "..."
+./scripts/lifecycle-detection-reference-baseline.sh promote-candidate --candidate-id <id>
+./scripts/lifecycle-detection-reference-baseline.sh rollback \
+  --history-id <id> --rationale "..." --approver "..."
+./scripts/lifecycle-detection-reference-baseline.sh list-history
+```
+
+Optional `--baseline <dir>` selects a lifecycle root (tests use temp roots).
+No `--force`, `--overwrite`, `--threshold`, `--skip-validation`, or
+`--ignore-stale` options exist.
+
+Exit codes: `0` success, `1` invalid usage, `2` lifecycle failure.
+
+### Schemas
+
+- lifecycle candidate metadata: `lifecycleSchemaVersion = "1"`
+- governance decision/promotion/retention/rollback: `governanceSchemaVersion = "1"`
+
+Independent from baseline artifact schema and verification-report schema.
+
 ## Limitations
 
 At minimum:
@@ -356,13 +512,9 @@ At minimum:
 - no ENFORCE production approval is established
 - observed metrics are not quality gates
 - verification detects difference only; it does not approve/replace baselines
-
-## Future work
-
-- **Lifecycle / governance** — replacement approval, promotion, rollback,
-  recapture authorization
-
-Do not treat verification/drift detection as lifecycle/governance.
+- lifecycle governance is repository/filesystem evidence, not production IAM approval
+- supplied approver identifiers are declarative metadata, not verified identity
+- even after governed promotion, the baseline is still not a production quality gate
 
 ## Explicit boundaries
 
@@ -386,5 +538,11 @@ Do not treat verification/drift detection as lifecycle/governance.
 - `REPORT != BASELINE` (until deliberately published as this baseline)
 - `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`
 - `DRIFT != REGRESSION`
+- `DRIFT != APPROVAL`
 - `DIFFERENCE != FAILURE`
 - `VERIFICATION RESULT != PRODUCTION ACCEPTANCE`
+- `CANDIDATE != OFFICIAL BASELINE`
+- `APPROVAL != AUTOMATIC PROMOTION`
+- `PROMOTION != PRODUCTION DEPLOYMENT`
+- `METRIC DELTA != GOVERNANCE DECISION`
+- `SUPPLIED APPROVER IDENTIFIER != VERIFIED HUMAN IDENTITY`
