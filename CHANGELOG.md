@@ -18,6 +18,7 @@ for the published library line.
 - Operator docs now state that **0.3.0** is published to Maven Central (tag `v0.3.0`). japicmp still compares against **0.2.0** until a separate baseline retarget.
 - Linked README, SECURITY, migration, deployment, docs index, CONTRIBUTING, and the ASP.NET adapter README to the published **0.3.0** release / Central coordinate.
 - Cross-linked reference dataset, deterministic replay, and detection-evaluation docs so offline evaluation stages are discoverable from project entry points.
+- Synchronized project and evaluation docs after Detection Evaluation Framework completion: framework is documented as complete; Official Detection Reference Baseline remains the next maturity boundary; performance baseline docs distinguish detection quality.
 
 ### Fixed
 
