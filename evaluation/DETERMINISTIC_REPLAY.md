@@ -186,7 +186,8 @@ This layer deliberately preserves separation between:
 - detection evaluation
 - official detection baseline
 - official baseline verification / drift detection
+- official baseline lifecycle / governance
 
-Replay validates annotations only as linked context. It does not interpret ground-truth labels as scorer inputs and does not compute quality metrics from them.
+Replay validates annotations only as linked context. It does not interpret ground-truth labels as scorer inputs, does not compute quality metrics from them, and does not approve, promote, or roll back baselines.
 
 `REPORT != BASELINE` and `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` remain true even when replay artifacts are consumed by a complete evaluation run.

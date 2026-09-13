@@ -772,11 +772,11 @@ The following remain true:
 
 ## What Remains For Later Evaluation Work
 
-The Official Detection Reference Baseline (capture, verification/drift, and
-lifecycle/governance) is documented in
+The Official Detection Reference Baseline capability (capture, verification/drift,
+and lifecycle/governance) is **complete** and documented in
 [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md)
-(reference classification threshold `0.5`). Lifecycle awaits independent review
-before the baseline capability is marked DONE.
+(reference classification threshold `0.5`). Baseline completion does not approve
+production detector quality.
 
 Later evaluation work may also add:
 
