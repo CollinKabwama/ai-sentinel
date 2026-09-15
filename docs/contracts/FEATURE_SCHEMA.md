@@ -81,3 +81,9 @@ Documentation clarifications that do not change meaning do not require a new ver
 Missing feature is not equivalent to zero. Consumers must reject unsupported or incomplete feature schemas rather than silently substituting values.
 
 All canonical features in schema `"1"` are required. Numeric fields that carry invalid values must be handled explicitly by the producing layer rather than being coerced into another meaning.
+
+## Related contracts
+
+Candidate scorer/model artifacts bind to this feature schema through
+[`SCORER_ARTIFACT.md`](SCORER_ARTIFACT.md). Same vector dimension does not imply the same
+feature semantics or ordered projection.
