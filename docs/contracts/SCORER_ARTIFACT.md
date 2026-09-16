@@ -34,7 +34,7 @@ surface. This contract is only for scorer/model artifacts.
 | Field | Role |
 |---|---|
 | `scorerId` / `scorerVersion` | Explicit scorer/model identity |
-| `artifactId` / `artifactFormat` | Explicit artifact identity/format |
+| `artifactId` / `artifactFormat` | Explicit artifact identity/format; current loadable Isolation Forest runtime expects `aif1` |
 | `scorerType` | Validated lowercase identifier (e.g. `statistical`, `isolation_forest_v1`, `composite`, `external`) |
 | `artifactDigest` | Explicit algorithm + digest (currently `SHA-256` canonical lowercase hex length 64; leading/trailing whitespace is invalid) |
 | `featureSchemaVersion` | Must match a supported `FeatureSchema` version |
@@ -131,7 +131,7 @@ scorer output contract. It does **not** mean:
 
 | Later work | Relationship |
 |---|---|
-| Loading / health / isolation | Uses this contract; may verify artifact bytes against digest |
+| Loading / health / isolation | See [`SCORER_CANDIDATE_LOADING.md`](SCORER_CANDIDATE_LOADING.md) — verifies artifact bytes, constructs supported candidates, represents readiness |
 | Replay / evaluation acceptance | Should carry descriptor provenance and digest into evidence |
 | Shadow scoring | Observational only; `SHADOW RESULT != PRODUCTION DECISION` |
 | Champion / challenger | Separate model lifecycle governance |
@@ -139,4 +139,5 @@ scorer output contract. It does **not** mean:
 ## Related docs
 
 - [`FEATURE_SCHEMA.md`](FEATURE_SCHEMA.md)
+- [`SCORER_CANDIDATE_LOADING.md`](SCORER_CANDIDATE_LOADING.md)
 - [`../evaluation/DETECTION_REFERENCE_BASELINE.md`](../../evaluation/DETECTION_REFERENCE_BASELINE.md) (baseline candidates are different)
