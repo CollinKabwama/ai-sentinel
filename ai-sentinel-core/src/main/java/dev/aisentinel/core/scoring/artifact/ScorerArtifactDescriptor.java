@@ -32,6 +32,9 @@ public final class ScorerArtifactDescriptor {
     public static final String TYPE_COMPOSITE = "composite";
     public static final String TYPE_EXTERNAL = "external";
 
+    /** Current binary Isolation Forest artifact format understood by the runtime loader. */
+    public static final String FORMAT_AIF1 = "aif1";
+
     private static final Pattern ID_PATTERN = Pattern.compile("^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$");
     private static final Pattern TYPE_PATTERN = Pattern.compile("^[a-z][a-z0-9_]{0,63}$");
     private static final int MAX_FEATURE_COUNT = 256;

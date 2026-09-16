@@ -17,6 +17,8 @@ public final class IsolationForestModelCodec {
     public static final int MAX_PAYLOAD_BYTES = 16 * 1024 * 1024;
     private static final byte[] MAGIC = new byte[] {'A', 'I', 'F', '1'};
     private static final int FORMAT_VERSION = 1;
+    private static final int MAX_DECODE_TREE_DEPTH = 1024;
+    private static final int MAX_DECODE_NODE_COUNT = 1_000_000;
 
     private IsolationForestModelCodec() {
     }
@@ -66,8 +68,9 @@ public final class IsolationForestModelCodec {
             throw new IOException("IsolationForestModelCodec: invalid header fields");
         }
         IsolationForestModel.TreeNode[] trees = new IsolationForestModel.TreeNode[numTrees];
+        int[] nodesRead = {0};
         for (int i = 0; i < numTrees; i++) {
-            trees[i] = readNode(in);
+            trees[i] = readNode(in, 0, nodesRead);
         }
         if (in.available() > 0) {
             throw new IOException("IsolationForestModelCodec: unexpected trailing bytes after model payload");
@@ -88,7 +91,17 @@ public final class IsolationForestModelCodec {
         }
     }
 
-    private static IsolationForestModel.TreeNode readNode(DataInputStream in) throws IOException {
+    private static IsolationForestModel.TreeNode readNode(
+        DataInputStream in,
+        int depth,
+        int[] nodesRead
+    ) throws IOException {
+        if (depth > MAX_DECODE_TREE_DEPTH) {
+            throw new IOException("IsolationForestModelCodec: model tree depth exceeds safety limit");
+        }
+        if (++nodesRead[0] > MAX_DECODE_NODE_COUNT) {
+            throw new IOException("IsolationForestModelCodec: model node count exceeds safety limit");
+        }
         int kind = in.readUnsignedByte();
         if (kind == 0) {
             int size = in.readInt();
@@ -102,8 +115,8 @@ public final class IsolationForestModelCodec {
         }
         int fi = in.readInt();
         double sv = in.readDouble();
-        IsolationForestModel.TreeNode left = readNode(in);
-        IsolationForestModel.TreeNode right = readNode(in);
+        IsolationForestModel.TreeNode left = readNode(in, depth + 1, nodesRead);
+        IsolationForestModel.TreeNode right = readNode(in, depth + 1, nodesRead);
         return new IsolationForestModel.TreeNode(fi, sv, left, right);
     }
 }

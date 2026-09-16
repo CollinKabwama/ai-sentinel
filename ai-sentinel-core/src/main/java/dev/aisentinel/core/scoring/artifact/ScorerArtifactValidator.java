@@ -15,7 +15,7 @@ import java.util.Set;
  * <p>
  * This answers whether declared metadata is acceptable. It does not load
  * artifact bytes, execute scorers, assess detection quality, or assign runtime
- * health. Matching digests to artifact bytes belongs to later loading work.
+ * health. Matching digests to artifact bytes belongs to {@link CandidateScorerLoader}.
  * <p>
  * Rejection is an engineering/configuration outcome and must not be interpreted
  * as attack evidence ({@code INFRASTRUCTURE FAILURE != ATTACK}).
