@@ -23,6 +23,7 @@ acceptance.
 - Dataset/export contract: [`docs/contracts/DATASET_EXPORT.md`](../docs/contracts/DATASET_EXPORT.md)
 - Evaluation event contract: [`docs/contracts/EVALUATION_EVENT.md`](../docs/contracts/EVALUATION_EVENT.md)
 - Performance baseline (not detection quality): [`docs/performance/REFERENCE_BASELINE.md`](../docs/performance/REFERENCE_BASELINE.md)
+- Candidate scorer replay/evaluation: [`docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](../docs/contracts/SCORER_CANDIDATE_EVALUATION.md)
 
 ## Evaluation Architecture
 
@@ -57,6 +58,8 @@ Metrics operate only after alignment. They do not influence replay, scoring, bas
 ### Complete-run orchestration
 
 `DetectionEvaluationRunner` is the reusable, framework-independent orchestration boundary for one complete offline evaluation. It composes accepted stage components and does not reimplement scoring, classification, metrics, temporal segmentation, or evidence serialization.
+
+Candidate scorer evaluation reuses that same runner. A READY candidate is injected as an explicit evaluation `AnomalyScorer` via `ReplayEngine.withEvaluationScorer`; it is a new prediction source, not a new truth model. See [`docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](../docs/contracts/SCORER_CANDIDATE_EVALUATION.md). `EVALUATED CANDIDATE != APPROVED CANDIDATE`. Candidate evaluation does not mutate the Official Detection Reference Baseline.
 
 `ReferenceDetectionEvaluationEvidenceMain` is a thin CLI adapter over that runner for the tracked reference corpus. It parses arguments, locates accepted inputs, requires an explicit `--threshold`, selects an output destination, and invokes the runner.
 

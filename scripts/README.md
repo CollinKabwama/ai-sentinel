@@ -155,6 +155,8 @@ Any numeric threshold here is caller-supplied for that run only. It is not recom
 
 `DIAGNOSTIC RESULT != ACCEPTANCE CRITERION`
 
+Candidate scorer evaluation reuses the same framework through `CandidateDetectionEvaluationRunner` (Java API; no dedicated shell wrapper). READY candidates produce `candidate-evaluation.json` / `candidate-evaluation.md` in a caller-supplied directory that must not be the Official Detection Reference Baseline path. See [`docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](../docs/contracts/SCORER_CANDIDATE_EVALUATION.md).
+
 Details: [`evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md).
 
 ### Official Detection Reference Baseline capture

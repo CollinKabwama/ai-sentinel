@@ -15,6 +15,7 @@ for the published library line.
 - Initial **Official Detection Reference Baseline** definition and capture (`evaluation/detection-reference-baseline/`) under reference classification threshold `0.5`. See [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Not production efficacy, not a quality gate.
 - Official Detection Reference Baseline **verification and drift detection** (`DetectionReferenceBaselineVerifier`, `scripts/verify-detection-reference-baseline.sh`). Drift means difference, not defect.
 - Official Detection Reference Baseline **lifecycle and governance** (`DetectionReferenceBaselineLifecycle`, `scripts/lifecycle-detection-reference-baseline.sh`): baseline-candidate create/approve/reject/promote, history retention, rollback. Drift is never auto-approved. Capability complete (not production efficacy / not a quality gate).
+- Candidate scorer/model **replay/evaluation acceptance** (`CandidateDetectionEvaluationRunner`) takes an operationally READY candidate through existing deterministic replay and detection evaluation to produce candidate-specific evidence. This is framework acceptance, not approval, shadow enablement, champion selection, or production deployment. See [`docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](docs/contracts/SCORER_CANDIDATE_EVALUATION.md).
 
 ### Changed
 

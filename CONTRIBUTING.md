@@ -54,7 +54,7 @@ When your PR **deprecates** functionality (but keeps it working for a transition
 2. **`SentinelDecisionEngine`** — [`.../decision/SentinelDecisionEngine.java`](ai-sentinel-core/src/main/java/dev/aisentinel/core/decision/SentinelDecisionEngine.java) — framework-free risk decision returning `RiskDecision` (never writes the HTTP response).
 3. **`SentinelFilter`** — [`ai-sentinel-spring-boot-starter/.../SentinelFilter.java`](ai-sentinel-spring-boot-starter/src/main/java/dev/aisentinel/autoconfigure/web/SentinelFilter.java) — servlet entry point and adapter boundary.
 4. **`SentinelAutoConfiguration`** — [`.../SentinelAutoConfiguration.java`](ai-sentinel-spring-boot-starter/src/main/java/dev/aisentinel/autoconfigure/config/SentinelAutoConfiguration.java) — beans and `@ConditionalOnMissingBean` extension points.
-5. **Offline evaluation** — `dev.aisentinel.core.replay` and `dev.aisentinel.core.evaluation` (including `DetectionEvaluationRunner`) for deterministic replay and complete-run evidence against [`evaluation/reference/`](evaluation/reference/). See [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md).
+5. **Offline evaluation** — `dev.aisentinel.core.replay` and `dev.aisentinel.core.evaluation` (including `DetectionEvaluationRunner` and `CandidateDetectionEvaluationRunner`) for deterministic replay and complete-run evidence against [`evaluation/reference/`](evaluation/reference/). See [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md) and [`docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](docs/contracts/SCORER_CANDIDATE_EVALUATION.md).
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/configuration.md`](docs/configuration.md) for the full picture.
 

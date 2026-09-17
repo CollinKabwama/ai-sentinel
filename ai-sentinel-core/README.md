@@ -10,10 +10,13 @@ Consumed by **`ai-sentinel-spring-boot-starter`** and **`ai-sentinel-trainer`**.
 
 Candidate scorer/model artifact contract, validation, and loading/health live under
 `dev.aisentinel.core.scoring.artifact`. See
-[`../docs/contracts/SCORER_ARTIFACT.md`](../docs/contracts/SCORER_ARTIFACT.md) and
-[`../docs/contracts/SCORER_CANDIDATE_LOADING.md`](../docs/contracts/SCORER_CANDIDATE_LOADING.md).
+[`../docs/contracts/SCORER_ARTIFACT.md`](../docs/contracts/SCORER_ARTIFACT.md),
+[`../docs/contracts/SCORER_CANDIDATE_LOADING.md`](../docs/contracts/SCORER_CANDIDATE_LOADING.md),
+and [`../docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](../docs/contracts/SCORER_CANDIDATE_EVALUATION.md).
 Descriptor acceptance is not runtime availability. Runtime readiness is not model
-quality, shadow eligibility, or production authority.
+quality, shadow eligibility, or production authority. Evaluating a READY candidate
+through the existing reference replay/evaluation framework is not approval,
+shadow enablement, or production deployment.
 
 Offline evaluation packages under `dev.aisentinel.core.replay` and `dev.aisentinel.core.evaluation` implement the Detection Evaluation Framework (deterministic replay through complete-run evidence via `DetectionEvaluationRunner`) and Official Detection Reference Baseline tooling (capture, verification, lifecycle). See [`../evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md) and [`../evaluation/DETECTION_REFERENCE_BASELINE.md`](../evaluation/DETECTION_REFERENCE_BASELINE.md). That machinery does not establish production efficacy or a production quality gate.
 

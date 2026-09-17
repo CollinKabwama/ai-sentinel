@@ -197,8 +197,10 @@ the verified decoded model:
   `INVALID_SCORE` (`INVALID SCORE != MAXIMUM RISK`)
 - `update` is a no-op (candidate loading must not train behavioral state)
 
-The candidate is **not** automatically attached to `SentinelDecisionEngine`,
-composite production blending, replay, evaluation, or shadow execution.
+The candidate is **not** automatically attached to production
+`SentinelDecisionEngine`, composite production blending, or shadow execution.
+Offline candidate replay/evaluation is a separate explicit evaluation seam
+documented in [`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md).
 
 ## Startup / default behavior
 
@@ -211,7 +213,7 @@ semantics remain unchanged by this boundary.
 
 | Later work | Relationship |
 |---|---|
-| Replay / evaluation acceptance | May consume a `READY` loaded candidate; not implemented here |
+| Replay / evaluation acceptance | See [`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md) — READY candidates may be replayed and evaluated through the existing reference framework |
 | Shadow scoring | Observational only; not implemented here |
 | Champion / challenger | Separate lifecycle governance |
 | Promotion / rollback | Separate lifecycle governance |
@@ -223,4 +225,5 @@ semantics remain unchanged by this boundary.
 ## Related docs
 
 - [`SCORER_ARTIFACT.md`](SCORER_ARTIFACT.md)
+- [`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md)
 - [`FEATURE_SCHEMA.md`](FEATURE_SCHEMA.md)
