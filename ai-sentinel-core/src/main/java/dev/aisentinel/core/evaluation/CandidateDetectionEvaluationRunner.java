@@ -19,22 +19,34 @@ import java.util.Optional;
  * Takes a safely loaded candidate scorer through the existing deterministic
  * reference replay and detection-evaluation framework.
  * <p>
- * This produces candidate-specific evaluation evidence. It does not approve the
- * candidate, enable shadow scoring, select a champion, or mutate the Official
- * Detection Reference Baseline.
+ * This produces candidate-specific evaluation evidence and, when an explicit
+ * acceptance policy is supplied, an engineering acceptance assessment. It does
+ * not approve production use, enable shadow scoring, select a champion, or
+ * mutate the Official Detection Reference Baseline.
  * <p>
- * {@code EVALUATED CANDIDATE != APPROVED CANDIDATE}
+ * {@code EVALUATED CANDIDATE != ACCEPTED CANDIDATE}<br>
+ * {@code ACCEPTED CANDIDATE != PRODUCTION MODEL}
  */
 public final class CandidateDetectionEvaluationRunner {
 
     static final List<String> COMPLETED_LIMITATIONS = List.of(
         "EVALUATED CANDIDATE != APPROVED CANDIDATE",
+        "EVALUATED CANDIDATE != ACCEPTED CANDIDATE",
         "EVALUATED CANDIDATE != SHADOW CANDIDATE",
         "EVALUATED CANDIDATE != CHAMPION",
         "EVALUATED CANDIDATE != PRODUCTION CANDIDATE",
+        "EVALUATION COMPLETED != ACCEPTED",
         "FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE",
-        "CANDIDATE EVALUATION != BASELINE PROMOTION",
+        "ACCEPTANCE POLICY != PRODUCTION POLICY",
+        "ACCEPTANCE THRESHOLD != PRODUCTION THRESHOLD",
+        "ACCEPTED CANDIDATE != CHAMPION",
+        "ACCEPTED CANDIDATE != PROMOTED MODEL",
+        "ACCEPTED CANDIDATE != PRODUCTION MODEL",
+        "ACCEPTANCE != AUTOMATIC PROMOTION",
+        "ACCEPTANCE != AUTOMATIC DEPLOYMENT",
+        "METRIC IMPROVEMENT != AUTOMATIC ACCEPTANCE",
         "METRIC IMPROVEMENT != AUTOMATIC PROMOTION",
+        "CANDIDATE EVALUATION != BASELINE PROMOTION",
         "REFERENCE THRESHOLD != PRODUCTION THRESHOLD",
         "REFERENCE THRESHOLD != ENFORCEMENT THRESHOLD",
         "REFERENCE THRESHOLD != OPTIMAL THRESHOLD",
@@ -44,6 +56,8 @@ public final class CandidateDetectionEvaluationRunner {
     static final List<String> NOT_READY_LIMITATIONS = List.of(
         "CANDIDATE LOAD FAILURE != DETECTOR PREDICTION",
         "CANDIDATE LOAD FAILURE != ATTACK",
+        "CANDIDATE LOAD FAILURE != ACCEPTANCE REJECTED",
+        "EVALUATION FAILED != ACCEPTANCE REJECTED",
         "UNAVAILABLE EVALUATION != NEGATIVE PREDICTION",
         "UNAVAILABLE EVALUATION != POSITIVE PREDICTION",
         "Replay and detection evaluation were not executed."
@@ -64,12 +78,51 @@ public final class CandidateDetectionEvaluationRunner {
         DetectionClassificationConfiguration classification,
         Path outputDirectory
     ) throws IOException {
+        return evaluate(descriptor, artifactBytes, datasetDirectory, annotationsFile, classification, null, outputDirectory, false);
+    }
+
+    /**
+     * Load through {@link CandidateScorerLoader}, evaluate only a READY candidate,
+     * then assess the produced metrics against an explicit acceptance policy.
+     */
+    public CandidateDetectionEvaluationResult evaluate(
+        ScorerArtifactDescriptor descriptor,
+        byte[] artifactBytes,
+        Path datasetDirectory,
+        Path annotationsFile,
+        DetectionClassificationConfiguration classification,
+        CandidateEvaluationAcceptancePolicy acceptancePolicy,
+        Path outputDirectory
+    ) throws IOException {
+        return evaluate(
+            descriptor,
+            artifactBytes,
+            datasetDirectory,
+            annotationsFile,
+            classification,
+            Objects.requireNonNull(acceptancePolicy, "acceptancePolicy"),
+            outputDirectory,
+            true
+        );
+    }
+
+    private CandidateDetectionEvaluationResult evaluate(
+        ScorerArtifactDescriptor descriptor,
+        byte[] artifactBytes,
+        Path datasetDirectory,
+        Path annotationsFile,
+        DetectionClassificationConfiguration classification,
+        CandidateEvaluationAcceptancePolicy acceptancePolicy,
+        Path outputDirectory,
+        boolean policySupplied
+    ) throws IOException {
         DetectionClassificationConfiguration safeClassification =
             Objects.requireNonNull(classification, "classification");
         Path safeOutput = requireOutputDirectory(outputDirectory);
         CandidateScorerLoadResult loadResult = CandidateScorerLoader.load(descriptor, artifactBytes);
         if (!loadResult.ready()) {
-            CandidateDetectionEvaluationEvidence evidence = notReadyEvidence(loadResult, safeClassification);
+            CandidateDetectionEvaluationEvidence evidence =
+                notReadyEvidence(loadResult, safeClassification, policySupplied ? acceptancePolicy : null);
             return new CandidateDetectionEvaluationResult(
                 CandidateDetectionEvaluationStatus.CANDIDATE_NOT_READY,
                 evidence,
@@ -84,7 +137,9 @@ public final class CandidateDetectionEvaluationRunner {
             datasetDirectory,
             annotationsFile,
             safeClassification,
-            safeOutput
+            policySupplied ? acceptancePolicy : null,
+            safeOutput,
+            policySupplied
         );
     }
 
@@ -98,6 +153,41 @@ public final class CandidateDetectionEvaluationRunner {
         Path annotationsFile,
         DetectionClassificationConfiguration classification,
         Path outputDirectory
+    ) throws IOException {
+        return evaluateReady(loadedCandidate, datasetDirectory, annotationsFile, classification, null, outputDirectory, false);
+    }
+
+    /**
+     * Evaluate an already loaded READY candidate and assess the produced metrics
+     * against an explicit acceptance policy.
+     */
+    public CandidateDetectionEvaluationResult evaluateReady(
+        LoadedCandidateScorer loadedCandidate,
+        Path datasetDirectory,
+        Path annotationsFile,
+        DetectionClassificationConfiguration classification,
+        CandidateEvaluationAcceptancePolicy acceptancePolicy,
+        Path outputDirectory
+    ) throws IOException {
+        return evaluateReady(
+            loadedCandidate,
+            datasetDirectory,
+            annotationsFile,
+            classification,
+            Objects.requireNonNull(acceptancePolicy, "acceptancePolicy"),
+            outputDirectory,
+            true
+        );
+    }
+
+    private CandidateDetectionEvaluationResult evaluateReady(
+        LoadedCandidateScorer loadedCandidate,
+        Path datasetDirectory,
+        Path annotationsFile,
+        DetectionClassificationConfiguration classification,
+        CandidateEvaluationAcceptancePolicy acceptancePolicy,
+        Path outputDirectory,
+        boolean policySupplied
     ) throws IOException {
         LoadedCandidateScorer loaded = Objects.requireNonNull(loadedCandidate, "loadedCandidate");
         DetectionClassificationConfiguration safeClassification =
@@ -115,7 +205,12 @@ public final class CandidateDetectionEvaluationRunner {
                 safeClassification,
                 innerOutput
             );
-            CandidateDetectionEvaluationEvidence evidence = completedEvidence(loaded, run, safeClassification);
+            CandidateDetectionEvaluationEvidence evidence = completedEvidence(
+                loaded,
+                run,
+                safeClassification,
+                policySupplied ? acceptancePolicy : null
+            );
             return new CandidateDetectionEvaluationResult(
                 CandidateDetectionEvaluationStatus.COMPLETED,
                 evidence,
@@ -132,7 +227,8 @@ public final class CandidateDetectionEvaluationRunner {
     private static CandidateDetectionEvaluationEvidence completedEvidence(
         LoadedCandidateScorer loaded,
         DetectionEvaluationRunner.DetectionEvaluationRun run,
-        DetectionClassificationConfiguration classification
+        DetectionClassificationConfiguration classification,
+        CandidateEvaluationAcceptancePolicy acceptancePolicy
     ) {
         return new CandidateDetectionEvaluationEvidence(
             CandidateDetectionEvaluationEvidenceValidator.EVIDENCE_SCHEMA_VERSION,
@@ -145,13 +241,15 @@ public final class CandidateDetectionEvaluationRunner {
             ),
             List.of(),
             run.evidence(),
+            CandidateEvaluationAcceptanceAssessor.assess(acceptancePolicy, run.metrics()),
             COMPLETED_LIMITATIONS
         );
     }
 
     private static CandidateDetectionEvaluationEvidence notReadyEvidence(
         CandidateScorerLoadResult loadResult,
-        DetectionClassificationConfiguration classification
+        DetectionClassificationConfiguration classification,
+        CandidateEvaluationAcceptancePolicy acceptancePolicy
     ) {
         CandidateEvaluationProvenance provenance = loadResult.provenance()
             .map(CandidateEvaluationProvenance::from)
@@ -171,6 +269,7 @@ public final class CandidateDetectionEvaluationRunner {
             ),
             issues,
             null,
+            CandidateEvaluationAcceptanceAssessor.assess(acceptancePolicy, null),
             NOT_READY_LIMITATIONS
         );
     }

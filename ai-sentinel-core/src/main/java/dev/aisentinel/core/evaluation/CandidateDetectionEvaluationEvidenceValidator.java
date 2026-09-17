@@ -47,6 +47,21 @@ final class CandidateDetectionEvaluationEvidenceValidator {
             DetectionEvaluationEvidence nested = safe.evaluation().orElseThrow();
             new DetectionEvaluationEvidenceValidator().validate(nested);
         }
+        CandidateEvaluationAcceptanceAssessment acceptance = safe.acceptance();
+        if (acceptance.status() == CandidateEvaluationAcceptanceStatus.ACCEPTED
+            && acceptance.configuredPolicy().isEmpty()) {
+            throw new IllegalArgumentException("accepted with no acceptance policy");
+        }
+        if (acceptance.status() == CandidateEvaluationAcceptanceStatus.REJECTED && acceptance.issues().isEmpty()) {
+            throw new IllegalArgumentException("acceptance reasons inconsistent with acceptance status");
+        }
+        if (acceptance.status() == CandidateEvaluationAcceptanceStatus.ACCEPTED && !acceptance.issues().isEmpty()) {
+            throw new IllegalArgumentException("acceptance reasons inconsistent with acceptance status");
+        }
+        if (safe.status() != CandidateDetectionEvaluationStatus.COMPLETED
+            && acceptance.status() != CandidateEvaluationAcceptanceStatus.NOT_ASSESSED) {
+            throw new IllegalArgumentException("non-COMPLETED candidate evaluation cannot be accepted or rejected");
+        }
     }
 
     void validateArtifacts(CandidateDetectionEvaluationEvidence evidence, String json, String markdown) {
@@ -62,8 +77,11 @@ final class CandidateDetectionEvaluationEvidenceValidator {
         requirePresent(safeJson, "\"evidenceSchemaVersion\":\"" + evidence.evidenceSchemaVersion() + "\"");
         requirePresent(safeJson, "\"reportKind\":\"" + evidence.reportKind() + "\"");
         requirePresent(safeJson, "\"status\":\"" + evidence.status().name() + "\"");
+        requirePresent(safeJson, "\"acceptance\":{");
+        requirePresent(safeJson, "\"status\":\"" + evidence.acceptance().status().name() + "\"");
         requirePresent(safeMarkdown, "# Candidate Detection Evaluation Evidence\n");
         requirePresent(safeMarkdown, "Status: `" + evidence.status().name() + "`");
+        requirePresent(safeMarkdown, "Acceptance status: `" + evidence.acceptance().status().name() + "`");
         requireAbsent(safeJson, "official-detection-reference-baseline");
         requireAbsent(safeMarkdown, "Official Detection Reference Baseline capture");
         requireNoForbiddenMarkers(safeJson);
@@ -75,6 +93,15 @@ final class CandidateDetectionEvaluationEvidenceValidator {
             requireAbsent(safeJson, "\"evaluation\":null");
         } else {
             requirePresent(safeJson, "\"evaluation\":null");
+        }
+        if (evidence.acceptance().configuredPolicy().isEmpty()) {
+            requirePresent(safeJson, "\"policy\":null");
+        } else {
+            requireAbsent(safeJson, "\"policy\":null");
+            requirePresent(safeJson, "\"policy\":{");
+        }
+        if (evidence.acceptance().status() == CandidateEvaluationAcceptanceStatus.REJECTED) {
+            requirePresent(safeJson, "\"issues\":[{");
         }
     }
 

@@ -4,9 +4,12 @@ package dev.aisentinel.core.evaluation;
  * Structural outcome of one candidate scorer replay/evaluation attempt.
  * <p>
  * {@code COMPLETED} means the existing evaluation framework produced structurally
- * valid evidence for a READY candidate. It does not mean the candidate is approved.
+ * valid evidence for a READY candidate. It does not mean the candidate is accepted
+ * or approved.
  * {@code CANDIDATE_NOT_READY} means loading failed and replay was not executed.
+ * Acceptance is a separate assessment on completed evidence.
  * <p>
+ * {@code EVALUATION COMPLETED != ACCEPTED}<br>
  * {@code FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE}<br>
  * {@code CANDIDATE LOAD FAILURE != DETECTOR PREDICTION}<br>
  * {@code CANDIDATE LOAD FAILURE != ATTACK}

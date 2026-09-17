@@ -154,6 +154,8 @@ final class CandidateDetectionEvaluationEvidenceJson {
         } else {
             json.append("null");
         }
+        json.append(",\"acceptance\":");
+        appendAcceptance(json, safe.acceptance());
         json.append(",\"limitations\":[");
         List<String> limitations = safe.limitations();
         for (int i = 0; i < limitations.size(); i++) {
@@ -184,6 +186,66 @@ final class CandidateDetectionEvaluationEvidenceJson {
         appendString(json, "configurationFingerprintSha256Hex", candidate.configurationFingerprintSha256Hex(), false);
         appendString(json, "runtimeImplementationId", candidate.runtimeImplementationId(), false);
         json.append('}');
+    }
+
+    private static void appendAcceptance(StringBuilder json, CandidateEvaluationAcceptanceAssessment acceptance) {
+        json.append('{');
+        appendString(json, "status", acceptance.status().name(), true);
+        json.append(",\"policy\":");
+        if (acceptance.configuredPolicy().isEmpty()) {
+            json.append("null");
+        } else {
+            appendPolicy(json, acceptance.configuredPolicy().orElseThrow());
+        }
+        json.append(",\"issues\":[");
+        List<CandidateEvaluationAcceptanceIssue> issues = acceptance.issues();
+        for (int i = 0; i < issues.size(); i++) {
+            if (i > 0) {
+                json.append(',');
+            }
+            CandidateEvaluationAcceptanceIssue issue = issues.get(i);
+            json.append('{');
+            appendString(json, "code", issue.code().name(), true);
+            appendString(json, "actual", issue.actual(), false);
+            appendString(json, "required", issue.required(), false);
+            appendString(json, "message", issue.message(), false);
+            json.append('}');
+        }
+        json.append("]}");
+    }
+
+    private static void appendPolicy(StringBuilder json, CandidateEvaluationAcceptancePolicy policy) {
+        json.append('{');
+        boolean first = true;
+        first = appendOptionalLong(json, "minimumEvaluableObservations", policy.minimumEvaluableObservations(), first);
+        first = appendOptionalLong(json, "maximumExcludedObservations", policy.maximumExcludedObservations(), first);
+        first = appendOptionalDouble(json, "minimumPrecision", policy.minimumPrecision(), first);
+        first = appendOptionalDouble(json, "minimumRecall", policy.minimumRecall(), first);
+        first = appendOptionalDouble(json, "minimumF1", policy.minimumF1(), first);
+        first = appendOptionalDouble(json, "maximumFalsePositiveRate", policy.maximumFalsePositiveRate(), first);
+        appendOptionalDouble(json, "maximumFalseNegativeRate", policy.maximumFalseNegativeRate(), first);
+        json.append('}');
+    }
+
+    private static boolean appendOptionalLong(StringBuilder json, String field, java.util.Optional<Long> value, boolean first) {
+        if (value.isEmpty()) {
+            return first;
+        }
+        appendNumber(json, field, value.orElseThrow(), first);
+        return false;
+    }
+
+    private static boolean appendOptionalDouble(StringBuilder json, String field, java.util.Optional<Double> value, boolean first) {
+        if (value.isEmpty()) {
+            return first;
+        }
+        appendNumber(json, field, value.orElseThrow(), first);
+        return false;
+    }
+
+    private static void appendNumber(StringBuilder json, String field, long value, boolean first) {
+        json.append(first ? "" : ",");
+        json.append('"').append(escape(field)).append("\":").append(value);
     }
 
     private static void appendString(StringBuilder json, String field, String value, boolean first) {
@@ -291,6 +353,47 @@ final class CandidateDetectionEvaluationEvidenceMarkdown {
         } else {
             markdown.append("Replay and evaluation were not executed because the candidate was not operationally READY. ");
             markdown.append("No detector predictions were fabricated.\n\n");
+        }
+
+        markdown.append("## Acceptance Assessment\n\n");
+        appendBullet(markdown, "Acceptance status", safe.acceptance().status().name());
+        markdown.append("- EVALUATION RESULT is not ACCEPTANCE DECISION. ACCEPTANCE DECISION is not production approval.\n");
+        if (safe.acceptance().configuredPolicy().isEmpty()) {
+            markdown.append("- No acceptance policy was supplied. The candidate was not assessed.\n\n");
+        } else {
+            CandidateEvaluationAcceptancePolicy policy = safe.acceptance().configuredPolicy().orElseThrow();
+            markdown.append("- Configured criteria:\n");
+            policy.minimumEvaluableObservations().ifPresent(value ->
+                markdown.append("  - minimum evaluable observations: `").append(value).append("`\n"));
+            policy.maximumExcludedObservations().ifPresent(value ->
+                markdown.append("  - maximum excluded observations: `").append(value).append("`\n"));
+            policy.minimumPrecision().ifPresent(value ->
+                markdown.append("  - minimum precision: `").append(Double.toString(value)).append("`\n"));
+            policy.minimumRecall().ifPresent(value ->
+                markdown.append("  - minimum recall: `").append(Double.toString(value)).append("`\n"));
+            policy.minimumF1().ifPresent(value ->
+                markdown.append("  - minimum F1: `").append(Double.toString(value)).append("`\n"));
+            policy.maximumFalsePositiveRate().ifPresent(value ->
+                markdown.append("  - maximum false-positive rate: `").append(Double.toString(value)).append("`\n"));
+            policy.maximumFalseNegativeRate().ifPresent(value ->
+                markdown.append("  - maximum false-negative rate: `").append(Double.toString(value)).append("`\n"));
+            markdown.append('\n');
+        }
+        if (safe.acceptance().issues().isEmpty()) {
+            if (safe.acceptance().status() == CandidateEvaluationAcceptanceStatus.ACCEPTED) {
+                markdown.append("- All configured criteria were satisfied. This is not champion selection or production deployment.\n\n");
+            } else {
+                markdown.append("- No acceptance issues. Assessment was not performed or no criteria failed.\n\n");
+            }
+        } else {
+            markdown.append("- Failed criteria:\n");
+            for (CandidateEvaluationAcceptanceIssue issue : safe.acceptance().issues()) {
+                markdown.append("  - `").append(markdownCode(issue.code().name())).append("`: actual `")
+                    .append(markdownCode(issue.actual())).append("`, required `")
+                    .append(markdownCode(issue.required())).append("` — ")
+                    .append(markdownText(issue.message())).append('\n');
+            }
+            markdown.append("- ACCEPTANCE REJECTED is not an evaluation infrastructure failure and is not an attack.\n\n");
         }
 
         markdown.append("## Limitations\n\n");

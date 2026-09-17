@@ -13,8 +13,10 @@ import java.util.Optional;
  * Baseline.
  * <p>
  * {@code EVALUATED CANDIDATE != APPROVED CANDIDATE}<br>
+ * {@code EVALUATED CANDIDATE != ACCEPTED CANDIDATE}<br>
  * {@code CANDIDATE EVALUATION != BASELINE PROMOTION}<br>
- * {@code FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE}
+ * {@code FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE}<br>
+ * {@code EVALUATION COMPLETED != ACCEPTED}
  */
 public record CandidateDetectionEvaluationEvidence(
     String evidenceSchemaVersion,
@@ -24,8 +26,32 @@ public record CandidateDetectionEvaluationEvidence(
     DetectionEvaluationEvidence.ClassificationProvenance classification,
     List<CandidateLoadIssueRecord> loadIssues,
     DetectionEvaluationEvidence nestedEvaluation,
+    CandidateEvaluationAcceptanceAssessment acceptance,
     List<String> limitations
 ) {
+    public CandidateDetectionEvaluationEvidence(
+        String evidenceSchemaVersion,
+        String reportKind,
+        CandidateDetectionEvaluationStatus status,
+        CandidateEvaluationProvenance candidate,
+        DetectionEvaluationEvidence.ClassificationProvenance classification,
+        List<CandidateLoadIssueRecord> loadIssues,
+        DetectionEvaluationEvidence nestedEvaluation,
+        List<String> limitations
+    ) {
+        this(
+            evidenceSchemaVersion,
+            reportKind,
+            status,
+            candidate,
+            classification,
+            loadIssues,
+            nestedEvaluation,
+            CandidateEvaluationAcceptanceAssessment.notAssessed(null),
+            limitations
+        );
+    }
+
     public CandidateDetectionEvaluationEvidence {
         evidenceSchemaVersion = requireNotBlank("evidenceSchemaVersion", evidenceSchemaVersion);
         reportKind = requireNotBlank("reportKind", reportKind);
@@ -33,6 +59,7 @@ public record CandidateDetectionEvaluationEvidence(
         candidate = Objects.requireNonNull(candidate, "candidate");
         classification = Objects.requireNonNull(classification, "classification");
         loadIssues = loadIssues == null ? List.of() : List.copyOf(loadIssues);
+        acceptance = Objects.requireNonNull(acceptance, "acceptance");
         limitations = limitations == null ? List.of() : List.copyOf(limitations);
         for (CandidateLoadIssueRecord issue : loadIssues) {
             Objects.requireNonNull(issue, "loadIssue");
@@ -59,10 +86,13 @@ public record CandidateDetectionEvaluationEvidence(
             if (Double.compare(classification.anomalyThreshold(), nestedEvaluation.classification().anomalyThreshold()) != 0) {
                 throw new IllegalArgumentException("classification threshold must match nested evaluation evidence");
             }
+            requireCompletedAcceptance(acceptance);
         } else if (nestedEvaluation != null) {
             throw new IllegalArgumentException("non-COMPLETED candidate evaluation must not carry nested evaluation evidence");
         } else if (loadIssues.isEmpty()) {
             throw new IllegalArgumentException("non-COMPLETED candidate evaluation must carry at least one load issue");
+        } else if (acceptance.status() != CandidateEvaluationAcceptanceStatus.NOT_ASSESSED) {
+            throw new IllegalArgumentException("non-COMPLETED candidate evaluation cannot be accepted or rejected");
         }
     }
 
@@ -97,6 +127,24 @@ public record CandidateDetectionEvaluationEvidence(
         requireNotBlank("candidate.runtimeImplementationId", candidate.runtimeImplementationId());
         if (!candidate.artifactDigestHex().equals(candidate.verifiedDigestHex())) {
             throw new IllegalArgumentException("candidate verified digest must match declared artifact digest");
+        }
+    }
+
+    private static void requireCompletedAcceptance(CandidateEvaluationAcceptanceAssessment acceptance) {
+        if (acceptance.configuredPolicy().isEmpty()) {
+            if (acceptance.status() != CandidateEvaluationAcceptanceStatus.NOT_ASSESSED) {
+                throw new IllegalArgumentException("accepted with no acceptance policy");
+            }
+            return;
+        }
+        if (acceptance.status() == CandidateEvaluationAcceptanceStatus.NOT_ASSESSED) {
+            throw new IllegalArgumentException("COMPLETED evaluation with an acceptance policy must be assessed");
+        }
+        if (acceptance.status() == CandidateEvaluationAcceptanceStatus.ACCEPTED && !acceptance.issues().isEmpty()) {
+            throw new IllegalArgumentException("acceptance reasons inconsistent with acceptance status");
+        }
+        if (acceptance.status() == CandidateEvaluationAcceptanceStatus.REJECTED && acceptance.issues().isEmpty()) {
+            throw new IllegalArgumentException("acceptance reasons inconsistent with acceptance status");
         }
     }
 
