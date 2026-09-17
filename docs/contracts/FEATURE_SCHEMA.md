@@ -87,4 +87,6 @@ All canonical features in schema `"1"` are required. Numeric fields that carry i
 Candidate scorer/model artifacts bind to this feature schema through
 [`SCORER_ARTIFACT.md`](SCORER_ARTIFACT.md). Candidate loading verifies bytes and
 constructs supported scorers per [`SCORER_CANDIDATE_LOADING.md`](SCORER_CANDIDATE_LOADING.md).
+READY candidates may be evaluated through the existing reference framework per
+[`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md).
 Same vector dimension does not imply the same feature semantics or ordered projection.

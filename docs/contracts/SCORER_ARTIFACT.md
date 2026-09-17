@@ -132,7 +132,7 @@ scorer output contract. It does **not** mean:
 | Later work | Relationship |
 |---|---|
 | Loading / health / isolation | See [`SCORER_CANDIDATE_LOADING.md`](SCORER_CANDIDATE_LOADING.md) — verifies artifact bytes, constructs supported candidates, represents readiness |
-| Replay / evaluation acceptance | Should carry descriptor provenance and digest into evidence |
+| Replay / evaluation acceptance | See [`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md) — READY candidates produce candidate-specific evidence through the existing evaluation framework |
 | Shadow scoring | Observational only; `SHADOW RESULT != PRODUCTION DECISION` |
 | Champion / challenger | Separate model lifecycle governance |
 
@@ -140,4 +140,5 @@ scorer output contract. It does **not** mean:
 
 - [`FEATURE_SCHEMA.md`](FEATURE_SCHEMA.md)
 - [`SCORER_CANDIDATE_LOADING.md`](SCORER_CANDIDATE_LOADING.md)
+- [`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md)
 - [`../evaluation/DETECTION_REFERENCE_BASELINE.md`](../../evaluation/DETECTION_REFERENCE_BASELINE.md) (baseline candidates are different)

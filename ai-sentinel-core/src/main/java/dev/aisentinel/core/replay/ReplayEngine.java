@@ -32,10 +32,16 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
 /**
  * Ordered deterministic replay over compatible evaluation datasets.
+ * <p>
+ * Default construction materializes the statistical scorer from
+ * {@link ReplayScorerConfiguration}. Call {@link #withEvaluationScorer} to inject
+ * an explicit evaluation {@link AnomalyScorer} without changing production scorer
+ * selection.
  */
 public final class ReplayEngine {
 
@@ -47,6 +53,27 @@ public final class ReplayEngine {
 
     ReplayEngine(ReplayRuntimeFactory runtimeFactory) {
         this.runtimeFactory = runtimeFactory;
+    }
+
+    /**
+     * Replay engine that uses an explicitly supplied evaluation scorer instead of
+     * constructing one from {@link ReplayScorerConfiguration}.
+     * <p>
+     * This does not change production scorer selection. The supplied scorer is used
+     * only for this engine instance. Callers must supply a fresh scorer instance when
+     * scorer state can mutate across runs.
+     */
+    public static ReplayEngine withEvaluationScorer(AnomalyScorer evaluationScorer) {
+        AnomalyScorer scorer = Objects.requireNonNull(evaluationScorer, "evaluationScorer");
+        return new ReplayEngine(configuration -> {
+            if (configuration.scorer().scorerKind() != ReplayScorerKind.CANDIDATE) {
+                throw new ReplayException(
+                    ReplayFailureKind.CONFIGURATION_FAILURE,
+                    "explicit evaluation scorer requires CANDIDATE replay scorer configuration"
+                );
+            }
+            return new ReplayRuntime(scorer, newDecisionEngine(configuration, scorer));
+        });
     }
 
     public ReplayRun run(ReplayDataset dataset, ReplayConfiguration configuration, Path outputDirectory) throws IOException {
@@ -157,6 +184,10 @@ public final class ReplayEngine {
                 configuration.ttlMs(),
                 configuration.warmupMinSamples(),
                 configuration.warmupScore()
+            );
+            case CANDIDATE -> throw new ReplayException(
+                ReplayFailureKind.CONFIGURATION_FAILURE,
+                "CANDIDATE replay requires an explicit evaluation scorer via ReplayEngine.withEvaluationScorer"
             );
             case ISOLATION_FOREST, COMPOSITE -> throw new ReplayException(
                 ReplayFailureKind.CONFIGURATION_FAILURE,

@@ -7,13 +7,14 @@ The current implementation lives in `ai-sentinel-core/src/main/java/dev/aisentin
 - `results.jsonl`
 - `manifest.json`
 
-Complete offline evaluation orchestration (align → classify → metrics → temporal → evidence) lives in `DetectionEvaluationRunner` and is documented in [`DETECTION_EVALUATION.md`](DETECTION_EVALUATION.md).
+Complete offline evaluation orchestration (align → classify → metrics → temporal → evidence) lives in `DetectionEvaluationRunner` and is documented in [`DETECTION_EVALUATION.md`](DETECTION_EVALUATION.md). Candidate evaluation reuses the same replay engine through `ReplayEngine.withEvaluationScorer` so an explicitly loaded candidate can be replayed without changing production scorer selection.
 
 ## Related documentation
 
 - Reference dataset: [`REFERENCE_DATASET.md`](REFERENCE_DATASET.md)
 - Detection evaluation framework: [`DETECTION_EVALUATION.md`](DETECTION_EVALUATION.md)
 - Official Detection Reference Baseline (replay supplies reproducible scoring/policy provenance for capture): [`DETECTION_REFERENCE_BASELINE.md`](DETECTION_REFERENCE_BASELINE.md)
+- Candidate scorer replay/evaluation: [`docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](../docs/contracts/SCORER_CANDIDATE_EVALUATION.md)
 - Dataset/export contract: [`docs/contracts/DATASET_EXPORT.md`](../docs/contracts/DATASET_EXPORT.md)
 
 ## Purpose

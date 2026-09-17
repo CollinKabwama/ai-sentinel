@@ -6,5 +6,10 @@ package dev.aisentinel.core.replay;
 public enum ReplayScorerKind {
     STATISTICAL,
     ISOLATION_FOREST,
-    COMPOSITE
+    COMPOSITE,
+    /**
+     * Explicit caller-supplied evaluation scorer. Default replay construction
+     * cannot materialize this kind; {@link ReplayEngine#withEvaluationScorer} is required.
+     */
+    CANDIDATE
 }

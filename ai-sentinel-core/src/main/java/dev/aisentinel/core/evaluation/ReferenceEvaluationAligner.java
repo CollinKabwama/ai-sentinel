@@ -21,9 +21,21 @@ public final class ReferenceEvaluationAligner {
     public ReferenceEvaluationAlignment align(ReplayDataset dataset,
                                               ReferenceDatasetAnnotations annotations,
                                               List<ReplayResult> replayResults) {
+        return align(dataset, annotations, replayResults, EvaluationPredictionSource.REPLAY_SCORE);
+    }
+
+    /**
+     * Aligns reference annotations with replay predictions, tagging predictions with the
+     * supplied source. Source identity is not evaluation truth.
+     */
+    public ReferenceEvaluationAlignment align(ReplayDataset dataset,
+                                              ReferenceDatasetAnnotations annotations,
+                                              List<ReplayResult> replayResults,
+                                              EvaluationPredictionSource predictionSource) {
         ReplayDataset safeDataset = Objects.requireNonNull(dataset, "dataset");
         ReferenceDatasetAnnotations safeAnnotations = Objects.requireNonNull(annotations, "annotations");
         List<ReplayResult> safeReplayResults = replayResults == null ? List.of() : List.copyOf(replayResults);
+        EvaluationPredictionSource safeSource = Objects.requireNonNull(predictionSource, "predictionSource");
         if (!safeDataset.manifest().datasetId().equals(safeAnnotations.datasetId())) {
             throw new EvaluationAlignmentException("annotation datasetId does not match replay dataset");
         }
@@ -78,7 +90,7 @@ public final class ReferenceEvaluationAligner {
 
         List<EvaluationObservation> observations = sourceEvents.stream()
             .filter(sourceEvent -> evaluableEventIds.contains(sourceEvent.replayInput().eventId()))
-            .map(sourceEvent -> toObservation(sourceEvent, replayByEventId, evaluableScenarioByEventId))
+            .map(sourceEvent -> toObservation(sourceEvent, replayByEventId, evaluableScenarioByEventId, safeSource))
             .toList();
 
         if (observations.size() != evaluableEventIds.size()) {
@@ -97,7 +109,8 @@ public final class ReferenceEvaluationAligner {
 
     private static EvaluationObservation toObservation(ReplayDataset.ReplaySourceEvent sourceEvent,
                                                        Map<String, ReplayResult> replayByEventId,
-                                                       Map<String, ReferenceDatasetScenarioAnnotation> scenarioByEventId) {
+                                                       Map<String, ReferenceDatasetScenarioAnnotation> scenarioByEventId,
+                                                       EvaluationPredictionSource predictionSource) {
         String eventId = sourceEvent.replayInput().eventId();
         ReplayResult replayResult = replayByEventId.get(eventId);
         if (replayResult == null) {
@@ -121,7 +134,7 @@ public final class ReferenceEvaluationAligner {
                 scenario.maliciousnessAsserted()
             ),
             new EvaluationPrediction(
-                EvaluationPredictionSource.REPLAY_SCORE,
+                predictionSource,
                 replayResult.anomalyScore(),
                 replayResult.policyScore(),
                 replayResult.action(),

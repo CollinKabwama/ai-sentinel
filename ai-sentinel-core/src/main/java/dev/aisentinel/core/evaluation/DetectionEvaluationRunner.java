@@ -7,6 +7,7 @@ import dev.aisentinel.core.replay.ReplayDataset;
 import dev.aisentinel.core.replay.ReplayDatasetLoader;
 import dev.aisentinel.core.replay.ReplayEngine;
 import dev.aisentinel.core.replay.ReplayOutputValidator;
+import dev.aisentinel.core.replay.ReplayScorerKind;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -36,6 +37,20 @@ public final class DetectionEvaluationRunner {
             new ReplayDatasetLoader(),
             new ReferenceDatasetAnnotationsLoader(),
             new ReplayEngine(),
+            new ReplayOutputValidator(),
+            new ReferenceEvaluationAligner(),
+            new DetectionMetricsCalculator(),
+            new TemporalDetectionEvaluator(),
+            new DetectionEvaluationEvidenceGenerator(),
+            new DetectionEvaluationEvidenceWriter()
+        );
+    }
+
+    DetectionEvaluationRunner(ReplayEngine replayEngine) {
+        this(
+            new ReplayDatasetLoader(),
+            new ReferenceDatasetAnnotationsLoader(),
+            replayEngine,
             new ReplayOutputValidator(),
             new ReferenceEvaluationAligner(),
             new DetectionMetricsCalculator(),
@@ -94,7 +109,7 @@ public final class DetectionEvaluationRunner {
             replayOutputValidator.validate(replayDirectory, dataset, safeReplayConfiguration);
 
             ReferenceEvaluationAlignment alignment =
-                aligner.align(dataset, annotations, replayRun.results());
+                aligner.align(dataset, annotations, replayRun.results(), predictionSource(safeReplayConfiguration));
             DetectionEvaluationMetrics metrics =
                 metricsCalculator.compute(alignment, safeClassification);
             TemporalDetectionEvaluation temporal =
@@ -121,6 +136,12 @@ public final class DetectionEvaluationRunner {
         } finally {
             deleteRecursively(replayDirectory);
         }
+    }
+
+    private static EvaluationPredictionSource predictionSource(ReplayConfiguration configuration) {
+        return configuration.scorer().scorerKind() == ReplayScorerKind.CANDIDATE
+            ? EvaluationPredictionSource.CANDIDATE_REPLAY_SCORE
+            : EvaluationPredictionSource.REPLAY_SCORE;
     }
 
     private static void requireDatasetAnnotationConsistency(ReplayDataset dataset,
