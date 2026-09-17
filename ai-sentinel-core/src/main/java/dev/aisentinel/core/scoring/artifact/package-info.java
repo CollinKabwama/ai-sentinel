@@ -9,11 +9,13 @@
  * supported candidate scorers safely, represent operational readiness, and
  * contain candidate-specific failures. Descriptor acceptance does not imply
  * runtime availability; runtime readiness does not imply model quality, shadow
- * eligibility, or production authority.
+ * eligibility, or production authority. Offline candidate replay/evaluation is a
+ * separate explicit seam over the existing detection-evaluation framework.
  * <p>
  * {@code DESCRIPTOR VALID != RUNTIME AVAILABLE}<br>
  * {@code DIGEST METADATA VALID != ARTIFACT BYTES VERIFIED}<br>
  * {@code READY != APPROVED}<br>
+ * {@code EVALUATED != APPROVED}<br>
  * {@code SCORER HEALTH != DETECTION QUALITY}
  */
 package dev.aisentinel.core.scoring.artifact;
