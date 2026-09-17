@@ -213,7 +213,7 @@ semantics remain unchanged by this boundary.
 
 | Later work | Relationship |
 |---|---|
-| Replay / evaluation acceptance | See [`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md) — READY candidates may be replayed and evaluated through the existing reference framework |
+| Replay / evaluation acceptance | See [`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md) — READY candidates may be replayed, evaluated, and optionally assessed by an explicit engineering acceptance policy |
 | Shadow scoring | Observational only; not implemented here |
 | Champion / challenger | Separate lifecycle governance |
 | Promotion / rollback | Separate lifecycle governance |

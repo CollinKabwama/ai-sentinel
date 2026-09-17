@@ -59,7 +59,7 @@ Metrics operate only after alignment. They do not influence replay, scoring, bas
 
 `DetectionEvaluationRunner` is the reusable, framework-independent orchestration boundary for one complete offline evaluation. It composes accepted stage components and does not reimplement scoring, classification, metrics, temporal segmentation, or evidence serialization.
 
-Candidate scorer evaluation reuses that same runner. A READY candidate is injected as an explicit evaluation `AnomalyScorer` via `ReplayEngine.withEvaluationScorer`; it is a new prediction source, not a new truth model. See [`docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](../docs/contracts/SCORER_CANDIDATE_EVALUATION.md). `EVALUATED CANDIDATE != APPROVED CANDIDATE`. Candidate evaluation does not mutate the Official Detection Reference Baseline.
+Candidate scorer evaluation reuses that same runner. A READY candidate is injected as an explicit evaluation `AnomalyScorer` via `ReplayEngine.withEvaluationScorer`; it is a new prediction source, not a new truth model. An optional `CandidateEvaluationAcceptancePolicy` then assesses already-produced metrics. See [`docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](../docs/contracts/SCORER_CANDIDATE_EVALUATION.md). `EVALUATED CANDIDATE != ACCEPTED CANDIDATE`. `ACCEPTED CANDIDATE != PRODUCTION MODEL`. Candidate evaluation does not mutate the Official Detection Reference Baseline.
 
 `ReferenceDetectionEvaluationEvidenceMain` is a thin CLI adapter over that runner for the tracked reference corpus. It parses arguments, locates accepted inputs, requires an explicit `--threshold`, selects an output destination, and invokes the runner.
 

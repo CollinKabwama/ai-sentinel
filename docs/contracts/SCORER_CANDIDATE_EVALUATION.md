@@ -6,7 +6,8 @@ Detection Evaluation Framework to produce **candidate-specific evaluation
 evidence**.
 
 Implementation lives in `dev.aisentinel.core.evaluation`
-(`CandidateDetectionEvaluationRunner`) and reuses:
+(`CandidateDetectionEvaluationRunner`, `CandidateEvaluationAcceptancePolicy`)
+and reuses:
 
 - `CandidateScorerLoader` (PR #122 loading/health/runtime isolation)
 - `ReplayEngine` with an explicit evaluation scorer
@@ -27,17 +28,28 @@ Answer:
   reference dataset?
 - After independent annotation alignment, what evaluation evidence does the
   existing framework produce for **this** candidate?
+- If an explicit engineering acceptance policy is supplied, do those metrics
+  satisfy that policy?
 
-This is **framework acceptance** of a candidate through established machinery.
+These are different questions.
+
+`EVALUATION RESULT != ACCEPTANCE DECISION`
+
+`ACCEPTANCE DECISION != PRODUCTION APPROVAL`
+
+Replay through the existing framework is **framework completion**. An optional
+`CandidateEvaluationAcceptancePolicy` then assesses already-produced metrics.
+No policy means `NOT_ASSESSED`, not silent acceptance.
 
 It is **not**:
 
-- detection-quality acceptance
-- candidate approval
+- production approval
 - shadow enablement
 - champion selection
 - production deployment
 - Official Detection Reference Baseline promotion
+- threshold recommendation
+- proof of production efficacy
 
 ## Pipeline
 
@@ -50,6 +62,7 @@ validated candidate descriptor
   → independent annotation alignment
   → existing detection evaluation
   → candidate evaluation evidence
+  → optional explicit acceptance assessment
 ```
 
 Non-ready loading (`NOT_CONFIGURED`, `INVALID`, `UNAVAILABLE`) does **not**
@@ -220,9 +233,15 @@ Status:
 - `CANDIDATE_NOT_READY` — load failed; `evaluation` is null; load issues are
   present; no predictions were fabricated
 
+Acceptance is a nested evidence object:
+
+- `status`: `NOT_ASSESSED` / `ACCEPTED` / `REJECTED`
+- `policy`: configured criteria, or `null` when no policy was supplied
+- `issues`: every failed criterion, empty when not rejected
+
 Evidence is deterministic for the same corpus + candidate artifact +
-classification configuration. It omits hostnames, absolute paths, wall-clock
-identity, and raw request/feature payloads.
+classification configuration + acceptance policy. It omits hostnames, absolute
+paths, wall-clock identity, and raw request/feature payloads.
 
 ## Official baseline isolation
 
@@ -237,10 +256,65 @@ A detection-reference-baseline candidate is **not** a scorer/model candidate.
 
 Do not call candidate scorer evaluation output a "baseline candidate."
 
+## Acceptance policy
+
+Acceptance is a separate engineering assessment of already-produced candidate
+metrics. It does not inspect labels during scoring, does not change scores, and
+does not change replay, policy, or enforcement.
+
+Caller supplies `CandidateEvaluationAcceptancePolicy` explicitly. There is no
+hidden “good model” default.
+
+Supported optional criteria (at least one required when a policy is constructed):
+
+- minimum evaluable observations
+- maximum excluded observations
+- minimum precision
+- minimum recall
+- minimum F1
+- maximum false-positive rate
+- maximum false-negative rate
+
+Ratio criteria must be finite in `[0,1]`. Count criteria must be `>= 0`. Invalid
+configuration (`NaN`, `Infinity`, negatives, empty policy) is rejected. Values
+are not silently clamped.
+
+Every configured criterion is evaluated. Failures are all reported, in that
+deterministic order, as structured issue codes. Undefined metrics do not satisfy
+a configured ratio criterion.
+
+Comparison uses the exact existing metric values (`Double.compare` / integer
+counts). This capability does not compare against the Official Detection
+Reference Baseline as a governance gate.
+
+`METRIC IMPROVEMENT != AUTOMATIC ACCEPTANCE`
+
+## Acceptance status
+
+| Evaluation status | Policy | Acceptance status |
+|---|---|---|
+| `CANDIDATE_NOT_READY` | absent or present | `NOT_ASSESSED` |
+| `COMPLETED` | absent | `NOT_ASSESSED` |
+| `COMPLETED` | present, all criteria met | `ACCEPTED` |
+| `COMPLETED` | present, any criterion unmet | `REJECTED` |
+
+`EVALUATION COMPLETED != ACCEPTED`
+
+`EVALUATION FAILED != ACCEPTANCE REJECTED`
+
+`ACCEPTED` is not champion selection, promotion, or production approval.
+
+`ACCEPTANCE POLICY != PRODUCTION POLICY`
+
+`ACCEPTANCE THRESHOLD != PRODUCTION THRESHOLD`
+
 ## Framework acceptance vs quality
 
 A structurally valid candidate evaluation may show poor precision, recall, F1,
-or temporal detection. That is still framework acceptance.
+or temporal detection. Completing evaluation is not quality acceptance.
+
+An `ACCEPTED` result means only that the supplied engineering criteria were
+met. It is still not production efficacy.
 
 The candidate is **not** required to reproduce Official Detection Reference
 Baseline metrics, and metric improvement is **not** automatic promotion.
@@ -263,11 +337,17 @@ Baseline metrics, and metric improvement is **not** automatic promotion.
 ## Boundaries
 
 ```text
+EVALUATED CANDIDATE != ACCEPTED CANDIDATE
 EVALUATED CANDIDATE != APPROVED CANDIDATE
 EVALUATED CANDIDATE != SHADOW CANDIDATE
 EVALUATED CANDIDATE != CHAMPION
 EVALUATED CANDIDATE != PRODUCTION CANDIDATE
 EVALUATED CANDIDATE != PRODUCTION DEPLOYMENT
+ACCEPTED CANDIDATE != CHAMPION
+ACCEPTED CANDIDATE != PROMOTED MODEL
+ACCEPTED CANDIDATE != PRODUCTION MODEL
+ACCEPTANCE != AUTOMATIC PROMOTION
+ACCEPTANCE != AUTOMATIC DEPLOYMENT
 ```
 
 ```text
@@ -275,10 +355,12 @@ VALIDATED CANDIDATE
   → VERIFIED ARTIFACT
   → SAFELY LOADED CANDIDATE
   → OPERATIONALLY READY CANDIDATE
+  → REPLAYED CANDIDATE
   → EVALUATED CANDIDATE
+  → ACCEPTANCE EVIDENCE
 ```
 
-does **not** imply approved, shadow, champion, or production deployment.
+does **not** imply shadow, champion, promotion, or production deployment.
 
 ## Related docs
 
