@@ -214,7 +214,9 @@ These layers are offline engineering evidence machinery. The Official Detection 
 
 `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `BASELINE != QUALITY GATE` · `DRIFT != REGRESSION` · `DRIFT != APPROVAL` · `REFERENCE DATASET != DETECTION BASELINE`
 
-Next engineering maturity boundary after baseline closure: scorer plug-in / candidate-model integration hardening (then shadow scoring).
+Next engineering maturity boundary after candidate shadow scoring: RC hardening /
+review toward the next substantial release (then model lifecycle champion/challenger).
+Shadow scoring remains observational (`SHADOW RESULT != PRODUCTION DECISION`).
 
 ---
 

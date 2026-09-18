@@ -325,7 +325,6 @@ Baseline metrics, and metric improvement is **not** automatic promotion.
 
 ## Explicitly out of scope
 
-- shadow scoring / live dual scoring
 - champion / challenger
 - promotion / rollback
 - production scorer selection
@@ -333,6 +332,9 @@ Baseline metrics, and metric improvement is **not** automatic promotion.
 - candidate training, retuning, or threshold optimization
 - batch tournaments / leaderboards
 - actuator / dashboard / analyst UI
+
+Shadow scoring is a **separate** subsequent capability; see
+[`SCORER_CANDIDATE_SHADOW.md`](SCORER_CANDIDATE_SHADOW.md).
 
 ## Boundaries
 
@@ -348,6 +350,7 @@ ACCEPTED CANDIDATE != PROMOTED MODEL
 ACCEPTED CANDIDATE != PRODUCTION MODEL
 ACCEPTANCE != AUTOMATIC PROMOTION
 ACCEPTANCE != AUTOMATIC DEPLOYMENT
+ACCEPTANCE != AUTOMATIC SHADOW ENABLEMENT
 ```
 
 ```text
@@ -360,12 +363,13 @@ VALIDATED CANDIDATE
   → ACCEPTANCE EVIDENCE
 ```
 
-does **not** imply shadow, champion, promotion, or production deployment.
+does **not** imply shadow enablement, champion, promotion, or production deployment.
 
 ## Related docs
 
 - [`SCORER_ARTIFACT.md`](SCORER_ARTIFACT.md)
 - [`SCORER_CANDIDATE_LOADING.md`](SCORER_CANDIDATE_LOADING.md)
+- [`SCORER_CANDIDATE_SHADOW.md`](SCORER_CANDIDATE_SHADOW.md)
 - [`../../evaluation/DETECTION_EVALUATION.md`](../../evaluation/DETECTION_EVALUATION.md)
 - [`../../evaluation/DETERMINISTIC_REPLAY.md`](../../evaluation/DETERMINISTIC_REPLAY.md)
 - [`../../evaluation/DETECTION_REFERENCE_BASELINE.md`](../../evaluation/DETECTION_REFERENCE_BASELINE.md)
