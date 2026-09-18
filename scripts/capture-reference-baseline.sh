@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 # Capture three controlled AI-Sentinel 0.3.0 reference benchmark runs.
 # Raw outputs stay under ai-sentinel-benchmark/results/reference-capture/ (gitignored).
+#
+# Produces: capture-notes.txt and run-0{1,2,3}/{jmh.json,manifest.json}.
+# Does NOT produce analysis.json (FIND-002). The tracked reference-baseline.json
+# retains a historical analysisSha256 from the accepted baseline selection pass;
+# see docs/performance/REFERENCE_BASELINE.md.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

@@ -18,6 +18,7 @@ for the published library line.
 - Candidate scorer/model **replay/evaluation acceptance** (`CandidateDetectionEvaluationRunner`, `CandidateEvaluationAcceptancePolicy`) takes an operationally READY candidate through existing deterministic replay and detection evaluation, then optionally assesses the produced metrics against an explicit engineering policy (`NOT_ASSESSED` / `ACCEPTED` / `REJECTED`). Evaluation completion is not acceptance, and acceptance is not approval, shadow enablement, champion selection, or production deployment. See [`docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](docs/contracts/SCORER_CANDIDATE_EVALUATION.md).
 - Candidate **shadow scoring and comparison telemetry** (`ShadowScoringExecutor`) optionally executes an identity-bound accepted candidate beside the authoritative scorer and emits observational comparison data. Default is disabled; acceptance does not auto-enable shadow; candidate output never enters policy, enforcement, or baseline update (`SHADOW RESULT != PRODUCTION DECISION`). See [`docs/contracts/SCORER_CANDIDATE_SHADOW.md`](docs/contracts/SCORER_CANDIDATE_SHADOW.md).
 - Candidate **champion/challenger lifecycle governance** (`ModelLifecycleManager`): explicit challenger designation, objective comparable-metric deltas, eligibility assessment, explicit approve/reject, explicit promotion of lifecycle champion designation, history retention, and explicit rollback. Promotion does not rewire production scorers (`PROMOTED != PRODUCTION DEPLOYED`). See [`docs/contracts/SCORER_MODEL_LIFECYCLE.md`](docs/contracts/SCORER_MODEL_LIFECYCLE.md).
+- Integrated **release-candidate lifecycle regressions** (`CandidateModelLifecycleRcHardeningRegressionTest`) covering load→evaluate→accept→shadow→challenger→approve→promote→rollback/restart while asserting the authoritative runtime scorer remains sole production authority.
 
 ### Changed
 
@@ -28,6 +29,8 @@ for the published library line.
 - Documented Official Detection Reference Baseline capture, verification/drift, and lifecycle/governance as a completed offline engineering capability (still not production efficacy).
 
 ### Fixed
+
+- Clarified reference-performance baseline audit wording for FIND-002: `capture-reference-baseline.sh` does not generate `analysis.json`; the tracked `analysisSha256` remains a historical selection-analysis hash (not baseline regeneration). See [`docs/performance/REFERENCE_BASELINE.md`](docs/performance/REFERENCE_BASELINE.md).
 
 ## [0.3.0] — 2026-08-30
 

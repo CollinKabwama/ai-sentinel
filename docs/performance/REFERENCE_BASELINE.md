@@ -24,7 +24,9 @@ Offline detection metrics and evidence are documented separately in [`../../eval
 
 The benchmark captures relative engineering reference points that are intended to make future changes comparable against a known **0.3.0** baseline.
 
-Machine-readable summary: [`reference-baseline.json`](reference-baseline.json). It includes selected per-run raw metrics and SHA-256 hashes for the local raw capture artifacts used to audit the accepted baseline: `capture-notes.txt`, `analysis.json`, and the stable `run-0{1,2,3}/{jmh.json,manifest.json}` copies. The large generated raw capture directory remains gitignored.
+Machine-readable summary: [`reference-baseline.json`](reference-baseline.json). It includes selected per-run raw metrics and SHA-256 hashes for the local raw capture artifacts used to audit the accepted baseline: `capture-notes.txt`, a one-time selection `analysis.json`, and the stable `run-0{1,2,3}/{jmh.json,manifest.json}` copies. The large generated raw capture directory remains gitignored.
+
+**FIND-002 clarification:** `./scripts/capture-reference-baseline.sh` regenerates `capture-notes.txt` and the per-run `jmh.json` / `manifest.json` copies only. It does **not** generate `analysis.json`. The `analysisSha256` retained in [`reference-baseline.json`](reference-baseline.json) is a historical hash of the selection-analysis artifact used when the accepted 0.3.0 reference baseline was recorded; re-running the capture script alone is not expected to recreate that file. Do not treat absence of a freshly generated `analysis.json` after capture as baseline drift.
 
 ## 2. Baseline identity
 
