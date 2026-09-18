@@ -121,6 +121,8 @@ Official JMH args: `-f 2 -wi 5 -i 5 -w 1s -r 1s`.
 
 Populated baseline: [`REFERENCE_BASELINE.md`](REFERENCE_BASELINE.md) and [`reference-baseline.json`](reference-baseline.json).
 
+The capture script writes `capture-notes.txt` and stable per-run `jmh.json` / `manifest.json` copies. It does **not** regenerate the historical selection `analysis.json` retained by hash in the tracked summary (see FIND-002 note in [`REFERENCE_BASELINE.md`](REFERENCE_BASELINE.md)).
+
 ### Categories
 
 ```bash
