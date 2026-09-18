@@ -84,8 +84,13 @@ class CandidateDetectionEvaluationRunnerTest {
         assertThat(result.evidence().classification().anomalyThreshold()).isEqualTo(0.5);
         assertThat(result.evidence().limitations()).contains(
             "EVALUATED CANDIDATE != APPROVED CANDIDATE",
+            "EVALUATED CANDIDATE != ACCEPTED CANDIDATE",
+            "EVALUATION COMPLETED != ACCEPTED",
             "FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE"
         );
+        assertThat(result.evidence().acceptance().status())
+            .isEqualTo(CandidateEvaluationAcceptanceStatus.NOT_ASSESSED);
+        assertThat(result.evidence().acceptance().configuredPolicy()).isEmpty();
         assertThat(Files.exists(tempDir.resolve("ready-if").resolve("candidate-evaluation.json"))).isTrue();
         assertThat(Files.exists(tempDir.resolve("ready-if").resolve("candidate-evaluation.md"))).isTrue();
         assertThat(Files.exists(tempDir.resolve("ready-if").resolve("evaluation.json"))).isFalse();
@@ -192,9 +197,33 @@ class CandidateDetectionEvaluationRunnerTest {
             result.evidence().classification(),
             List.of(),
             result.evidence().evaluation().orElseThrow(),
+            result.evidence().acceptance(),
             result.evidence().limitations()
         )).isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("candidate scorerId must match nested replay evidence");
+    }
+
+    @Test
+    void previousEvidenceConstructorDefaultsAcceptanceToNotAssessed() throws Exception {
+        byte[] payload = encodeIsolationForest(2L);
+        ScorerArtifactDescriptor descriptor = ifDescriptor("research-if-candidate", "1.0.0", "artifact-a", payload);
+        CandidateDetectionEvaluationRunner.CandidateDetectionEvaluationResult result =
+            evaluateCandidate(descriptor, payload, "compat-constructor");
+
+        CandidateDetectionEvaluationEvidence evidence = new CandidateDetectionEvaluationEvidence(
+            result.evidence().evidenceSchemaVersion(),
+            result.evidence().reportKind(),
+            CandidateDetectionEvaluationStatus.COMPLETED,
+            result.evidence().candidate(),
+            result.evidence().classification(),
+            List.of(),
+            result.evidence().evaluation().orElseThrow(),
+            result.evidence().limitations()
+        );
+
+        assertThat(evidence.acceptance().status()).isEqualTo(CandidateEvaluationAcceptanceStatus.NOT_ASSESSED);
+        assertThat(evidence.acceptance().configuredPolicy()).isEmpty();
+        assertThat(evidence.acceptance().issues()).isEmpty();
     }
 
     @Test
@@ -369,6 +398,169 @@ class CandidateDetectionEvaluationRunnerTest {
     }
 
     @Test
+    void noAcceptancePolicyLeavesCompletedEvaluationUnassessed() throws Exception {
+        byte[] payload = encodeIsolationForest(42L);
+        ScorerArtifactDescriptor descriptor = ifDescriptor("research-if-candidate", "1.0.0", "artifact-1", payload);
+
+        CandidateDetectionEvaluationRunner.CandidateDetectionEvaluationResult result =
+            evaluateCandidate(descriptor, payload, "no-policy");
+
+        assertThat(result.status()).isEqualTo(CandidateDetectionEvaluationStatus.COMPLETED);
+        assertThat(result.evidence().acceptance().status())
+            .isEqualTo(CandidateEvaluationAcceptanceStatus.NOT_ASSESSED);
+        assertThat(result.evidence().acceptance().configuredPolicy()).isEmpty();
+        assertThat(result.evidence().acceptance().issues()).isEmpty();
+        assertThat(Files.readString(tempDir.resolve("no-policy").resolve("candidate-evaluation.json")))
+            .contains("\"acceptance\":{")
+            .contains("\"status\":\"NOT_ASSESSED\"")
+            .contains("\"policy\":null");
+    }
+
+    @Test
+    void passingAcceptancePolicyAcceptsCompletedEvaluation() throws Exception {
+        byte[] payload = encodeIsolationForest(42L);
+        ScorerArtifactDescriptor descriptor = ifDescriptor("research-if-candidate", "1.0.0", "artifact-1", payload);
+        CandidateEvaluationAcceptancePolicy policy = CandidateEvaluationAcceptancePolicy.builder()
+            .minimumEvaluableObservations(1L)
+            .build();
+
+        CandidateDetectionEvaluationRunner.CandidateDetectionEvaluationResult result =
+            new CandidateDetectionEvaluationRunner().evaluate(
+                descriptor,
+                payload,
+                trackedDatasetDirectory(),
+                trackedAnnotationsFile(),
+                THRESHOLD,
+                policy,
+                tempDir.resolve("accepted-policy")
+            );
+
+        assertThat(result.status()).isEqualTo(CandidateDetectionEvaluationStatus.COMPLETED);
+        assertThat(result.evidence().acceptance().status())
+            .isEqualTo(CandidateEvaluationAcceptanceStatus.ACCEPTED);
+        assertThat(result.evidence().acceptance().configuredPolicy()).contains(policy);
+        assertThat(result.evidence().acceptance().issues()).isEmpty();
+        assertThat(Files.readString(tempDir.resolve("accepted-policy").resolve("candidate-evaluation.json")))
+            .contains("\"status\":\"ACCEPTED\"")
+            .contains("\"minimumEvaluableObservations\":1");
+        assertThat(Files.readString(tempDir.resolve("accepted-policy").resolve("candidate-evaluation.md")))
+            .contains("Acceptance status: `ACCEPTED`");
+    }
+
+    @Test
+    void failingAcceptancePolicyRejectsCompletedEvaluationAndReportsEveryCriterion() throws Exception {
+        byte[] payload = encodeIsolationForest(42L);
+        ScorerArtifactDescriptor descriptor = ifDescriptor("research-if-candidate", "1.0.0", "artifact-1", payload);
+        CandidateEvaluationAcceptancePolicy policy = CandidateEvaluationAcceptancePolicy.builder()
+            .minimumEvaluableObservations(Long.MAX_VALUE)
+            .minimumRecall(1.0)
+            .build();
+
+        CandidateDetectionEvaluationRunner.CandidateDetectionEvaluationResult result =
+            new CandidateDetectionEvaluationRunner().evaluate(
+                descriptor,
+                payload,
+                trackedDatasetDirectory(),
+                trackedAnnotationsFile(),
+                THRESHOLD,
+                policy,
+                tempDir.resolve("rejected-policy")
+            );
+
+        assertThat(result.status()).isEqualTo(CandidateDetectionEvaluationStatus.COMPLETED);
+        assertThat(result.evidence().acceptance().status())
+            .isEqualTo(CandidateEvaluationAcceptanceStatus.REJECTED);
+        assertThat(result.evidence().acceptance().issues())
+            .extracting(CandidateEvaluationAcceptanceIssue::code)
+            .contains(
+                CandidateEvaluationAcceptanceIssueCode.MINIMUM_EVALUABLE_OBSERVATIONS_NOT_MET
+            );
+        assertThat(result.evidence().acceptance().issues().get(0).code())
+            .isEqualTo(CandidateEvaluationAcceptanceIssueCode.MINIMUM_EVALUABLE_OBSERVATIONS_NOT_MET);
+        if (result.metrics().orElseThrow().metrics().recall().defined()
+            && Double.compare(result.metrics().orElseThrow().metrics().recall().value(), 1.0) < 0) {
+            assertThat(result.evidence().acceptance().issues())
+                .extracting(CandidateEvaluationAcceptanceIssue::code)
+                .contains(CandidateEvaluationAcceptanceIssueCode.MINIMUM_RECALL_NOT_MET);
+        }
+        assertThat(Files.readString(tempDir.resolve("rejected-policy").resolve("candidate-evaluation.json")))
+            .contains("\"status\":\"REJECTED\"")
+            .contains("MINIMUM_EVALUABLE_OBSERVATIONS_NOT_MET");
+    }
+
+    @Test
+    void repeatedAcceptedEvaluationsRemainDeterministic() throws Exception {
+        byte[] payload = encodeIsolationForest(42L);
+        ScorerArtifactDescriptor descriptor = ifDescriptor("research-if-candidate", "1.0.0", "artifact-1", payload);
+        CandidateEvaluationAcceptancePolicy policy = CandidateEvaluationAcceptancePolicy.builder()
+            .minimumEvaluableObservations(1L)
+            .maximumFalsePositiveRate(1.0)
+            .build();
+
+        CandidateDetectionEvaluationRunner.CandidateDetectionEvaluationResult first =
+            new CandidateDetectionEvaluationRunner().evaluate(
+                descriptor, payload, trackedDatasetDirectory(), trackedAnnotationsFile(), THRESHOLD, policy,
+                tempDir.resolve("accept-repeat-a")
+            );
+        CandidateDetectionEvaluationRunner.CandidateDetectionEvaluationResult second =
+            new CandidateDetectionEvaluationRunner().evaluate(
+                descriptor, payload, trackedDatasetDirectory(), trackedAnnotationsFile(), THRESHOLD, policy,
+                tempDir.resolve("accept-repeat-b")
+            );
+
+        assertThat(first.evidence()).isEqualTo(second.evidence());
+        assertThat(first.writtenEvidence().jsonSha256()).isEqualTo(second.writtenEvidence().jsonSha256());
+        assertThat(Files.readAllBytes(tempDir.resolve("accept-repeat-a").resolve("candidate-evaluation.json")))
+            .containsExactly(Files.readAllBytes(tempDir.resolve("accept-repeat-b").resolve("candidate-evaluation.json")));
+    }
+
+    @Test
+    void loadFailureWithPolicyRemainsNotAssessedRatherThanRejected() throws Exception {
+        byte[] payload = encodeIsolationForest(3L);
+        CandidateEvaluationAcceptancePolicy policy = CandidateEvaluationAcceptancePolicy.builder()
+            .minimumEvaluableObservations(1L)
+            .build();
+
+        CandidateDetectionEvaluationRunner.CandidateDetectionEvaluationResult result =
+            new CandidateDetectionEvaluationRunner().evaluate(
+                ifDescriptor("research-if-candidate", "1.0.0", "artifact-1", new byte[] {1, 2, 3}),
+                payload,
+                trackedDatasetDirectory(),
+                trackedAnnotationsFile(),
+                THRESHOLD,
+                policy,
+                tempDir.resolve("fail-policy-not-assessed")
+            );
+
+        assertThat(result.status()).isEqualTo(CandidateDetectionEvaluationStatus.CANDIDATE_NOT_READY);
+        assertThat(result.evidence().acceptance().status())
+            .isEqualTo(CandidateEvaluationAcceptanceStatus.NOT_ASSESSED);
+        assertThat(result.evidence().acceptance().configuredPolicy()).contains(policy);
+        assertThat(result.evidence().acceptance().issues()).isEmpty();
+        assertThat(result.evidence().evaluation()).isEmpty();
+    }
+
+    @Test
+    void invalidAcceptancePolicyIsRejectedBeforeEvaluation() {
+        assertThatThrownBy(() -> CandidateEvaluationAcceptancePolicy.builder()
+            .minimumRecall(Double.NaN)
+            .build())
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("minimumRecall");
+        assertThatThrownBy(() -> new CandidateDetectionEvaluationRunner().evaluate(
+            ifDescriptor("x", "1.0.0", "y", new byte[] {1}),
+            new byte[] {1},
+            trackedDatasetDirectory(),
+            trackedAnnotationsFile(),
+            THRESHOLD,
+            CandidateEvaluationAcceptancePolicy.builder().minimumPrecision(Double.POSITIVE_INFINITY).build(),
+            tempDir.resolve("invalid-policy")
+        )).isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("minimumPrecision");
+        assertThat(Files.exists(tempDir.resolve("invalid-policy"))).isFalse();
+    }
+
+    @Test
     void candidateKindWithoutExplicitScorerDoesNotConstructARuntime() throws Exception {
         ReplayConfiguration configuration = candidateReplayConfiguration("missing-explicit", "1.0.0", "dd".repeat(32));
         assertThatThrownBy(() -> new ReplayEngine().run(
@@ -429,6 +621,8 @@ class CandidateDetectionEvaluationRunnerTest {
                 tempDir.resolve(outputName)
             );
         assertThat(result.status()).isEqualTo(CandidateDetectionEvaluationStatus.CANDIDATE_NOT_READY);
+        assertThat(result.evidence().acceptance().status())
+            .isEqualTo(CandidateEvaluationAcceptanceStatus.NOT_ASSESSED);
         assertThat(result.alignment()).isEmpty();
         assertThat(result.metrics()).isEmpty();
         assertThat(result.temporal()).isEmpty();

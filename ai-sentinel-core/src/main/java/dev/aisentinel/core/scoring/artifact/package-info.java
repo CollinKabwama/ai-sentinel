@@ -16,6 +16,8 @@
  * {@code DIGEST METADATA VALID != ARTIFACT BYTES VERIFIED}<br>
  * {@code READY != APPROVED}<br>
  * {@code EVALUATED != APPROVED}<br>
+ * {@code EVALUATED != ACCEPTED}<br>
+ * {@code ACCEPTED != PRODUCTION}<br>
  * {@code SCORER HEALTH != DETECTION QUALITY}
  */
 package dev.aisentinel.core.scoring.artifact;
