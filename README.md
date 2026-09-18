@@ -214,15 +214,16 @@ These layers are offline engineering evidence machinery. The Official Detection 
 
 `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `BASELINE != QUALITY GATE` · `DRIFT != REGRESSION` · `DRIFT != APPROVAL` · `REFERENCE DATASET != DETECTION BASELINE`
 
-Next engineering maturity boundary after candidate shadow scoring: RC hardening /
-review toward the next substantial release (then model lifecycle champion/challenger).
-Shadow scoring remains observational (`SHADOW RESULT != PRODUCTION DECISION`).
+Next engineering maturity boundary after candidate shadow scoring: **release-candidate
+hardening/review** toward the next substantial packaging release (then model
+lifecycle champion/challenger). Shadow scoring is merged and remains observational
+(`SHADOW RESULT != PRODUCTION DECISION`).
 
 ---
 
 ## Current limitations
 
-- **Official Detection Reference Baseline** — Capture, verification/drift, and lifecycle/governance are complete under [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Drift means difference, not detector-quality acceptance or production approval. Next: scorer plug-in / candidate-model integration hardening.
+- **Official Detection Reference Baseline** — Capture, verification/drift, and lifecycle/governance are complete under [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Drift means difference, not detector-quality acceptance or production approval. Candidate scorer integration through shadow scoring is complete as an engineering capability; next is RC hardening/review toward packaging.
 - **Stable software baseline** — **0.3.0** is the first stable compatibility baseline and the current Maven Central line (tag `v0.3.0`). Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
 - **MONITOR default** — Default `ai.sentinel.mode=MONITOR` (observe/learn; no client denial). Explicit `ENFORCE` enables client denial only after ENFORCE preconditions. Full mode matrix, restart behavior, and the availability-first **failure-mode profile**: [`docs/deployment.md`](docs/deployment.md). Statistical warmup is a lifecycle state (`EvaluationStatus.STATISTICAL_WARMUP`), not evidence of abuse; default warmup action is `MONITOR`. Default baseline learning skips `THROTTLE`/`BLOCK`/`QUARANTINE` risk (`ALLOW_OR_MONITOR`).
 - **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository).
