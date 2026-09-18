@@ -42,8 +42,9 @@ public final class LoadedCandidateScorer {
 
     /**
      * Callable candidate scorer. Invoking it does not grant production decision
-     * authority; consumers must not wire this into request-path policy without
-     * later authorized shadow/lifecycle work.
+     * authority. Observational shadow scoring may bind this scorer only through
+     * explicit {@code ShadowScoringExecutor} configuration
+     * ({@code SHADOW RESULT != PRODUCTION DECISION}).
      */
     public AnomalyScorer scorer() {
         return scorer;

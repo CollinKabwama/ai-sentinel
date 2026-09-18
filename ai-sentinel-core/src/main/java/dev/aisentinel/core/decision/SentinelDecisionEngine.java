@@ -31,6 +31,9 @@ import dev.aisentinel.core.scoring.AnomalyScorer;
 import dev.aisentinel.core.scoring.CompositeScorer;
 import dev.aisentinel.core.scoring.IsolationForestScorer;
 import dev.aisentinel.core.scoring.StatisticalScorer;
+import dev.aisentinel.core.scoring.shadow.ShadowContextKeys;
+import dev.aisentinel.core.scoring.shadow.ShadowScoringExecutor;
+import dev.aisentinel.core.scoring.shadow.ShadowScoringObservation;
 import dev.aisentinel.core.telemetry.TelemetryEmitter;
 import dev.aisentinel.core.telemetry.TelemetryEvent;
 import lombok.extern.slf4j.Slf4j;
@@ -41,7 +44,9 @@ import java.util.Set;
 /**
  * Framework-independent risk decision for one request: trust evaluation, anomaly scoring, optional risk fusion,
  * policy, trust-policy escalation, statistical-warmup action override, conditional baseline update, optional
- * controlled relearn, and the startup-grace / quarantine overrides.
+ * controlled relearn, and the startup-grace / quarantine overrides. Optional observational shadow scoring may
+ * run beside the authoritative scorer when explicitly enabled; candidate output never enters policy,
+ * enforcement, or baseline update ({@code SHADOW RESULT != PRODUCTION DECISION}).
  * <p>
  * Depends only on {@link HttpRequestView} and core SPIs — no servlet, Spring, or reactive types — so it can be
  * driven directly from tests or from a non-servlet integration. It never writes to the HTTP response; applying the
@@ -66,6 +71,7 @@ public final class SentinelDecisionEngine {
     private final BaselineUpdatePolicy baselineUpdatePolicy;
     private final BaselineUpdateMode baselineUpdateMode;
     private final BaselineLifecycle baselineLifecycle;
+    private final ShadowScoringExecutor shadowScoring;
 
     /**
      * @param enforcementHandler consulted only for {@link EnforcementHandler#isQuarantined(String, String)}
@@ -81,7 +87,8 @@ public final class SentinelDecisionEngine {
                                   RequestRiskFusion riskFusion) {
         this(scorer, policyEngine, enforcementHandler, telemetry, startupGrace, metrics,
             trustEvaluator, trustPolicyAdjuster, riskFusion, EnforcementAction.MONITOR,
-            ConfigurableBaselineUpdatePolicy.allowOrMonitor(), BaselineLifecycle.disabled());
+            ConfigurableBaselineUpdatePolicy.allowOrMonitor(), BaselineLifecycle.disabled(),
+            ShadowScoringExecutor.disabled());
     }
 
     public SentinelDecisionEngine(AnomalyScorer scorer,
@@ -96,7 +103,8 @@ public final class SentinelDecisionEngine {
                                   EnforcementAction statisticalWarmupAction) {
         this(scorer, policyEngine, enforcementHandler, telemetry, startupGrace, metrics,
             trustEvaluator, trustPolicyAdjuster, riskFusion, statisticalWarmupAction,
-            ConfigurableBaselineUpdatePolicy.allowOrMonitor(), BaselineLifecycle.disabled());
+            ConfigurableBaselineUpdatePolicy.allowOrMonitor(), BaselineLifecycle.disabled(),
+            ShadowScoringExecutor.disabled());
     }
 
     public SentinelDecisionEngine(AnomalyScorer scorer,
@@ -112,7 +120,7 @@ public final class SentinelDecisionEngine {
                                   BaselineUpdatePolicy baselineUpdatePolicy) {
         this(scorer, policyEngine, enforcementHandler, telemetry, startupGrace, metrics,
             trustEvaluator, trustPolicyAdjuster, riskFusion, statisticalWarmupAction,
-            baselineUpdatePolicy, BaselineLifecycle.disabled());
+            baselineUpdatePolicy, BaselineLifecycle.disabled(), ShadowScoringExecutor.disabled());
     }
 
     /**
@@ -134,6 +142,30 @@ public final class SentinelDecisionEngine {
                                   EnforcementAction statisticalWarmupAction,
                                   BaselineUpdatePolicy baselineUpdatePolicy,
                                   BaselineLifecycle baselineLifecycle) {
+        this(scorer, policyEngine, enforcementHandler, telemetry, startupGrace, metrics,
+            trustEvaluator, trustPolicyAdjuster, riskFusion, statisticalWarmupAction,
+            baselineUpdatePolicy, baselineLifecycle, ShadowScoringExecutor.disabled());
+    }
+
+    /**
+     * @param shadowScoring observational candidate scoring; default
+     *                      {@link ShadowScoringExecutor#disabled()}. Candidate
+     *                      output never enters policy, enforcement, or baseline update.
+     *                      {@code SHADOW RESULT != PRODUCTION DECISION}
+     */
+    public SentinelDecisionEngine(AnomalyScorer scorer,
+                                  PolicyEngine policyEngine,
+                                  EnforcementHandler enforcementHandler,
+                                  TelemetryEmitter telemetry,
+                                  StartupGrace startupGrace,
+                                  SentinelMetrics metrics,
+                                  TrustEvaluator trustEvaluator,
+                                  TrustPolicyAdjuster trustPolicyAdjuster,
+                                  RequestRiskFusion riskFusion,
+                                  EnforcementAction statisticalWarmupAction,
+                                  BaselineUpdatePolicy baselineUpdatePolicy,
+                                  BaselineLifecycle baselineLifecycle,
+                                  ShadowScoringExecutor shadowScoring) {
         this.scorer = scorer;
         this.policyEngine = policyEngine;
         this.enforcementHandler = enforcementHandler;
@@ -152,6 +184,7 @@ public final class SentinelDecisionEngine {
             ? configurable.mode()
             : BaselineUpdateMode.ALLOW_OR_MONITOR;
         this.baselineLifecycle = baselineLifecycle != null ? baselineLifecycle : BaselineLifecycle.disabled();
+        this.shadowScoring = shadowScoring != null ? shadowScoring : ShadowScoringExecutor.disabled();
     }
 
     static EnforcementAction normalizeWarmupAction(EnforcementAction action) {
@@ -251,11 +284,13 @@ public final class SentinelDecisionEngine {
         // Authoritative invalid-score boundary: NaN / ±Infinity / negative ≠ maximum risk.
         // Finite values > 1 are range-clamped below and take the normal policy path.
         if (isInvalidScore(rawScore)) {
+            observeShadow(rawScore, features, ctx, identityHash);
             return buildInvalidScoreDecision(
                 identityHash, features, ctx, evaluationStatuses, optionalPathDegraded);
         }
 
         double score = clampFiniteScore(rawScore);
+        observeShadow(rawScore, features, ctx, identityHash);
 
         double policyScore = score;
         if (riskFusion.enabled()) {
@@ -419,6 +454,29 @@ public final class SentinelDecisionEngine {
     private void recordFailOpen(FailOpenReason reason, String endpoint) {
         metrics.recordFailOpen(reason);
         telemetry.emit(TelemetryEvent.failOpen(reason, endpoint));
+    }
+
+    /**
+     * Observational shadow scoring only. Candidate output never enters policy,
+     * enforcement, baseline update, or authoritative {@link RiskDecision} fields.
+     * When shadow is disabled, this is a no-op (no context side effects).
+     * Failures are contained; {@code SHADOW RESULT != PRODUCTION DECISION}.
+     */
+    private void observeShadow(double authoritativeRawScore,
+                               RequestFeatures features,
+                               RequestContext ctx,
+                               String correlationId) {
+        if (!shadowScoring.configuration().enabled()) {
+            return;
+        }
+        try {
+            ShadowScoringObservation observation =
+                shadowScoring.observe(authoritativeRawScore, features, correlationId);
+            ctx.put(ShadowContextKeys.SHADOW_OBSERVATION, observation);
+        } catch (RuntimeException e) {
+            log.debug("Shadow scoring failed (contained): {}: {}",
+                e.getClass().getSimpleName(), e.getMessage());
+        }
     }
 
     /**

@@ -35,6 +35,7 @@ import dev.aisentinel.core.scoring.AnomalyScorer;
 import dev.aisentinel.core.scoring.CompositeScoreSnapshotSource;
 import dev.aisentinel.core.scoring.CompositeScorer;
 import dev.aisentinel.core.scoring.StatisticalScoreSnapshot;
+import dev.aisentinel.core.scoring.shadow.ShadowScoringExecutor;
 import dev.aisentinel.core.fusion.FusedRisk;
 import dev.aisentinel.core.fusion.FusionContextKeys;
 import dev.aisentinel.core.fusion.NoopRequestRiskFusion;
@@ -204,13 +205,48 @@ public final class SentinelPipeline {
                             BaselineUpdatePolicy baselineUpdatePolicy,
                             BaselineLifecycle baselineLifecycle,
                             LastDecisionExplanation lastDecisionExplanation) {
+        this(featureExtractor, scorer, compositeScorerOrNull, policyEngine, enforcementHandler, telemetry, startupGrace,
+            metrics, trainingCandidatePublisher, enforcementScope, trainingTenantId, trainingNodeId, sentinelModeName,
+            identityContextResolver, trustEvaluator, trustPolicyAdjuster, identityResponseHook, riskFusion,
+            statisticalWarmupAction, baselineUpdatePolicy, baselineLifecycle, lastDecisionExplanation,
+            ShadowScoringExecutor.disabled());
+    }
+
+    /**
+     * @param shadowScoring observational candidate scoring; default disabled.
+     *                      {@code SHADOW RESULT != PRODUCTION DECISION}
+     */
+    public SentinelPipeline(FeatureExtractor featureExtractor,
+                            AnomalyScorer scorer,
+                            CompositeScorer compositeScorerOrNull,
+                            PolicyEngine policyEngine,
+                            EnforcementHandler enforcementHandler,
+                            TelemetryEmitter telemetry,
+                            StartupGrace startupGrace,
+                            SentinelMetrics metrics,
+                            TrainingCandidatePublisher trainingCandidatePublisher,
+                            EnforcementScope enforcementScope,
+                            String trainingTenantId,
+                            String trainingNodeId,
+                            String sentinelModeName,
+                            IdentityContextResolver identityContextResolver,
+                            TrustEvaluator trustEvaluator,
+                            TrustPolicyAdjuster trustPolicyAdjuster,
+                            IdentityResponseHook identityResponseHook,
+                            RequestRiskFusion riskFusion,
+                            EnforcementAction statisticalWarmupAction,
+                            BaselineUpdatePolicy baselineUpdatePolicy,
+                            BaselineLifecycle baselineLifecycle,
+                            LastDecisionExplanation lastDecisionExplanation,
+                            ShadowScoringExecutor shadowScoring) {
         this.featureExtractor = featureExtractor;
         this.compositeScoreSnapshotSourceOrNull = compositeScorerOrNull;
         this.enforcementHandler = enforcementHandler;
         this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
         this.decisionEngine = new SentinelDecisionEngine(scorer, policyEngine, enforcementHandler, telemetry,
             startupGrace, this.metrics, trustEvaluator, trustPolicyAdjuster, riskFusion, statisticalWarmupAction,
-            baselineUpdatePolicy, baselineLifecycle);
+            baselineUpdatePolicy, baselineLifecycle,
+            shadowScoring != null ? shadowScoring : ShadowScoringExecutor.disabled());
         this.trainingCandidatePublisher = trainingCandidatePublisher != null
             ? trainingCandidatePublisher
             : NoopTrainingCandidatePublisher.INSTANCE;
