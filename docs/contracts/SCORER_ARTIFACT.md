@@ -134,7 +134,7 @@ scorer output contract. It does **not** mean:
 | Loading / health / isolation | See [`SCORER_CANDIDATE_LOADING.md`](SCORER_CANDIDATE_LOADING.md) — verifies artifact bytes, constructs supported candidates, represents readiness |
 | Replay / evaluation acceptance | See [`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md) — READY candidates produce candidate-specific evidence and may be assessed by an explicit engineering acceptance policy |
 | Shadow scoring | See [`SCORER_CANDIDATE_SHADOW.md`](SCORER_CANDIDATE_SHADOW.md) — observational only; `SHADOW RESULT != PRODUCTION DECISION` |
-| Champion / challenger | Separate model lifecycle governance |
+| Champion / challenger | See [`SCORER_MODEL_LIFECYCLE.md`](SCORER_MODEL_LIFECYCLE.md) — designation governance only; `PROMOTED != PRODUCTION DEPLOYED` |
 
 ## Related docs
 
@@ -142,4 +142,5 @@ scorer output contract. It does **not** mean:
 - [`SCORER_CANDIDATE_LOADING.md`](SCORER_CANDIDATE_LOADING.md)
 - [`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md)
 - [`SCORER_CANDIDATE_SHADOW.md`](SCORER_CANDIDATE_SHADOW.md)
+- [`SCORER_MODEL_LIFECYCLE.md`](SCORER_MODEL_LIFECYCLE.md)
 - [`../evaluation/DETECTION_REFERENCE_BASELINE.md`](../../evaluation/DETECTION_REFERENCE_BASELINE.md) (baseline candidates are different)

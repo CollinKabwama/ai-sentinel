@@ -218,8 +218,8 @@ semantics remain unchanged by this boundary.
 |---|---|
 | Replay / evaluation acceptance | See [`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md) — READY candidates may be replayed, evaluated, and optionally assessed by an explicit engineering acceptance policy |
 | Shadow scoring | See [`SCORER_CANDIDATE_SHADOW.md`](SCORER_CANDIDATE_SHADOW.md) — observational only; explicit opt-in; `SHADOW RESULT != PRODUCTION DECISION` |
-| Champion / challenger | Separate lifecycle governance |
-| Promotion / rollback | Separate lifecycle governance |
+| Champion / challenger | See [`SCORER_MODEL_LIFECYCLE.md`](SCORER_MODEL_LIFECYCLE.md) — explicit designation; `ACCEPTED != CHALLENGER` |
+| Promotion / rollback | See [`SCORER_MODEL_LIFECYCLE.md`](SCORER_MODEL_LIFECYCLE.md) — lifecycle designation only; `PROMOTED != PRODUCTION DEPLOYED` |
 
 `LOADED MODEL != ACCEPTED MODEL`
 `MODEL AVAILABLE != SHADOW ENABLED`
@@ -230,4 +230,5 @@ semantics remain unchanged by this boundary.
 - [`SCORER_ARTIFACT.md`](SCORER_ARTIFACT.md)
 - [`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md)
 - [`SCORER_CANDIDATE_SHADOW.md`](SCORER_CANDIDATE_SHADOW.md)
+- [`SCORER_MODEL_LIFECYCLE.md`](SCORER_MODEL_LIFECYCLE.md)
 - [`FEATURE_SCHEMA.md`](FEATURE_SCHEMA.md)
