@@ -325,16 +325,18 @@ Baseline metrics, and metric improvement is **not** automatic promotion.
 
 ## Explicitly out of scope
 
-- champion / challenger
-- promotion / rollback
+- champion / challenger (see [`SCORER_MODEL_LIFECYCLE.md`](SCORER_MODEL_LIFECYCLE.md))
+- promotion / rollback (see [`SCORER_MODEL_LIFECYCLE.md`](SCORER_MODEL_LIFECYCLE.md))
 - production scorer selection
 - policy or enforcement authority
 - candidate training, retuning, or threshold optimization
 - batch tournaments / leaderboards
 - actuator / dashboard / analyst UI
 
-Shadow scoring is a **separate** subsequent capability; see
+Shadow scoring is a **separate** capability; see
 [`SCORER_CANDIDATE_SHADOW.md`](SCORER_CANDIDATE_SHADOW.md).
+Lifecycle promotion governance is a **separate** capability; see
+[`SCORER_MODEL_LIFECYCLE.md`](SCORER_MODEL_LIFECYCLE.md).
 
 ## Boundaries
 
@@ -370,6 +372,7 @@ does **not** imply shadow enablement, champion, promotion, or production deploym
 - [`SCORER_ARTIFACT.md`](SCORER_ARTIFACT.md)
 - [`SCORER_CANDIDATE_LOADING.md`](SCORER_CANDIDATE_LOADING.md)
 - [`SCORER_CANDIDATE_SHADOW.md`](SCORER_CANDIDATE_SHADOW.md)
+- [`SCORER_MODEL_LIFECYCLE.md`](SCORER_MODEL_LIFECYCLE.md)
 - [`../../evaluation/DETECTION_EVALUATION.md`](../../evaluation/DETECTION_EVALUATION.md)
 - [`../../evaluation/DETERMINISTIC_REPLAY.md`](../../evaluation/DETERMINISTIC_REPLAY.md)
 - [`../../evaluation/DETECTION_REFERENCE_BASELINE.md`](../../evaluation/DETECTION_REFERENCE_BASELINE.md)
