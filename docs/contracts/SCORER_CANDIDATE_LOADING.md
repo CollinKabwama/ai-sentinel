@@ -198,9 +198,12 @@ the verified decoded model:
 - `update` is a no-op (candidate loading must not train behavioral state)
 
 The candidate is **not** automatically attached to production
-`SentinelDecisionEngine`, composite production blending, or shadow execution.
-Offline candidate replay/evaluation is a separate explicit evaluation seam
-documented in [`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md).
+`SentinelDecisionEngine` or composite production blending. Offline candidate
+replay/evaluation is documented in
+[`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md). Observational
+shadow scoring is a separate explicit opt-in documented in
+[`SCORER_CANDIDATE_SHADOW.md`](SCORER_CANDIDATE_SHADOW.md)
+(`ACCEPTANCE != AUTOMATIC SHADOW ENABLEMENT`).
 
 ## Startup / default behavior
 
@@ -214,7 +217,7 @@ semantics remain unchanged by this boundary.
 | Later work | Relationship |
 |---|---|
 | Replay / evaluation acceptance | See [`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md) — READY candidates may be replayed, evaluated, and optionally assessed by an explicit engineering acceptance policy |
-| Shadow scoring | Observational only; not implemented here |
+| Shadow scoring | See [`SCORER_CANDIDATE_SHADOW.md`](SCORER_CANDIDATE_SHADOW.md) — observational only; explicit opt-in; `SHADOW RESULT != PRODUCTION DECISION` |
 | Champion / challenger | Separate lifecycle governance |
 | Promotion / rollback | Separate lifecycle governance |
 
@@ -226,4 +229,5 @@ semantics remain unchanged by this boundary.
 
 - [`SCORER_ARTIFACT.md`](SCORER_ARTIFACT.md)
 - [`SCORER_CANDIDATE_EVALUATION.md`](SCORER_CANDIDATE_EVALUATION.md)
+- [`SCORER_CANDIDATE_SHADOW.md`](SCORER_CANDIDATE_SHADOW.md)
 - [`FEATURE_SCHEMA.md`](FEATURE_SCHEMA.md)

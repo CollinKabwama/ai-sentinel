@@ -6,7 +6,7 @@
 | `deployment.md` | Tracked deployment modes, adoption, and failure-mode profile |
 | `migration.md` | Tracked upgrade guide (0.2.x → 0.3.0) |
 | `testing.md` | Tracked characterization and release-gate testing |
-| [`contracts/`](contracts/FEATURE_SCHEMA.md) | Versioned feature-schema, evaluation-event, dataset-export, [scorer/model artifact](contracts/SCORER_ARTIFACT.md), [candidate loading/health](contracts/SCORER_CANDIDATE_LOADING.md), and [candidate replay/evaluation](contracts/SCORER_CANDIDATE_EVALUATION.md) contract documentation |
+| [`contracts/`](contracts/FEATURE_SCHEMA.md) | Versioned feature-schema, evaluation-event, dataset-export, [scorer/model artifact](contracts/SCORER_ARTIFACT.md), [candidate loading/health](contracts/SCORER_CANDIDATE_LOADING.md), [candidate replay/evaluation](contracts/SCORER_CANDIDATE_EVALUATION.md), and [candidate shadow scoring](contracts/SCORER_CANDIDATE_SHADOW.md) contract documentation |
 | [`performance/`](performance/BENCHMARKING.md) | Tracked JMH benchmark foundation + [0.3.0 reference baseline](performance/REFERENCE_BASELINE.md) (not an SLA) |
 | [`../evaluation/`](../evaluation/DETECTION_EVALUATION.md) | Offline Detection Evaluation Framework plus completed [Official Detection Reference Baseline](../evaluation/DETECTION_REFERENCE_BASELINE.md) (capture, verification/drift, lifecycle/governance; not production efficacy / not a quality gate). |
 | [`../dotnet/README.md`](../dotnet/README.md) | ASP.NET Core reference adapter (remote client; not gitignored) |
