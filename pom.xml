@@ -13,7 +13,7 @@
 
     <groupId>dev.aisentinel</groupId>
     <artifactId>ai-sentinel</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
     <packaging>pom</packaging>
     <name>ai-sentinel</name>
     <description>AI-Assisted Zero-Trust API Defense for Spring Boot</description>
@@ -52,7 +52,7 @@
     <properties>
         <java.version>21</java.version>
         <lombok.version>1.18.38</lombok.version>
-        <aisentinel.api.compatibility.oldVersion>0.2.0</aisentinel.api.compatibility.oldVersion>
+        <aisentinel.api.compatibility.oldVersion>0.3.0</aisentinel.api.compatibility.oldVersion>
     </properties>
 
     <dependencyManagement>

@@ -111,7 +111,7 @@ java -version   # expect 21
 mvn clean install
 ```
 
-To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter` at the version in the parent `pom.xml` (currently **0.3.0** — the same coordinate published to Maven Central, tag `v0.3.0`). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
+To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter` at the version in the parent `pom.xml` (currently **0.4.0** packaging line). The previously published Central coordinate remains **0.3.0** (tag `v0.3.0`) until **0.4.0** Central publication is authorized. There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
 
 Characterization and release-gate testing: [`docs/testing.md`](docs/testing.md). Upgrading from the previous published line: [`docs/migration.md`](docs/migration.md). Docs index and reading order: [`docs/README.md`](docs/README.md). Offline evaluation corpus helpers: [`scripts/README.md`](scripts/README.md) and [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md).
 
@@ -132,7 +132,7 @@ mvn clean verify
 
 `mvn clean verify` is the same primary gate used for release validation ([`docs/testing.md`](docs/testing.md)). Without Docker, a small number of Testcontainers tests are skipped rather than failed.
 
-Optional **public API compatibility** check against the japicmp baseline (`0.2.0` by default; property `aisentinel.api.compatibility.oldVersion`):
+Optional **public API compatibility** check against the japicmp baseline (`0.3.0` by default; property `aisentinel.api.compatibility.oldVersion`):
 
 ```bash
 mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am verify -DskipTests
