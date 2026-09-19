@@ -127,7 +127,7 @@ Default statistical learning uses **`ALLOW_OR_MONITOR`**: after a risk decision,
 4. **Idle TTL** after traffic stops may expire unused keys; continuous elevated traffic refreshes access and does not clear sticky elevation.
 5. **Deliberate policy change** (for example `ALWAYS`) allows continuous learning to absorb a new plateau — an operational choice, not automatic relearning.
 
-There is **no** automatic skip-triggered relearn and **no** shadow/candidate baseline in the current line. Automatic continuous adaptation after elevated risk remains an **architecture/product decision** and must not be assumed for production **ENFORCE** readiness. Prefer MONITOR until operators understand transition handling for their traffic.
+There is **no** automatic skip-triggered relearn and **no** automatic shadow-candidate baseline learning in the current line (observational shadow scoring, when explicitly enabled, does not train the authoritative baseline). Automatic continuous adaptation after elevated risk remains an **architecture/product decision** and must not be assumed for production **ENFORCE** readiness. Prefer MONITOR until operators understand transition handling for their traffic.
 
 ### Model registry disk retention
 

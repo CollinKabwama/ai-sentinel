@@ -47,6 +47,21 @@ Details: [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.
 
 `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `REPORT != BASELINE` · `REFERENCE DATASET != DETECTION BASELINE`
 
+### Candidate scorer lifecycle (engineering capability on the current development line)
+
+On **this repository's current development line** (not yet packaged into a subsequent Maven Central release), `ai-sentinel-core` includes an offline/opt-in candidate-model path. It is **not** part of the published **0.3.0** Central artifacts, is **not** required for ordinary starter usage, and does **not** rewire the authoritative runtime scorer. Steps below are **caller-driven** (not automatic transitions):
+
+1. Validate artifact descriptor / integrity metadata
+2. Verify and load candidate bytes (bounded; supported Isolation Forest/`aif1`)
+3. Replay and evaluate against the reference corpus
+4. Optionally assess engineering **acceptance**
+5. Optionally enable **shadow** scoring (observational; identity-bound; default OFF)
+6. Optionally designate challenger / approve / promote a **lifecycle champion** designation
+
+`VALID ARTIFACT != GOOD MODEL` · `EVALUATION COMPLETED != ACCEPTED` · `ACCEPTANCE != AUTOMATIC SHADOW ENABLEMENT` · `PROMOTED != PRODUCTION DEPLOYED` · `PUBLISHED 0.3.0 != CURRENT UNRELEASED CANDIDATE STACK`
+
+Contracts: [`docs/contracts/SCORER_ARTIFACT.md`](docs/contracts/SCORER_ARTIFACT.md) · [`SCORER_CANDIDATE_LOADING.md`](docs/contracts/SCORER_CANDIDATE_LOADING.md) · [`SCORER_CANDIDATE_EVALUATION.md`](docs/contracts/SCORER_CANDIDATE_EVALUATION.md) · [`SCORER_CANDIDATE_SHADOW.md`](docs/contracts/SCORER_CANDIDATE_SHADOW.md) · [`SCORER_MODEL_LIFECYCLE.md`](docs/contracts/SCORER_MODEL_LIFECYCLE.md). To exercise this stack today, build from source (`mvn clean install`); do not expect these APIs in the Central **0.3.0** jars.
+
 ---
 
 ## Architecture (high level)
@@ -78,15 +93,21 @@ Request
   → Feature extraction
   → SentinelDecisionEngine
       → Behavioral trust (optional)
-      → Anomaly scoring (AnomalyScorer)
+      → Authoritative anomaly scoring (AnomalyScorer)
       → Risk fusion (optional)
       → Policy evaluation (PolicyEngine)
       → Trust-aware policy adjustment (optional)
-  → Enforcement
+  → Enforcement response
   → Telemetry / metrics
 ```
 
-**Optional training path** (off the servlet hot path for model refresh): serving nodes may publish `TrainingCandidateRecord` events (log or Kafka) → **trainer** consumes → writes registry artifacts → nodes **poll** and install new Isolation Forest models when configured.
+**Authoritative path:** `AUTHORITATIVE RUNTIME SCORER → PRODUCTION DECISION → POLICY → ENFORCEMENT`.
+
+**Optional observational path** (explicitly enabled only): same request features → accepted candidate shadow scorer → observational evidence (`SHADOW RESULT != PRODUCTION DECISION`; default OFF).
+
+**Optional offline governance path** (not wired into starter auto-configuration): validated candidate artifact → load/evaluate/accept → explicit challenger designation → approval → lifecycle promotion of a champion designation only (`PROMOTED LIFECYCLE CHAMPION != RUNNING PRODUCTION SCORER`).
+
+**Optional training path** (off the servlet hot path for model refresh): serving nodes may publish `TrainingCandidateRecord` events (log or Kafka) → **trainer** consumes → writes registry artifacts → nodes **poll** and install new Isolation Forest models when configured. Do not confuse filesystem model-registry refresh with candidate lifecycle promotion.
 
 ---
 
@@ -117,7 +138,7 @@ ai:
     mode: MONITOR   # default; set ENFORCE only after MONITOR validation — see docs/deployment.md
 ```
 
-Add the starter dependency:
+Add the published starter dependency:
 
 ```xml
 <dependency>
@@ -127,9 +148,9 @@ Add the starter dependency:
 </dependency>
 ```
 
-The **0.3.0** line is the first stable compatibility baseline in this repository and the latest published Maven Central release ([tag `v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)).
+The **0.3.0** coordinate is the latest **published** Maven Central release ([tag `v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0); [Central artifact](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.3.0)). It is the first stable compatibility baseline for operators who pin Central.
 
-Artifact: [`dev.aisentinel:ai-sentinel-spring-boot-starter:0.3.0`](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.3.0).
+**Version distinction:** this repository's working tree may still declare Maven `<version>0.3.0</version>` while also containing **unreleased** post-`v0.3.0` engineering work (candidate artifact/loading/evaluation, shadow scoring, lifecycle governance, and related docs under [`CHANGELOG.md` Unreleased](CHANGELOG.md)). `CURRENT DEV HEAD != PUBLISHED 0.3.0 CONTENTS`. Candidate-lifecycle APIs are not available from the Central **0.3.0** jars; use a source build until a subsequent release packages them.
 
 Upgrade notes from **0.2.0** (and unreleased **0.2.1** development trees): [`docs/migration.md`](docs/migration.md). Full history: [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -214,25 +235,24 @@ These layers are offline engineering evidence machinery. The Official Detection 
 
 `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `BASELINE != QUALITY GATE` · `DRIFT != REGRESSION` · `DRIFT != APPROVAL` · `REFERENCE DATASET != DETECTION BASELINE`
 
-Next engineering maturity boundary after candidate shadow scoring: **release-candidate
-hardening/review** toward the next substantial packaging release (then model
-lifecycle champion/challenger). Shadow scoring is merged and remains observational
-(`SHADOW RESULT != PRODUCTION DECISION`).
+Candidate shadow scoring and lifecycle designation governance are merged engineering capabilities on the **current development line** and remain listed under [`CHANGELOG.md` Unreleased](CHANGELOG.md) — they are **not** included in published Central **0.3.0**. Shadow remains observational (`SHADOW RESULT != PRODUCTION DECISION`); promotion remains designation-only (`PROMOTED != PRODUCTION DEPLOYED`). A subsequent packaging/readiness release may publish those capabilities; that does **not** claim production efficacy, ENFORCE readiness, or production model activation.
 
 ---
 
 ## Current limitations
 
-- **Official Detection Reference Baseline** — Capture, verification/drift, and lifecycle/governance are complete under [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Drift means difference, not detector-quality acceptance or production approval. Candidate scorer integration through shadow scoring is complete as an engineering capability; next is RC hardening/review toward packaging.
-- **Stable software baseline** — **0.3.0** is the first stable compatibility baseline and the current Maven Central line (tag `v0.3.0`). Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
+- **Candidate / lifecycle boundaries** — Validated, loaded, evaluated, accepted, shadowed, or lifecycle-promoted candidates do not become the running production scorer. Explicit production model activation is out of scope on the current line (`PROMOTED LIFECYCLE CHAMPION != RUNNING PRODUCTION SCORER`). Pilot evidence remains required for operational claims (`PILOT_EVIDENCE_REQUIRED`).
+- **Official Detection Reference Baseline** — Capture, verification/drift, and lifecycle/governance are complete under [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Drift means difference, not detector-quality acceptance or production approval.
+- **Stable software baseline** — Published **0.3.0** (tag `v0.3.0`) is the first stable compatibility baseline and the current Maven Central line for operators who consume Central. Unreleased development on this branch is not that published artifact. Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
 - **MONITOR default** — Default `ai.sentinel.mode=MONITOR` (observe/learn; no client denial). Explicit `ENFORCE` enables client denial only after ENFORCE preconditions. Full mode matrix, restart behavior, and the availability-first **failure-mode profile**: [`docs/deployment.md`](docs/deployment.md). Statistical warmup is a lifecycle state (`EvaluationStatus.STATISTICAL_WARMUP`), not evidence of abuse; default warmup action is `MONITOR`. Default baseline learning skips `THROTTLE`/`BLOCK`/`QUARANTINE` risk (`ALLOW_OR_MONITOR`).
-- **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository).
+- **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository). Do not confuse registry refresh with candidate lifecycle promotion.
 - **Trainer `eventId` dedup** is JVM-local; multiple trainer instances are not coordinated without external design.
 - **Multi-JVM / Docker validation** — cluster quarantine Testcontainers runs when Docker is available (single-JVM + second Redis client). Multi-process / multi-host proof remains an operator responsibility; see the coverage matrix in [`docs/deployment.md`](docs/deployment.md).
 - **Registry disk** — Publishing a new Isolation Forest artifact writes new `{version}.meta.json` / `{version}.payload.bin` files and updates `active.json`. **Prior version files are not deleted automatically.** Operators prune obsolete artifacts after confirming rollback needs; see [`docs/deployment.md`](docs/deployment.md#model-registry-disk-retention).
 - **Gated baseline learning** — Default `ALLOW_OR_MONITOR` skips learning on elevated risk actions (protects against baseline poisoning). A **legitimate permanent workload change** can therefore remain elevated relative to the prior baseline until an explicit `BaselineLifecycle.reset` (when `relearn-mode=EXPLICIT_ONLY`) or equivalent operational action. Idle TTL does **not** clear sticky elevation while elevated traffic continues. See [`docs/deployment.md`](docs/deployment.md#legitimate-workload-transitions-and-gated-learning).
 - **Isolation Forest** returns one scalar score — no per-feature attribution (SHAP/LIME are out of scope).
 - **IF enabled without a loaded model** — fallback score is visible in telemetry/actuator, but the composite blend uses the statistical score only until mode is `MODEL`.
+- **Shadow scoring** — when explicitly enabled, runs synchronously in-process and may add compute/latency; it is not an async shadow platform.
 - **Characterization test fidelity** — sudden-step detector scenarios use controlled `RequestFeatures` (not full extractor E2E). Production `requestsPerWindow` is a rolling bucket count that increments per request (~`1, 2, 3, …`), so a synthetic `10 → 100` step cannot be produced through the extractor alone.
 - **Custom SPI breaking change** — core SPIs take `HttpRequestView` / `EnforcementResponse` (not servlet types); starter auto-config consumers are unaffected.
 - **Performance vs detection** — In-process JMH/resource baselines measure cost, not detection effectiveness (`PERFORMANCE != DETECTION EFFECTIVENESS`). See [`docs/performance/REFERENCE_BASELINE.md`](docs/performance/REFERENCE_BASELINE.md).

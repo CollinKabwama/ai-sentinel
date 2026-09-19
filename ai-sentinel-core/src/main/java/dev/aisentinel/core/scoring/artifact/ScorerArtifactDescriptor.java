@@ -106,7 +106,7 @@ public final class ScorerArtifactDescriptor {
     }
 
     /**
-     * Optional named {@link FeatureSchema} projection this artifact binds to.
+     * Optional named {@link dev.aisentinel.core.model.FeatureSchema} projection this artifact binds to.
      * When present, required feature names must match that projection's ordered list
      * exactly. When absent, features must still be canonical names for the schema.
      */
