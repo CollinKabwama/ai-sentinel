@@ -42,7 +42,7 @@ ai-sentinel/
 
 There is **no** `ai-sentinel-dashboard` module; visualize via Prometheus/Grafana or logs.
 
-Offline **Detection Evaluation Framework** (`dev.aisentinel.core.replay`, `dev.aisentinel.core.evaluation`, orchestrated by `DetectionEvaluationRunner`) is engineering evidence machinery against the tracked corpus. Path: reference dataset → deterministic replay → alignment → explicit classification → metrics/scenarios → temporal evaluation → deterministic evidence. It is **not** part of the request path. A READY candidate scorer may be injected into that same offline path (`ReplayEngine.withEvaluationScorer` / `CandidateDetectionEvaluationRunner`) to produce candidate-specific evidence and, when an explicit policy is supplied, an engineering acceptance assessment; that does not grant production scoring authority. Optional **shadow scoring** (`dev.aisentinel.core.scoring.shadow`) may run an explicitly enabled, identity-bound candidate beside the authoritative scorer for observational comparison only (`SHADOW RESULT != PRODUCTION DECISION`; default disabled). The separate **Official Detection Reference Baseline** (capture, verification/drift, lifecycle/governance) is tracked under [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Neither establishes production efficacy (`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`, `DETECTION BASELINE != PRODUCTION EFFICACY`, `EVALUATED CANDIDATE != ACCEPTED CANDIDATE`, `ACCEPTED CANDIDATE != PRODUCTION MODEL`, `ACCEPTANCE != AUTOMATIC SHADOW ENABLEMENT`). See [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md), [`docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](docs/contracts/SCORER_CANDIDATE_EVALUATION.md), and [`docs/contracts/SCORER_CANDIDATE_SHADOW.md`](docs/contracts/SCORER_CANDIDATE_SHADOW.md).
+Offline **Detection Evaluation Framework** (`dev.aisentinel.core.replay`, `dev.aisentinel.core.evaluation`, orchestrated by `DetectionEvaluationRunner`) is engineering evidence machinery against the tracked corpus. Path: reference dataset → deterministic replay → alignment → explicit classification → metrics/scenarios → temporal evaluation → deterministic evidence. It is **not** part of the request path. A READY candidate scorer may be injected into that same offline path on the current development line (`ReplayEngine.withEvaluationScorer` / `CandidateDetectionEvaluationRunner`; not published Central **0.3.0**) to produce candidate-specific evidence and, when an explicit policy is supplied, an engineering acceptance assessment; that does not grant production scoring authority. Optional **shadow scoring** (`dev.aisentinel.core.scoring.shadow`, current development line; not published Central **0.3.0**) may run an explicitly enabled, identity-bound candidate beside the authoritative scorer for observational comparison only (`SHADOW RESULT != PRODUCTION DECISION`; default disabled). Explicit **lifecycle governance** (`dev.aisentinel.core.scoring.lifecycle`, present on the current development line and not in published Central **0.3.0**) can designate challengers and promote a lifecycle champion designation only (`PROMOTED LIFECYCLE CHAMPION != RUNNING PRODUCTION SCORER`); the starter does not auto-wire promotion into `SentinelDecisionEngine`. The separate **Official Detection Reference Baseline** (capture, verification/drift, lifecycle/governance) is tracked under [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Neither establishes production efficacy (`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`, `DETECTION BASELINE != PRODUCTION EFFICACY`, `EVALUATED CANDIDATE != ACCEPTED CANDIDATE`, `ACCEPTED CANDIDATE != PRODUCTION MODEL`, `ACCEPTANCE != AUTOMATIC SHADOW ENABLEMENT`, `PROMOTION != PRODUCTION DEPLOYMENT`). See [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md), [`docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](docs/contracts/SCORER_CANDIDATE_EVALUATION.md), [`docs/contracts/SCORER_CANDIDATE_SHADOW.md`](docs/contracts/SCORER_CANDIDATE_SHADOW.md), and [`docs/contracts/SCORER_MODEL_LIFECYCLE.md`](docs/contracts/SCORER_MODEL_LIFECYCLE.md).
 
 ---
 
@@ -59,15 +59,40 @@ SentinelPipeline
   → IdentityContextResolver (optional)
   → FeatureExtractor
   → SentinelDecisionEngine → RiskDecision
+      (authoritative AnomalyScorer → policy → RiskDecision)
   → EnforcementHandler
   → TrainingCandidatePublisher / IdentityResponseHook
 ```
+
+**Authoritative runtime path:**
+
+```
+AUTHORITATIVE RUNTIME SCORER → PRODUCTION DECISION → POLICY → ENFORCEMENT
+```
+
+**Optional observational shadow path** (explicit enablement; default OFF):
+
+```
+REQUEST FEATURES → SHADOW CANDIDATE → OBSERVATIONAL EVIDENCE
+```
+
+Candidate output never enters policy, enforcement, or baseline update.
+
+**Optional governance path** (caller-driven; not production rewiring):
+
+```
+CANDIDATE EVIDENCE → CHALLENGER → GOVERNANCE → LIFECYCLE CHAMPION DESIGNATION
+```
+
+`PROMOTED LIFECYCLE CHAMPION != RUNNING PRODUCTION SCORER`
 
 **Optional training / registry path** (async and off-request for registry refresh; not on the servlet hot path for model fetch):
 
 ```
 TrainingCandidatePublisher → Kafka (optional) → ai-sentinel-trainer → filesystem registry → ModelRefreshScheduler → IsolationForestScorer
 ```
+
+Filesystem model-registry refresh installs Isolation Forest artifacts for the configured scorer path. It is a separate concern from candidate lifecycle designation governance.
 
 ```mermaid
 flowchart TB

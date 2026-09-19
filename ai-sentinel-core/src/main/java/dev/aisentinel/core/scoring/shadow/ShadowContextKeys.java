@@ -1,7 +1,7 @@
 package dev.aisentinel.core.scoring.shadow;
 
 /**
- * {@link RequestContext} key for the optional per-request shadow observation.
+ * {@link dev.aisentinel.core.model.RequestContext} key for the optional per-request shadow observation.
  * <p>
  * Presence of an observation never alters {@code RiskDecision} authority fields.
  */
