@@ -89,7 +89,7 @@ If a maintainer designates an issue as **hotfix**, **security**, or **release-bl
 
 ### Releases
 
-Maintainers merge `dev` → `main` and tag releases (for example [`v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)). After promoting a release, keep `dev` and `main` tips aligned. Contributors do not manage releases.
+Maintainers merge `dev` → `main` and tag releases (for example [`v0.4.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.4.0)). After promoting a release, keep `dev` and `main` tips aligned. Contributors do not manage releases.
 
 ---
 
@@ -111,7 +111,7 @@ java -version   # expect 21
 mvn clean install
 ```
 
-To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter` at the version in the parent `pom.xml` (currently **0.4.0** packaging line). The previously published Central coordinate remains **0.3.0** (tag `v0.3.0`) until **0.4.0** Central publication is authorized. There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
+To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter` at the version in the parent `pom.xml` (currently **0.4.0**). The current published Central coordinate is **0.4.0** (tag [`v0.4.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.4.0)); previous published line **0.3.0** (tag `v0.3.0`). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
 
 Characterization and release-gate testing: [`docs/testing.md`](docs/testing.md). Upgrading from the previous published line: [`docs/migration.md`](docs/migration.md). Docs index and reading order: [`docs/README.md`](docs/README.md). Offline evaluation corpus helpers: [`scripts/README.md`](scripts/README.md) and [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md).
 
@@ -138,7 +138,7 @@ Optional **public API compatibility** check against the japicmp baseline (`0.3.0
 mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am verify -DskipTests
 ```
 
-CI runs this profile after the main reactor verify. **0.3.0** is published; the japicmp property still compares against **0.2.0** until a follow-up retarget. After retargeting to **0.3.0**, drop the intentional excludes documented in `ai-sentinel-core/pom.xml` and `ai-sentinel-spring-boot-starter/pom.xml` (removed one-argument quarantine lookup; pre-existing Spring `@Bean` signature change for `enforcementHandlerImpl`).
+CI runs this profile after the main reactor verify. For the **0.4.0** line, japicmp compares published modules against **0.3.0** (`aisentinel.api.compatibility.oldVersion`). Prior intentional 0.2.0-era excludes were removed when that baseline was retargeted.
 
 Running a single module in isolation only works when its dependencies are already installed with matching sources:
 

@@ -2,7 +2,7 @@
 
 This guide covers upgrading from the published **0.3.0** line to **0.4.0**. Notes for **0.2.0 / unreleased 0.2.1 → 0.3.0** and **0.1.0 → 0.2.0** remain below.
 
-**0.4.0** is the packaging line for candidate-scorer integration, observational shadow scoring, and lifecycle-governance designation. Central publication of **0.4.0** requires separate release authorization after review; until then, prefer a source/local install of this repository. Published Central remains **0.3.0** ([tag `v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)) until that authorization completes.
+**0.4.0** is the current published release for candidate-scorer integration, observational shadow scoring, and lifecycle-governance designation ([GitHub Release](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.4.0), [Maven Central](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.4.0)). Previous published line: **0.3.0** ([tag `v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)).
 
 **Recommended first deployment mode remains `MONITOR`.** Do not enable `ENFORCE` based on synthetic suites alone — see [`deployment.md`](deployment.md).
 
@@ -22,7 +22,8 @@ For the full user-facing change list, see the root [`CHANGELOG.md`](../CHANGELOG
 </dependency>
 ```
 
-Until Central publication is authorized, install from this repository (`mvn clean install`) or depend on the previously published [`0.3.0`](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.3.0) coordinate if you do not need 0.4.0 APIs.
+Maven Central: [`dev.aisentinel:ai-sentinel-spring-boot-starter:0.4.0`](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.4.0).
+Local `mvn clean install` is only needed when building from source.
 
 ---
 
@@ -46,7 +47,7 @@ These paths do **not** rewire the authoritative runtime scorer. See contracts un
 
 ### Suggested upgrade checklist
 
-1. Bump the starter dependency to `0.4.0` (or install from source until Central publish).
+1. Bump the starter dependency to `0.4.0`.
 2. Leave `ai.sentinel.mode=MONITOR` unless you already run an explicit ENFORCE posture.
 3. Do not enable shadow scoring or lifecycle governance unless you intentionally operate those engineering paths.
 4. Re-run the reactor gate ([`testing.md`](testing.md)).

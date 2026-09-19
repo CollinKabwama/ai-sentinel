@@ -9,6 +9,7 @@ This project publishes to the **Sonatype Central Portal** (not legacy OSSRH) usi
 | `dev.aisentinel:ai-sentinel` (parent POM) | Yes |
 | `dev.aisentinel:ai-sentinel-core` | Yes |
 | `dev.aisentinel:ai-sentinel-spring-boot-starter` | Yes |
+| `ai-sentinel-benchmark` | No |
 | `ai-sentinel-trainer` | No |
 | `ai-sentinel-demo` | No |
 
@@ -115,7 +116,7 @@ mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am
 Fix any test or build failures before continuing. Run `mvn clean verify` **twice**. Characterization
 and architecture gates are included in that command — see [`docs/testing.md`](docs/testing.md).
 The `api-compatibility` profile compares published library modules against
-`aisentinel.api.compatibility.oldVersion` (currently **0.3.0** for the **0.4.0** packaging line) via japicmp.
+`aisentinel.api.compatibility.oldVersion` (currently **0.3.0** for the published **0.4.0** line) via japicmp.
 After a later release is published, retarget that property to the newly published version when appropriate.
 
 Confirm MONITOR-first guidance is still accurate in [`docs/deployment.md`](docs/deployment.md) and
@@ -177,7 +178,7 @@ git tag -a v0.4.0 -m "Release 0.4.0"
 git push origin v0.4.0
 ```
 
-Commit the version bump on `main` if it is not already committed. Use the same version string you publish. The previously published Maven Central line is **0.3.0** (tag `v0.3.0`); packaging for the next line is **0.4.0**.
+Commit the version bump on `main` if it is not already committed. Use the same version string you publish. The current published Maven Central line is **0.4.0** (tag `v0.4.0`); previous published line is **0.3.0** (tag `v0.3.0`).
 
 ### 6. Bump to the next development version (optional)
 
