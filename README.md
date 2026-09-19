@@ -47,9 +47,9 @@ Details: [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.
 
 `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `REPORT != BASELINE` · `REFERENCE DATASET != DETECTION BASELINE`
 
-### Candidate scorer lifecycle (engineering capability on the current development line)
+### Candidate scorer lifecycle (engineering capability in 0.4.0)
 
-On **this repository's current development line** (not yet packaged into a subsequent Maven Central release), `ai-sentinel-core` includes an offline/opt-in candidate-model path. It is **not** part of the published **0.3.0** Central artifacts, is **not** required for ordinary starter usage, and does **not** rewire the authoritative runtime scorer. Steps below are **caller-driven** (not automatic transitions):
+`ai-sentinel-core` includes an offline/opt-in candidate-model path packaged in **0.4.0**. It is **not** required for ordinary starter usage and does **not** rewire the authoritative runtime scorer. Steps below are **caller-driven** (not automatic transitions):
 
 1. Validate artifact descriptor / integrity metadata
 2. Verify and load candidate bytes (bounded; supported Isolation Forest/`aif1`)
@@ -58,9 +58,9 @@ On **this repository's current development line** (not yet packaged into a subse
 5. Optionally enable **shadow** scoring (observational; identity-bound; default OFF)
 6. Optionally designate challenger / approve / promote a **lifecycle champion** designation
 
-`VALID ARTIFACT != GOOD MODEL` · `EVALUATION COMPLETED != ACCEPTED` · `ACCEPTANCE != AUTOMATIC SHADOW ENABLEMENT` · `PROMOTED != PRODUCTION DEPLOYED` · `PUBLISHED 0.3.0 != CURRENT UNRELEASED CANDIDATE STACK`
+`VALID ARTIFACT != GOOD MODEL` · `EVALUATION COMPLETED != ACCEPTED` · `ACCEPTANCE != AUTOMATIC SHADOW ENABLEMENT` · `PROMOTED != PRODUCTION DEPLOYED`
 
-Contracts: [`docs/contracts/SCORER_ARTIFACT.md`](docs/contracts/SCORER_ARTIFACT.md) · [`SCORER_CANDIDATE_LOADING.md`](docs/contracts/SCORER_CANDIDATE_LOADING.md) · [`SCORER_CANDIDATE_EVALUATION.md`](docs/contracts/SCORER_CANDIDATE_EVALUATION.md) · [`SCORER_CANDIDATE_SHADOW.md`](docs/contracts/SCORER_CANDIDATE_SHADOW.md) · [`SCORER_MODEL_LIFECYCLE.md`](docs/contracts/SCORER_MODEL_LIFECYCLE.md). To exercise this stack today, build from source (`mvn clean install`); do not expect these APIs in the Central **0.3.0** jars.
+Contracts: [`docs/contracts/SCORER_ARTIFACT.md`](docs/contracts/SCORER_ARTIFACT.md) · [`SCORER_CANDIDATE_LOADING.md`](docs/contracts/SCORER_CANDIDATE_LOADING.md) · [`SCORER_CANDIDATE_EVALUATION.md`](docs/contracts/SCORER_CANDIDATE_EVALUATION.md) · [`SCORER_CANDIDATE_SHADOW.md`](docs/contracts/SCORER_CANDIDATE_SHADOW.md) · [`SCORER_MODEL_LIFECYCLE.md`](docs/contracts/SCORER_MODEL_LIFECYCLE.md).
 
 ---
 
@@ -138,21 +138,19 @@ ai:
     mode: MONITOR   # default; set ENFORCE only after MONITOR validation — see docs/deployment.md
 ```
 
-Add the published starter dependency:
+Add the starter dependency (version **0.4.0** packaging line):
 
 ```xml
 <dependency>
     <groupId>dev.aisentinel</groupId>
     <artifactId>ai-sentinel-spring-boot-starter</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
 </dependency>
 ```
 
-The **0.3.0** coordinate is the latest **published** Maven Central release ([tag `v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0); [Central artifact](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.3.0)). It is the first stable compatibility baseline for operators who pin Central.
+**0.4.0** packages the candidate-integration, observational shadow, and lifecycle-governance engineering capabilities described above. Prefer **`mode=MONITOR`** for initial adoption. Central publication of **0.4.0** requires separate release authorization after review; until then, build/install from this repository. The previously published Central line remains **0.3.0** ([tag `v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)).
 
-**Version distinction:** this repository's working tree may still declare Maven `<version>0.3.0</version>` while also containing **unreleased** post-`v0.3.0` engineering work (candidate artifact/loading/evaluation, shadow scoring, lifecycle governance, and related docs under [`CHANGELOG.md` Unreleased](CHANGELOG.md)). `CURRENT DEV HEAD != PUBLISHED 0.3.0 CONTENTS`. Candidate-lifecycle APIs are not available from the Central **0.3.0** jars; use a source build until a subsequent release packages them.
-
-Upgrade notes from **0.2.0** (and unreleased **0.2.1** development trees): [`docs/migration.md`](docs/migration.md). Full history: [`CHANGELOG.md`](CHANGELOG.md).
+Upgrade notes: [`docs/migration.md`](docs/migration.md). Full history: [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
@@ -224,7 +222,7 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 
 ## Offline detection evaluation
 
-The **Detection Evaluation Framework** is complete on the current development line. Tracked corpus and docs live under [`evaluation/`](evaluation/):
+The **Detection Evaluation Framework** is complete on the **0.4.0** packaging line. Tracked corpus and docs live under [`evaluation/`](evaluation/):
 
 - [`evaluation/REFERENCE_DATASET.md`](evaluation/REFERENCE_DATASET.md) — durable synthetic reference corpus
 - [`evaluation/DETERMINISTIC_REPLAY.md`](evaluation/DETERMINISTIC_REPLAY.md) — deterministic scoring/policy replay
@@ -235,7 +233,7 @@ These layers are offline engineering evidence machinery. The Official Detection 
 
 `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `BASELINE != QUALITY GATE` · `DRIFT != REGRESSION` · `DRIFT != APPROVAL` · `REFERENCE DATASET != DETECTION BASELINE`
 
-Candidate shadow scoring and lifecycle designation governance are merged engineering capabilities on the **current development line** and remain listed under [`CHANGELOG.md` Unreleased](CHANGELOG.md) — they are **not** included in published Central **0.3.0**. Shadow remains observational (`SHADOW RESULT != PRODUCTION DECISION`); promotion remains designation-only (`PROMOTED != PRODUCTION DEPLOYED`). A subsequent packaging/readiness release may publish those capabilities; that does **not** claim production efficacy, ENFORCE readiness, or production model activation.
+Candidate shadow scoring and lifecycle designation governance are packaged as engineering capabilities in **0.4.0**. Shadow remains observational (`SHADOW RESULT != PRODUCTION DECISION`); promotion remains designation-only (`PROMOTED != PRODUCTION DEPLOYED`). This packaging does **not** claim production efficacy, ENFORCE readiness, or production model activation.
 
 ---
 
@@ -243,7 +241,7 @@ Candidate shadow scoring and lifecycle designation governance are merged enginee
 
 - **Candidate / lifecycle boundaries** — Validated, loaded, evaluated, accepted, shadowed, or lifecycle-promoted candidates do not become the running production scorer. Explicit production model activation is out of scope on the current line (`PROMOTED LIFECYCLE CHAMPION != RUNNING PRODUCTION SCORER`). Pilot evidence remains required for operational claims (`PILOT_EVIDENCE_REQUIRED`).
 - **Official Detection Reference Baseline** — Capture, verification/drift, and lifecycle/governance are complete under [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Drift means difference, not detector-quality acceptance or production approval.
-- **Stable software baseline** — Published **0.3.0** (tag `v0.3.0`) is the first stable compatibility baseline and the current Maven Central line for operators who consume Central. Unreleased development on this branch is not that published artifact. Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
+- **Stable software baseline** — **0.4.0** is the packaging line for candidate/shadow/lifecycle engineering capability after published **0.3.0**. Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
 - **MONITOR default** — Default `ai.sentinel.mode=MONITOR` (observe/learn; no client denial). Explicit `ENFORCE` enables client denial only after ENFORCE preconditions. Full mode matrix, restart behavior, and the availability-first **failure-mode profile**: [`docs/deployment.md`](docs/deployment.md). Statistical warmup is a lifecycle state (`EvaluationStatus.STATISTICAL_WARMUP`), not evidence of abuse; default warmup action is `MONITOR`. Default baseline learning skips `THROTTLE`/`BLOCK`/`QUARANTINE` risk (`ALLOW_OR_MONITOR`).
 - **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository). Do not confuse registry refresh with candidate lifecycle promotion.
 - **Trainer `eventId` dedup** is JVM-local; multiple trainer instances are not coordinated without external design.

@@ -7,7 +7,7 @@
     <parent>
         <groupId>dev.aisentinel</groupId>
         <artifactId>ai-sentinel</artifactId>
-        <version>0.3.0</version>
+        <version>0.4.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
@@ -144,15 +144,9 @@
                                         <breakBuildOnSourceIncompatibleModifications>true</breakBuildOnSourceIncompatibleModifications>
                                         <ignoreMissingClasses>true</ignoreMissingClasses>
                                         <!--
-                                          Intentional consolidation break vs published 0.2.0:
-                                          one-argument quarantine lookup removed; use identity+endpoint form.
-                                          After the consolidation release is published, retarget
-                                          aisentinel.api.compatibility.oldVersion to that release and
-                                          remove this exclude.
+                                          Compatibility baseline is published 0.3.0.
+                                          Prior 0.2.0-era quarantine-method exclude removed after retarget.
                                         -->
-                                        <excludes>
-                                            <exclude>*.EnforcementHandler#isQuarantined(java.lang.String)</exclude>
-                                        </excludes>
                                     </parameter>
                                 </configuration>
                             </execution>
