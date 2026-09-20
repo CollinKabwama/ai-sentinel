@@ -52,5 +52,7 @@
     }
   },
   "detectionEvidenceRef": "detection-evaluation-evidence.json",
+  "eventInspectionRef": "event-inspection.json",
+  "htmlReportRef": "evaluation-report.html",
   "notes": "Optional specialized DetectionEvaluationEvidence is referenced, not required as the generic result type."
 }

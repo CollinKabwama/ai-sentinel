@@ -5,7 +5,7 @@ Normative contract foundations for the AI-Sentinel Evaluation Kit.
 JSON is the **normative machine representation** for schemas and fixtures in this package.
 JSON does **not** permanently constrain human authoring UX: later CLI/tooling may accept YAML or other conveniences that normalize to the same logical contract.
 
-This document defines Evaluation Kit contracts. It does not claim production efficacy and does not change production runtime decision behavior. A deterministic corpus generator for feature-level scenario families lives in core; a versioned repository reference inventory is checked in under `evaluation/kit-reference/`. A repository one-command evaluation CLI is available via `scripts/evaluate-generated-corpus.sh`. HTML reports, containers, and BYO/comparison product surfaces are not currently supported.
+This document defines Evaluation Kit contracts. It does not claim production efficacy and does not change production runtime decision behavior. A deterministic corpus generator for feature-level scenario families lives in core; a versioned repository reference inventory is checked in under `evaluation/kit-reference/`. A repository one-command evaluation CLI is available via `scripts/evaluate-generated-corpus.sh`. When `--output` is supplied, the CLI writes machine-readable Kit evaluation-result JSON, event-inspection JSON, a self-contained HTML evaluation report, and specialized detection evidence beside each other. Containers, BYO datasets, and comparison product surfaces are not currently supported.
 
 Current schema versions for Kit machine contracts in this package: `"1"`.
 
@@ -208,7 +208,7 @@ Options:
 | Option | Required | Meaning |
 |--------|----------|---------|
 | `--corpus <directory>` | Yes | Generated corpus directory containing Kit + replay artifacts. Relative paths resolve against your current directory, not the repository root. |
-| `--output <directory>` | No | Evidence output directory (temporary if omitted; must not already exist) |
+| `--output <directory>` | No | Evidence + report output directory (temporary if omitted; must not already exist). Writes Kit result JSON, event inspection, HTML report, and specialized detection evidence. |
 | `--threshold <0..1>` | No | Anomaly classification threshold (default `0.5`) |
 | `-h` / `--help` | No | Usage text |
 
@@ -216,8 +216,23 @@ Exit codes: `0` success; `1` corpus load / integrity / ground-truth / evaluation
 
 The CLI is a thin adapter over `GeneratedCorpusDetectionEvaluator`. It prints a terminal summary of
 corpus provenance, this run's evaluation configuration, phase counts, binary detection metrics (with
-undefined ratios shown as `unavailable`), and limitations. It does not provide HTML reports, BYO/
-external datasets, or comparison workflows.
+undefined ratios shown as `unavailable`), limitations, and (when `--output` is supplied) paths to
+durable report artifacts. It does not provide BYO/external datasets or comparison workflows.
+
+### Durable evaluation reports (with `--output`)
+
+When an evidence directory is requested, evaluation writes these sibling artifacts:
+
+| Artifact | Role |
+|----------|------|
+| `kit-evaluation-result.json` | Generated-corpus population of the Evaluation Kit result schema (schema: evaluation-result). The schema's `provenance` block currently requires generator/corpus-specific fields (`corpusId`, `seed`, `generatorBuildId`); it is not yet a dataset-source-neutral "generic" result usable for e.g. an external (BYO) dataset without those concepts. |
+| `event-inspection.json` | Event-level join of authored ground truth and runtime replay outcomes |
+| `evaluation-report.html` | Self-contained human-readable report (provenance, metrics, timeline, event table) |
+| `evaluation.json` / `evaluation.md` | Specialized `DetectionEvaluationEvidence` (unchanged specialized format) |
+
+Report projection explains what happened. It does not change how detection evaluation runs.
+Event inspection keeps ground-truth labels separate from detector-facing inputs.
+Undefined metric ratios remain unavailable (not fabricated zeros).
 
 ---
 
@@ -294,6 +309,11 @@ Unlabeled evaluation **MUST** be representable without inventing labeled detecti
 
 A generic Kit Result **MAY** optionally reference or embed specialized detection evidence when a labeled detection methodology applies (`detectionEvidenceRef` / optional embedded object).
 
+A generic Kit Result **MAY** also optionally reference:
+
+- `eventInspectionRef` — event-level inspection joining authored ground truth with runtime replay outcomes
+- `htmlReportRef` — self-contained human-readable HTML evaluation report
+
 `DetectionEvaluationEvidence` is **not** the universal Kit Result type and is **not** redesigned here.
 
 ---
@@ -350,7 +370,8 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 | Deterministic corpus generator implementation | Implemented (`feature-level`, multi-family) |
 | Versioned reference corpus inventory | Checked in under `evaluation/kit-reference/` |
 | One-command generated-corpus evaluation CLI | Available via `scripts/evaluate-generated-corpus.sh` |
-| HTML report UX / container packaging | Not currently supported |
+| JSON + HTML evaluation reports / event inspection | Written under `--output` (`kit-evaluation-result.json`, `event-inspection.json`, `evaluation-report.html`) |
+| Container packaging | Not currently supported |
 | BYO datasets / comparison UX | Not currently supported |
 
 ---
@@ -365,6 +386,7 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 | Corpus inventory | [`schemas/evaluation-kit/corpus-inventory.schema.json`](schemas/evaluation-kit/corpus-inventory.schema.json) |
 | Ground truth | [`schemas/evaluation-kit/ground-truth.schema.json`](schemas/evaluation-kit/ground-truth.schema.json) |
 | Evaluation result | [`schemas/evaluation-kit/evaluation-result.schema.json`](schemas/evaluation-kit/evaluation-result.schema.json) |
+| Event inspection | [`schemas/evaluation-kit/event-inspection.schema.json`](schemas/evaluation-kit/event-inspection.schema.json) |
 | Reproducibility | [`schemas/evaluation-kit/reproducibility-manifest.schema.json`](schemas/evaluation-kit/reproducibility-manifest.schema.json) |
 | Valid fixtures | [`fixtures/evaluation-kit/valid/`](fixtures/evaluation-kit/valid/) |
 | Invalid fixtures | [`fixtures/evaluation-kit/invalid/`](fixtures/evaluation-kit/invalid/) |
@@ -380,7 +402,7 @@ scripts/validate-evaluation-kit-contracts.sh
 ## 13. Non-goals of this contract package
 
 - No new Maven module
-- No HTML report product surface or container packaging in this contract package
+- No container packaging in this contract package
 - No production runtime decision-behavior change
 - No modification of historical evidence or the `v0.4.0` release tag
 - No production-efficacy claims

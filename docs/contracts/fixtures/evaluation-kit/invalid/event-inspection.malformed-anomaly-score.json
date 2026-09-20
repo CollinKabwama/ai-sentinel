@@ -1,0 +1,23 @@
+{
+  "inspectionSchemaVersion": "1",
+  "corpusId": "corpus.example.warmup-then-burst.001",
+  "scenarioId": "kit.example.warmup-then-burst",
+  "eventCount": 1,
+  "events": [
+    {
+      "eventId": "evt-0001",
+      "sequenceNumber": 1,
+      "observedAt": "2024-01-01T00:00:00Z",
+      "identityKey": "identity-a",
+      "category": "evaluation-anomalous",
+      "expectedClass": "anomalous",
+      "participation": "binary-labeled",
+      "binaryMetricParticipant": true,
+      "anomalyScore": 1.5,
+      "predictedAnomalous": true,
+      "action": "MONITOR",
+      "evaluationStatuses": ["ANOMALOUS"],
+      "outcome": "true-positive"
+    }
+  ]
+}

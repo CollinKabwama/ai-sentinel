@@ -22,6 +22,7 @@ SCHEMA_BY_PREFIX = {
     "corpus-inventory.": "corpus-inventory.schema.json",
     "ground-truth.": "ground-truth.schema.json",
     "evaluation-result.": "evaluation-result.schema.json",
+    "event-inspection.": "event-inspection.schema.json",
     "reproducibility-manifest.": "reproducibility-manifest.schema.json",
 }
 

@@ -59,6 +59,10 @@ class GeneratedCorpusDetectionEvaluatorTest {
                     .isEqualTo(result.phaseCounts().labeledEvaluationEvents());
                 assertThat(result.limitations()).isNotEmpty();
                 assertThat(result.detectionRun().writtenEvidence().jsonBytes()).isPositive();
+                assertThat(result.eventInspections()).hasSize(result.phaseCounts().totalEvents());
+                assertThat(Files.isRegularFile(out.resolve(GeneratedCorpusEvaluationReportWriter.KIT_RESULT_FILE_NAME))).isTrue();
+                assertThat(Files.isRegularFile(out.resolve(GeneratedCorpusEvaluationReportWriter.EVENT_INSPECTION_FILE_NAME))).isTrue();
+                assertThat(Files.isRegularFile(out.resolve(GeneratedCorpusEvaluationReportWriter.HTML_REPORT_FILE_NAME))).isTrue();
                 assertThat(Files.list(out).findAny()).isPresent();
             }
         }

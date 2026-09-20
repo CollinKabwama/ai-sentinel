@@ -264,6 +264,13 @@ class GeneratedCorpusEvaluationCliTest {
         assertThat(capture.stdout()).contains("labeledBenignEvents: 3");
         assertThat(capture.stdout()).contains("labeledAnomalousEvents: 3");
         assertThat(capture.stdout()).contains("Controlled synthetic reference-evaluation observations");
+        assertThat(capture.stdout()).contains("kitResult: kit-evaluation-result.json");
+        assertThat(capture.stdout()).contains("eventInspection: event-inspection.json");
+        assertThat(capture.stdout()).contains("htmlReport: evaluation-report.html");
+        assertThat(Files.isRegularFile(output.resolve("kit-evaluation-result.json"))).isTrue();
+        assertThat(Files.isRegularFile(output.resolve("event-inspection.json"))).isTrue();
+        assertThat(Files.isRegularFile(output.resolve("evaluation-report.html"))).isTrue();
+        assertThat(Files.isRegularFile(output.resolve("evaluation.json"))).isTrue();
         try (var stream = Files.list(output)) {
             assertThat(stream.findAny()).isPresent();
         }

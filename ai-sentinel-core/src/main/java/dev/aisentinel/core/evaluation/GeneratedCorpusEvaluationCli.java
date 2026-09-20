@@ -200,7 +200,9 @@ final class GeneratedCorpusEvaluationCli {
         stream.println("Options:");
         stream.println("  --corpus <directory>     Required. Corpus directory path (relative or absolute;");
         stream.println("                           relative paths resolve against your current directory).");
-        stream.println("  --output <directory>     Optional. Evidence output directory (temp if omitted).");
+        stream.println("  --output <directory>     Optional. Evidence + report output directory (temp if omitted).");
+        stream.println("                           Writes kit-evaluation-result.json, event-inspection.json,");
+        stream.println("                           evaluation-report.html, and specialized detection evidence.");
         stream.println("  --threshold <0..1>       Optional. Anomaly classification threshold (default 0.5).");
         stream.println("  -h, --help               Show this help and exit.");
         stream.println();
