@@ -5,7 +5,7 @@ Normative contract foundations for the AI-Sentinel Evaluation Kit.
 JSON is the **normative machine representation** for schemas and fixtures in this package.
 JSON does **not** permanently constrain human authoring UX: later CLI/tooling may accept YAML or other conveniences that normalize to the same logical contract.
 
-This document defines Evaluation Kit contracts. It does not claim production efficacy and does not change production runtime decision behavior. A deterministic corpus generator for feature-level scenario families lives in core; a versioned repository reference inventory is checked in under `evaluation/kit-reference/`. CLI, container, and HTML productization remain out of scope for this package.
+This document defines Evaluation Kit contracts. It does not claim production efficacy and does not change production runtime decision behavior. A deterministic corpus generator for feature-level scenario families lives in core; a versioned repository reference inventory is checked in under `evaluation/kit-reference/`. A repository one-command evaluation CLI is available via `scripts/evaluate-generated-corpus.sh`. HTML reports, containers, and BYO/comparison product surfaces are not currently supported.
 
 Current schema versions for Kit machine contracts in this package: `"1"`.
 
@@ -192,6 +192,33 @@ is unchanged and continues to use its own annotation schema.
 Runtime `EvaluationStatus` values (including invalid-score outcomes) are produced only by actual
 replay/scoring. Generated corpora must not pre-assert them.
 
+### One-command evaluation (CLI)
+
+Evaluate one generated corpus directory without writing Java or assembling Maven modules by hand
+(JDK 21 required; the script builds/runs the module itself). It can be invoked from the repository
+root or any other directory:
+
+```bash
+./scripts/evaluate-generated-corpus.sh \
+  --corpus evaluation/kit-reference/corpora/kit.abrupt-burst
+```
+
+Options:
+
+| Option | Required | Meaning |
+|--------|----------|---------|
+| `--corpus <directory>` | Yes | Generated corpus directory containing Kit + replay artifacts. Relative paths resolve against your current directory, not the repository root. |
+| `--output <directory>` | No | Evidence output directory (temporary if omitted; must not already exist) |
+| `--threshold <0..1>` | No | Anomaly classification threshold (default `0.5`) |
+| `-h` / `--help` | No | Usage text |
+
+Exit codes: `0` success; `1` corpus load / integrity / ground-truth / evaluation failure; `2` invalid usage.
+
+The CLI is a thin adapter over `GeneratedCorpusDetectionEvaluator`. It prints a terminal summary of
+corpus provenance, this run's evaluation configuration, phase counts, binary detection metrics (with
+undefined ratios shown as `unavailable`), and limitations. It does not provide HTML reports, BYO/
+external datasets, or comparison workflows.
+
 ---
 
 ## 6. Generated Corpus Manifest contract
@@ -322,8 +349,9 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 | Large artifact storage | Deferred |
 | Deterministic corpus generator implementation | Implemented (`feature-level`, multi-family) |
 | Versioned reference corpus inventory | Checked in under `evaluation/kit-reference/` |
-| CLI / HTML report UX / container | Deferred |
-| BYO datasets / comparison UX | Deferred |
+| One-command generated-corpus evaluation CLI | Available via `scripts/evaluate-generated-corpus.sh` |
+| HTML report UX / container packaging | Not currently supported |
+| BYO datasets / comparison UX | Not currently supported |
 
 ---
 
@@ -352,7 +380,7 @@ scripts/validate-evaluation-kit-contracts.sh
 ## 13. Non-goals of this contract package
 
 - No new Maven module
-- No Evaluation Kit product surface (CLI / container / HTML)
+- No HTML report product surface or container packaging in this contract package
 - No production runtime decision-behavior change
 - No modification of historical evidence or the `v0.4.0` release tag
 - No production-efficacy claims
