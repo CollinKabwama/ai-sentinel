@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aisentinel.dev/schemas/evaluation-kit/evaluation-result.schema.json",
+  "title": "Evaluation Kit Generic Evaluation Result",
+  "$defs": {
+    "metricFamily": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["availability"],
+      "properties": {
+        "availability": { "$ref": "common.schema.json#/$defs/metricAvailability" },
+        "values": {
+          "type": "object",
+          "additionalProperties": { "type": ["number", "integer", "string", "boolean", "null"] }
+        },
+        "reason": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "availability": { "enum": ["unavailable", "not_applicable"] }
+            },
+            "required": ["availability"]
+          },
+          "then": {
+            "not": { "required": ["values"] }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "availability": { "const": "available" }
+            },
+            "required": ["availability"]
+          },
+          "then": {
+            "required": ["values"]
+          }
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "resultSchemaVersion",
+    "resultId",
+    "status",
+    "provenance",
+    "metricFamilies"
+  ],
+  "properties": {
+    "resultSchemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "resultId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["completed", "completed_with_limitations", "failed", "partial"]
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenarioId",
+        "scenarioVersion",
+        "corpusId",
+        "corpusSchemaVersion",
+        "seed",
+        "generatorContractVersion",
+        "generatorBuildId",
+        "featureSchemaVersion",
+        "evaluationEventSchemaVersion",
+        "aiSentinelVersion"
+      ],
+      "properties": {
+        "scenarioId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "scenarioVersion": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "scenarioSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+        "corpusId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "corpusSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "corpusEventsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+        "annotationId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "annotationsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+        "seed": { "$ref": "common.schema.json#/$defs/seed" },
+        "generatorContractVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "generatorBuildId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "featureSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "evaluationEventSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "aiSentinelVersion": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "aiSentinelBuildId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "scorerId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "scorerVersion": { "type": "string" },
+        "policyId": { "type": "string" },
+        "policyVersion": { "type": "string" },
+        "replayRunManifestRef": { "type": "string" },
+        "candidateProvenanceRef": { "type": "string" },
+        "reproducibilityManifestRef": { "type": "string" }
+      }
+    },
+    "artifactBindings": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/artifactRef"
+      }
+    },
+    "metricFamilies": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Families may be independently absent or marked unavailable. Do not fabricate metrics.",
+      "properties": {
+        "structural": { "$ref": "#/$defs/metricFamily" },
+        "temporal": { "$ref": "#/$defs/metricFamily" },
+        "detectionLabeled": { "$ref": "#/$defs/metricFamily" }
+      }
+    },
+    "detectionEvidenceRef": {
+      "type": "string",
+      "description": "Optional reference to specialized DetectionEvaluationEvidence for labeled detection runs. Not required for generic Kit results."
+    },
+    "notes": { "type": "string" }
+  }
+}

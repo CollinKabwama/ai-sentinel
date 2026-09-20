@@ -1,0 +1,21 @@
+{
+  "annotationSchemaVersion": "1",
+  "annotationId": "ann.example.warmup-then-burst.001",
+  "corpusId": "corpus.example.warmup-then-burst.001",
+  "scenarioId": "kit.example.warmup-then-burst",
+  "annotations": [
+    {
+      "eventId": "evt-001",
+      "scenarioId": "kit.example.warmup-then-burst",
+      "expectedClass": "benign",
+      "category": "warmup"
+    },
+    {
+      "eventId": "evt-010",
+      "scenarioId": "kit.example.warmup-then-burst",
+      "expectedClass": "anomalous",
+      "category": "burst"
+    }
+  ],
+  "notes": "Sidecar only. Join by eventId at evaluation time. Never embed in EvaluationEvent."
+}

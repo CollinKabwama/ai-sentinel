@@ -1,0 +1,134 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aisentinel.dev/schemas/evaluation-kit/scenario.schema.json",
+  "title": "Evaluation Kit Scenario / Test Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "scenarioSchemaVersion",
+    "scenarioId",
+    "scenarioVersion",
+    "featureSchemaVersion",
+    "population",
+    "normalBehavior",
+    "timing",
+    "transitions"
+  ],
+  "properties": {
+    "scenarioSchemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "scenarioId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "scenarioVersion": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "featureSchemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "title": { "type": "string" },
+    "description": { "type": "string" },
+    "population": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["identityCount"],
+      "properties": {
+        "identityCount": { "type": "integer", "minimum": 1 },
+        "identityKeyPrefix": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    },
+    "normalBehavior": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["summary"],
+      "properties": {
+        "summary": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "endpointKeys": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["warmup", "evaluation"],
+      "properties": {
+        "warmup": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["durationSeconds"],
+          "properties": {
+            "durationSeconds": { "type": "integer", "minimum": 0 },
+            "notes": { "type": "string" }
+          }
+        },
+        "evaluation": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["durationSeconds"],
+          "properties": {
+            "durationSeconds": { "type": "integer", "minimum": 1 },
+            "notes": { "type": "string" }
+          }
+        }
+      }
+    },
+    "transitions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["transitionId", "intent", "summary"],
+        "properties": {
+          "transitionId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "intent": {
+            "type": "string",
+            "enum": ["legitimate", "anomalous", "mixed", "unspecified"]
+          },
+          "summary": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "startsAfterWarmupSeconds": { "type": "integer", "minimum": 0 }
+        }
+      }
+    },
+    "evaluationExpectations": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Evaluation-side assertions only. MUST NOT configure the same run's scorer, thresholds, policy, or enforcement unless that configuration is an explicitly declared independent subject under test.",
+      "properties": {
+        "notes": { "type": "string" },
+        "assertions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["assertionId", "kind", "statement"],
+            "properties": {
+              "assertionId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "structural",
+                  "temporal",
+                  "detection_labeled",
+                  "qualitative",
+                  "other"
+                ]
+              },
+              "statement": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+            }
+          }
+        }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": {
+        "type": ["string", "number", "boolean", "null"]
+      }
+    }
+  }
+}

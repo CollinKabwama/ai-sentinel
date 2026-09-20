@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aisentinel.dev/schemas/evaluation-kit/common.schema.json",
+  "title": "Evaluation Kit shared definitions",
+  "$defs": {
+    "nonEmptyString": {
+      "type": "string",
+      "minLength": 1
+    },
+    "schemaVersion": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Independent contract-shape version; not required to equal Maven release version."
+    },
+    "sha256Hex": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$",
+      "description": "Lowercase hex-encoded SHA-256 digest."
+    },
+    "artifactRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "path", "sha256"],
+      "properties": {
+        "role": { "$ref": "#/$defs/nonEmptyString" },
+        "path": { "$ref": "#/$defs/nonEmptyString" },
+        "sha256": { "$ref": "#/$defs/sha256Hex" },
+        "mediaType": { "type": "string" }
+      }
+    },
+    "metricAvailability": {
+      "type": "string",
+      "enum": ["available", "unavailable", "not_applicable"]
+    },
+    "seed": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Deterministic generator seed encoded as a string."
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "eventSchemaVersion": "1",
+  "eventId": "evt-bad",
+  "observedAt": "2026-01-15T12:00:30Z",
+  "identityKey": "ex-id-1",
+  "endpointKey": "/api/a",
+  "featureSchemaVersion": "1",
+  "features": {
+    "requestsPerWindow": 1.0,
+    "endpointEntropy": 0.1,
+    "endpointConcentration": 0.2,
+    "tokenAgeSeconds": -1.0,
+    "parameterCount": 0,
+    "payloadSizeBytes": 0,
+    "headerFingerprintHash": 1,
+    "ipBucket": 1
+  },
+  "scorerId": "statistical-baseline",
+  "action": "MONITOR",
+  "evaluationStatuses": [],
+  "expectedClass": "anomalous",
+  "groundTruth": {
+    "expectedClass": "anomalous"
+  }
+}

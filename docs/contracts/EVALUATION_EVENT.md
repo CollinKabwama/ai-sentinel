@@ -143,3 +143,6 @@ Those capabilities are documented separately:
 - reference corpus: [`../../evaluation/REFERENCE_DATASET.md`](../../evaluation/REFERENCE_DATASET.md)
 - deterministic replay: [`../../evaluation/DETERMINISTIC_REPLAY.md`](../../evaluation/DETERMINISTIC_REPLAY.md)
 - detection evaluation framework: [`../../evaluation/DETECTION_EVALUATION.md`](../../evaluation/DETECTION_EVALUATION.md)
+- Evaluation Kit foundations (Scenario ≠ Generator ≠ Corpus; ground truth remains sidecar): [`EVALUATION_KIT.md`](EVALUATION_KIT.md)
+
+[`EVALUATION_KIT.md`](EVALUATION_KIT.md) documents EvaluationEvent **convergence requirements** for later Kit wiring. This event schema is not extended here with ground truth or scenario expected outcomes.

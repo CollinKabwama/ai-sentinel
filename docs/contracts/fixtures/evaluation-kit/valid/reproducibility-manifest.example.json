@@ -1,0 +1,44 @@
+{
+  "reproducibilitySchemaVersion": "1",
+  "resultId": "result.example.unlabeled.001",
+  "scenario": {
+    "scenarioId": "kit.example.warmup-then-burst",
+    "scenarioVersion": "1.0.0",
+    "scenarioSchemaVersion": "1",
+    "scenarioSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "generator": {
+    "generatorContractVersion": "1",
+    "generatorBuildId": "aisentinel-corpus-generator@dev+example",
+    "seed": "42"
+  },
+  "corpus": {
+    "corpusId": "corpus.example.warmup-then-burst.unlabeled.001",
+    "corpusSchemaVersion": "1",
+    "eventsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "manifestSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "schemas": {
+    "featureSchemaVersion": "1",
+    "evaluationEventSchemaVersion": "1",
+    "resultSchemaVersion": "1"
+  },
+  "replay": {
+    "replayRunManifestRef": "replay-run-manifest.json",
+    "notes": "ReplayRunManifest remains a distinct artifact; Kit binds by reference."
+  },
+  "subject": {
+    "scorerId": "statistical-baseline",
+    "scorerVersion": "1",
+    "policyId": "default-monitor",
+    "policyVersion": "1",
+    "configurationFingerprint": "config-fp-example"
+  },
+  "engine": {
+    "aiSentinelVersion": "0.4.0",
+    "aiSentinelBuildId": "local-dev",
+    "gitCommit": "84ee59f",
+    "toolingRuntime": "Java 21"
+  },
+  "notes": "Composes existing replay/candidate concepts by reference; does not flatten them."
+}

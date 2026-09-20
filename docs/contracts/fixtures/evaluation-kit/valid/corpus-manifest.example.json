@@ -1,0 +1,33 @@
+{
+  "corpusSchemaVersion": "1",
+  "corpusId": "corpus.example.warmup-then-burst.001",
+  "scenarioId": "kit.example.warmup-then-burst",
+  "scenarioVersion": "1.0.0",
+  "scenarioSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "seed": "42",
+  "generatorContractVersion": "1",
+  "generatorBuildId": "aisentinel-corpus-generator@dev+example",
+  "featureSchemaVersion": "1",
+  "evaluationEventSchemaVersion": "1",
+  "representationMode": "feature-level",
+  "artifacts": [
+    {
+      "role": "events",
+      "path": "events.jsonl",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "mediaType": "application/x-ndjson"
+    }
+  ],
+  "annotationsArtifact": {
+    "role": "annotations",
+    "path": "annotations.json",
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "mediaType": "application/json"
+  },
+  "timing": {
+    "warmupDurationSeconds": 60,
+    "evaluationDurationSeconds": 120
+  },
+  "eventCount": 12,
+  "notes": "Representative generated-corpus manifest. Generator implementation is deferred."
+}

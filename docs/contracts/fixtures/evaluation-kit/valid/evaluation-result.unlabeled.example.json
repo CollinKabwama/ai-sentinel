@@ -1,0 +1,51 @@
+{
+  "resultSchemaVersion": "1",
+  "resultId": "result.example.unlabeled.001",
+  "status": "completed_with_limitations",
+  "limitations": [
+    "No ground-truth sidecar supplied; labeled detection metrics are unavailable."
+  ],
+  "provenance": {
+    "scenarioId": "kit.example.warmup-then-burst",
+    "scenarioVersion": "1.0.0",
+    "scenarioSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "corpusId": "corpus.example.warmup-then-burst.unlabeled.001",
+    "corpusSchemaVersion": "1",
+    "corpusEventsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "seed": "42",
+    "generatorContractVersion": "1",
+    "generatorBuildId": "aisentinel-corpus-generator@dev+example",
+    "featureSchemaVersion": "1",
+    "evaluationEventSchemaVersion": "1",
+    "aiSentinelVersion": "0.4.0",
+    "aiSentinelBuildId": "local-dev",
+    "scorerId": "statistical-baseline",
+    "scorerVersion": "1",
+    "reproducibilityManifestRef": "reproducibility-manifest.example.json"
+  },
+  "artifactBindings": [
+    {
+      "role": "events",
+      "path": "events.jsonl",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "metricFamilies": {
+    "structural": {
+      "availability": "available",
+      "values": {
+        "eventCount": 12,
+        "identityCount": 3
+      }
+    },
+    "temporal": {
+      "availability": "unavailable",
+      "reason": "Temporal methodology not applied in this example run."
+    },
+    "detectionLabeled": {
+      "availability": "not_applicable",
+      "reason": "Unlabeled evaluation; do not fabricate labeled detection metrics."
+    }
+  },
+  "notes": "Generic Kit Result without DetectionEvaluationEvidence. detectionEvidenceRef intentionally omitted."
+}

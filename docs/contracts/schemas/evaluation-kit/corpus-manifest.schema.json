@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aisentinel.dev/schemas/evaluation-kit/corpus-manifest.schema.json",
+  "title": "Evaluation Kit Generated Corpus Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "corpusSchemaVersion",
+    "corpusId",
+    "scenarioId",
+    "scenarioVersion",
+    "seed",
+    "generatorContractVersion",
+    "generatorBuildId",
+    "featureSchemaVersion",
+    "evaluationEventSchemaVersion",
+    "representationMode",
+    "artifacts",
+    "timing"
+  ],
+  "properties": {
+    "corpusSchemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "corpusId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "scenarioId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "scenarioVersion": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "scenarioSha256": {
+      "$ref": "common.schema.json#/$defs/sha256Hex"
+    },
+    "seed": {
+      "$ref": "common.schema.json#/$defs/seed"
+    },
+    "generatorContractVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion",
+      "description": "Generator I/O contract version (independent of build identity)."
+    },
+    "generatorBuildId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString",
+      "description": "Generator implementation/build identity required for reproducibility."
+    },
+    "featureSchemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "evaluationEventSchemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "representationMode": {
+      "type": "string",
+      "enum": ["request-like", "feature-level", "both"]
+    },
+    "artifacts": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Detector-facing artifacts only (no ground truth). Ground truth uses annotationsArtifact.",
+      "items": {
+        "allOf": [
+          { "$ref": "common.schema.json#/$defs/artifactRef" },
+          {
+            "properties": {
+              "role": { "const": "events" }
+            }
+          }
+        ]
+      }
+    },
+    "annotationsArtifact": {
+      "allOf": [
+        { "$ref": "common.schema.json#/$defs/artifactRef" }
+      ],
+      "description": "Optional ground-truth sidecar pointer. Absent for unlabeled corpora."
+    },
+    "timing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["warmupDurationSeconds", "evaluationDurationSeconds"],
+      "properties": {
+        "warmupDurationSeconds": { "type": "integer", "minimum": 0 },
+        "evaluationDurationSeconds": { "type": "integer", "minimum": 1 },
+        "notes": { "type": "string" }
+      }
+    },
+    "eventCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "notes": { "type": "string" }
+  }
+}
