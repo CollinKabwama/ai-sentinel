@@ -84,6 +84,11 @@ final class GeneratedCorpusEvaluationSummaryFormatter {
             sb.append("  directory: temporary (omitted from summary for path stability)\n");
         } else {
             sb.append("  directory: ").append(evidenceDirectory.toAbsolutePath().normalize()).append('\n');
+            sb.append("  kitResult: ").append(GeneratedCorpusEvaluationReportWriter.KIT_RESULT_FILE_NAME).append('\n');
+            sb.append("  eventInspection: ").append(GeneratedCorpusEvaluationReportWriter.EVENT_INSPECTION_FILE_NAME).append('\n');
+            sb.append("  htmlReport: ").append(GeneratedCorpusEvaluationReportWriter.HTML_REPORT_FILE_NAME).append('\n');
+            sb.append("  detectionEvidenceJson: ").append(DetectionEvaluationEvidenceWriter.JSON_FILE_NAME).append('\n');
+            sb.append("  detectionEvidenceMarkdown: ").append(DetectionEvaluationEvidenceWriter.MARKDOWN_FILE_NAME).append('\n');
         }
         sb.append('\n');
 

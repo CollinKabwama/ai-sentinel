@@ -105,20 +105,31 @@ public final class GeneratedCorpusDetectionEvaluator {
                 "No binary-labeled evaluation events were present; detection confusion metrics are unavailable/empty.");
         }
 
-        DetectionEvaluationRunner.DetectionEvaluationRun detectionRun =
-            detectionEvaluationRunner.evaluate(
+        DetectionEvaluationRunner.RunWithReplayResults runWithReplayResults =
+            detectionEvaluationRunner.evaluateWithReplayResults(
                 annotatedDataset,
                 adapted,
                 replayConfiguration,
                 classification,
                 outputDirectory
             );
+        DetectionEvaluationRunner.DetectionEvaluationRun detectionRun = runWithReplayResults.run();
 
-        return new GeneratedCorpusEvaluationResult(
+        List<GeneratedCorpusEventInspection> eventInspections = GeneratedCorpusEventInspections.build(
+            loaded.groundTruth(),
+            runWithReplayResults.replayResults(),
+            classification
+        );
+
+        GeneratedCorpusEvaluationResult result = new GeneratedCorpusEvaluationResult(
             loaded.provenance(),
             phaseCounts,
             detectionRun,
+            eventInspections,
             limitations
         );
+
+        new GeneratedCorpusEvaluationReportWriter().write(result, outputDirectory);
+        return result;
     }
 }

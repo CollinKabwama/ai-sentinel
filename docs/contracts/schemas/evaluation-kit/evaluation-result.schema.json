@@ -125,6 +125,16 @@
       "type": "string",
       "description": "Optional reference to specialized DetectionEvaluationEvidence for labeled detection runs. Not required for generic Kit results."
     },
+    "eventInspectionRef": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*://)(?!.*\\.\\.).+$",
+      "description": "Optional reference to an event-level inspection artifact joining authored ground truth with runtime replay outcomes. A portable relative sibling-artifact name (e.g. event-inspection.json), never an absolute path or URI."
+    },
+    "htmlReportRef": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*://)(?!.*\\.\\.).+$",
+      "description": "Optional reference to a self-contained human-readable HTML evaluation report. A portable relative sibling-artifact name (e.g. evaluation-report.html), never an absolute path or URI."
+    },
     "notes": { "type": "string" }
   }
 }

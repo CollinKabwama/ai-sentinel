@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aisentinel.dev/schemas/evaluation-kit/event-inspection.schema.json",
+  "title": "Evaluation Kit Event Inspection",
+  "description": "Event-level join of authored ground truth with runtime replay outcomes for generated-corpus evaluation reports.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "inspectionSchemaVersion",
+    "corpusId",
+    "scenarioId",
+    "eventCount",
+    "events"
+  ],
+  "properties": {
+    "inspectionSchemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "corpusId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "scenarioId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "eventCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "anomalyThreshold": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "eventId",
+          "sequenceNumber",
+          "observedAt",
+          "identityKey",
+          "category",
+          "expectedClass",
+          "participation",
+          "binaryMetricParticipant",
+          "action",
+          "evaluationStatuses",
+          "outcome"
+        ],
+        "properties": {
+          "eventId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "sequenceNumber": { "type": "integer", "minimum": 1 },
+          "observedAt": { "type": "string", "minLength": 1 },
+          "identityKey": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "category": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "expectedClass": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "participation": {
+            "type": "string",
+            "enum": ["warmup", "binary-labeled", "unknown-unlabeled"]
+          },
+          "binaryMetricParticipant": { "type": "boolean" },
+          "anomalyScore": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+          "predictedAnomalous": { "type": ["boolean", "null"] },
+          "action": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "evaluationStatuses": {
+            "type": "array",
+            "items": { "type": "string" }
+          },
+          "outcome": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+        }
+      }
+    }
+  }
+}
