@@ -174,6 +174,24 @@ Reproduce/verify:
 
 This inventory is synthetic evaluation evidence only. It does not prove production efficacy.
 
+### Evaluating generated corpora
+
+Generated corpora under `evaluation/kit-reference/corpora/*/` are first-class inputs to offline
+detection evaluation via `GeneratedCorpusDetectionEvaluator`:
+
+1. Validate Kit `corpus-manifest.json` provenance and artifact checksums.
+2. Load detector-facing events through the existing replay-compatible `manifest.json`.
+3. Join event-level `annotations.json` ground truth by `eventId` (sidecar only).
+4. Exclude `category=warmup` and `expectedClass=unknown|unlabeled` from binary detection metrics.
+5. Replay and compare observed scores/statuses/actions against authored truth.
+
+Dual manifests remain intentional: Kit corpus-manifest carries generation provenance; replay
+`manifest.json` remains the typed entry for `ReplayDatasetLoader`. Historical `evaluation/reference/`
+is unchanged and continues to use its own annotation schema.
+
+Runtime `EvaluationStatus` values (including invalid-score outcomes) are produced only by actual
+replay/scoring. Generated corpora must not pre-assert them.
+
 ---
 
 ## 6. Generated Corpus Manifest contract
