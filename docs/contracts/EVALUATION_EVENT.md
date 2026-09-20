@@ -97,6 +97,18 @@ For event schema `"1"`:
 - an unknown `eventSchemaVersion` must be rejected explicitly;
 - an unknown `featureSchemaVersion` must also be rejected explicitly even when the event envelope version is supported.
 
+## Evaluation Kit convergence
+
+`EvaluationEvent` is the detector-facing evidence atom for:
+
+generation / export → replay → offline evaluation → reporting → BYO → comparison
+
+Canonical JSON encode/decode is shared across dataset export and replay load (`EvaluationEventJson` in the Java core). That codec is **contract-specific** to the EvaluationEvent JSONL shape (not a general-purpose JSON parser). Replay keeps an input / historical-output projection for execution, but both sides derive from the same event semantics via an internal replay bridge.
+
+**Sidecar / run-manifest preference:** Kit run identity (`scenarioId`, `corpusId`, `resultId`, generator/seed bindings) and ground-truth annotations join by `eventId` outside this schema. They must not be embedded in detector-facing events.
+
+`EvaluationRequest` / `EvaluationResponse` / `EvaluationExecutor` remain the runtime evaluation API and stay separate from this evidence record.
+
 ## Example
 
 ```json
@@ -145,4 +157,4 @@ Those capabilities are documented separately:
 - detection evaluation framework: [`../../evaluation/DETECTION_EVALUATION.md`](../../evaluation/DETECTION_EVALUATION.md)
 - Evaluation Kit foundations (Scenario ≠ Generator ≠ Corpus; ground truth remains sidecar): [`EVALUATION_KIT.md`](EVALUATION_KIT.md)
 
-[`EVALUATION_KIT.md`](EVALUATION_KIT.md) documents EvaluationEvent **convergence requirements** for later Kit wiring. This event schema is not extended here with ground truth or scenario expected outcomes.
+This event schema is not extended with ground truth or scenario expected outcomes.
