@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aisentinel.dev/schemas/evaluation-kit/corpus-inventory.schema.json",
+  "title": "Evaluation Kit Reference Corpus Inventory",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "inventorySchemaVersion",
+    "inventoryId",
+    "inventoryVersion",
+    "generatorContractVersion",
+    "generatorBuildId",
+    "representationMode",
+    "entries"
+  ],
+  "properties": {
+    "inventorySchemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "inventoryId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "inventoryVersion": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "generatorContractVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "generatorBuildId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "representationMode": {
+      "type": "string",
+      "enum": ["request-like", "feature-level", "both"]
+    },
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "scenarioId",
+          "scenarioVersion",
+          "family",
+          "scenarioPath",
+          "scenarioSha256",
+          "seed",
+          "corpusId",
+          "corpusPath",
+          "representationMode",
+          "eventCount",
+          "warmupEventCount",
+          "evaluationEventCount",
+          "eventsSha256",
+          "annotationsSha256",
+          "corpusManifestSha256",
+          "replayManifestSha256"
+        ],
+        "properties": {
+          "scenarioId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "scenarioVersion": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "family": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "scenarioPath": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "scenarioSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+          "seed": { "$ref": "common.schema.json#/$defs/seed" },
+          "corpusId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "corpusPath": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "representationMode": {
+            "type": "string",
+            "enum": ["request-like", "feature-level", "both"]
+          },
+          "eventCount": { "type": "integer", "minimum": 1 },
+          "warmupEventCount": { "type": "integer", "minimum": 0 },
+          "evaluationEventCount": { "type": "integer", "minimum": 0 },
+          "eventsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+          "annotationsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+          "corpusManifestSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+          "replayManifestSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" }
+        }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

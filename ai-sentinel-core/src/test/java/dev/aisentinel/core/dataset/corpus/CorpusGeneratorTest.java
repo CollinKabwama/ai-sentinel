@@ -301,7 +301,7 @@ class CorpusGeneratorTest {
     void unsupportedFamilyFailsClearly() throws Exception {
         String scenario = mvpScenario().replace(
             "\"family\": \"warmup-then-burst\"",
-            "\"family\": \"gradual-drift\"");
+            "\"family\": \"not-a-real-family\"");
         assertThatThrownBy(() -> CorpusGenerator.generate(scenario, SEED_A, BUILD_ID, tempDir.resolve("bad-family")))
             .isInstanceOf(CorpusGeneratorException.class)
             .hasMessageContaining("Unsupported scenario family");

@@ -29,7 +29,7 @@ final class CorpusArtifactWriter {
         String scenarioJson,
         String seed,
         String generatorBuildId,
-        WarmupThenBurstCompiler.CompiledCorpus compiled
+        CompiledCorpus compiled
     ) throws IOException {
         Files.createDirectories(outputDirectory);
         Path eventsPath = outputDirectory.resolve(CorpusGeneratorSchemas.EVENTS_FILE_NAME);
@@ -47,6 +47,9 @@ final class CorpusArtifactWriter {
 
         String scenarioSha256 = TrainingFingerprintHashes.sha256HexUtf8(scenarioJson);
         String corpusId = corpusId(scenario.scenarioId(), scenario.scenarioVersion(), seed, generatorBuildId);
+        String family = scenario.family() == null || scenario.family().isBlank()
+            ? "unspecified"
+            : scenario.family();
 
         try (EvaluationDatasetWriter writer = new EvaluationDatasetWriter(
             outputDirectory,
@@ -56,12 +59,11 @@ final class CorpusArtifactWriter {
             "1",
             CorpusGeneratorSchemas.SOURCE_CLASSIFICATION,
             CorpusGeneratorSchemas.TRANSFORMATION_VERSION,
-            "Deterministic Evaluation Kit generated corpus ("
-                + CorpusGeneratorSchemas.FAMILY_WARMUP_THEN_BURST + ")",
+            "Deterministic Evaluation Kit generated corpus (" + family + ")",
             scenario.scenarioId() + "@" + scenario.scenarioVersion(),
             FIXED_CREATED_AT
         )) {
-            for (WarmupThenBurstCompiler.CompiledEvent compiledEvent : compiled.events()) {
+            for (CompiledEvent compiledEvent : compiled.events()) {
                 writer.append(compiledEvent.event());
             }
         }
@@ -174,7 +176,7 @@ final class CorpusArtifactWriter {
     private static String writeAnnotationsJson(
         String corpusId,
         ScenarioDocument scenario,
-        List<WarmupThenBurstCompiler.CompiledEvent> events
+        List<CompiledEvent> events
     ) {
         StringBuilder json = new StringBuilder(256 + events.size() * 96);
         json.append('{');
@@ -187,7 +189,7 @@ final class CorpusArtifactWriter {
             if (i > 0) {
                 json.append(',');
             }
-            WarmupThenBurstCompiler.CompiledEvent event = events.get(i);
+            CompiledEvent event = events.get(i);
             json.append('{');
             appendString(json, "eventId", event.event().eventId(), true);
             appendString(json, "scenarioId", scenario.scenarioId(), false);

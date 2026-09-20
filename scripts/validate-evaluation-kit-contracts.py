@@ -19,6 +19,7 @@ INVALID_DIR = ROOT / "docs" / "contracts" / "fixtures" / "evaluation-kit" / "inv
 SCHEMA_BY_PREFIX = {
     "scenario.": "scenario.schema.json",
     "corpus-manifest.": "corpus-manifest.schema.json",
+    "corpus-inventory.": "corpus-inventory.schema.json",
     "ground-truth.": "ground-truth.schema.json",
     "evaluation-result.": "evaluation-result.schema.json",
     "reproducibility-manifest.": "reproducibility-manifest.schema.json",
@@ -267,6 +268,78 @@ def main() -> int:
     else:
         passed += 1
         print("PASS ground-truth isolation, assertion isolation, unlabeled result invariants")
+
+    print("\n== kit-reference repository artifacts ==")
+    kit_root = ROOT / "evaluation" / "kit-reference"
+    inventory_path = kit_root / "inventory.json"
+    if not inventory_path.is_file():
+        failures.append("Missing evaluation/kit-reference/inventory.json")
+        print("FAIL missing inventory.json")
+    else:
+        inventory = load_json(inventory_path)
+        errors = schema_errors(validators["corpus-inventory.schema.json"], inventory)
+        if errors:
+            failures.append(f"kit-reference inventory.json: {errors[0]}")
+            print(f"FAIL inventory.json: {errors[0]}")
+        else:
+            passed += 1
+            print("PASS inventory.json -> corpus-inventory.schema.json")
+
+        scenario_dir = kit_root / "scenarios"
+        for path in sorted(scenario_dir.glob("*.json")):
+            instance = load_json(path)
+            errors = schema_errors(validators["scenario.schema.json"], instance)
+            if errors:
+                failures.append(f"kit-reference scenario {path.name}: {errors[0]}")
+                print(f"FAIL {path.name}: {errors[0]}")
+            else:
+                passed += 1
+                print(f"PASS {path.name} -> scenario.schema.json")
+
+        for entry in inventory.get("entries", []):
+            corpus_path = kit_root / entry["corpusPath"]
+            manifest_path = corpus_path / "corpus-manifest.json"
+            annotations_path = corpus_path / "annotations.json"
+            events_path = corpus_path / "events.jsonl"
+            for required in (manifest_path, annotations_path, events_path):
+                if not required.is_file():
+                    failures.append(f"Missing artifact: {required.relative_to(ROOT)}")
+                    print(f"FAIL missing {required.relative_to(ROOT)}")
+            if manifest_path.is_file():
+                errors = schema_errors(
+                    validators["corpus-manifest.schema.json"], load_json(manifest_path)
+                )
+                if errors:
+                    failures.append(f"{manifest_path.relative_to(ROOT)}: {errors[0]}")
+                    print(f"FAIL {manifest_path.relative_to(ROOT)}: {errors[0]}")
+                else:
+                    passed += 1
+                    print(f"PASS {manifest_path.relative_to(ROOT)}")
+            if annotations_path.is_file():
+                errors = schema_errors(
+                    validators["ground-truth.schema.json"], load_json(annotations_path)
+                )
+                if errors:
+                    failures.append(f"{annotations_path.relative_to(ROOT)}: {errors[0]}")
+                    print(f"FAIL {annotations_path.relative_to(ROOT)}: {errors[0]}")
+                else:
+                    passed += 1
+                    print(f"PASS {annotations_path.relative_to(ROOT)}")
+            if events_path.is_file():
+                with events_path.open(encoding="utf-8") as handle:
+                    for line_no, line in enumerate(handle, start=1):
+                        line = line.strip()
+                        if not line:
+                            continue
+                        event = json.loads(line)
+                        for field in FORBIDDEN_EVENT_FIELDS:
+                            if field in event:
+                                failures.append(
+                                    f"{events_path.relative_to(ROOT)}:{line_no} contains forbidden field {field}"
+                                )
+                                print(
+                                    f"FAIL {events_path.relative_to(ROOT)}:{line_no} forbidden field {field}"
+                                )
 
     print()
     if failures:
