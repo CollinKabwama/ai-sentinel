@@ -39,7 +39,32 @@ Existing `evaluation/reference/` is a **historical seed instance**, not the Kit 
 | `EvaluationRequest` / `EvaluationResponse` / `EvaluationExecutor` | **KEEP SEPARATE** — runtime evaluation API; not Kit experiment contracts. |
 | `DetectionReferenceBaselineManifest` | **KEEP SEPARATE** — official baseline binding ≠ Kit scenario/corpus. |
 
-`ai-sentinel-benchmark` remains JMH performance tooling. It does **not** become the Evaluation Kit. Module and distribution boundaries remain a later packaging decision.
+`ai-sentinel-benchmark` remains JMH performance tooling. It does **not** become the Evaluation Kit.
+
+### Module, artifact, and distribution boundary (current stage)
+
+| Axis | Current decision |
+|------|------------------|
+| **Module boundary** | Evaluation Kit execution, report projection, corpus generation helpers, and the repository CLI entry live in **`ai-sentinel-core`** (`dev.aisentinel.core.evaluation`, `dev.aisentinel.core.dataset.corpus`, `dev.aisentinel.core.replay`). |
+| **Artifact boundary** | No separate Evaluation Kit Maven module or artifact. Kit capabilities ship inside `dev.aisentinel:ai-sentinel-core` when that artifact is released. |
+| **Distribution boundary** | Evaluators obtain and run the Kit via **repository checkout** + **`scripts/evaluate-generated-corpus.sh`** (JDK 21 + Maven required). There is no separate executable packaging or container image at this stage. |
+| **Publication boundary** | No Evaluation Kit–specific Maven Central artifact. Published library coordinates remain the existing release set (`ai-sentinel`, `ai-sentinel-core`, `ai-sentinel-spring-boot-starter`). Benchmark, trainer, and demo remain non-Central libraries. |
+| **Schema ownership** | Authoritative machine schemas remain under [`docs/contracts/schemas/evaluation-kit/`](schemas/evaluation-kit/). Do not duplicate them into classpath copies unless a future packaging change introduces a single build-owned source. |
+
+**Rationale (durable):** generated-corpus evaluation reuses the same offline replay and detection-evaluation pipeline that already lives in core. Splitting a module now would not remove JDK/Maven or repository requirements for the reference path, would enlarge the reactor without improving evaluator UX, and would risk freezing a separate Java API before external-dataset and comparison surfaces exist. Container packaging remains a later distribution step.
+
+Dependency direction for Evaluation Kit tooling remains:
+
+```text
+Evaluation Kit packages (in ai-sentinel-core)
+  → core replay / scoring / decision primitives
+  ↛ Spring Boot starter
+  ↛ ai-sentinel-benchmark
+  ↛ ai-sentinel-trainer
+  ↛ ai-sentinel-demo
+```
+
+Framework independence of `ai-sentinel-core` (no Spring / Servlet / Reactor) continues to cover Evaluation Kit packages.
 
 ---
 
@@ -365,14 +390,15 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 
 | Topic | Status |
 |-------|--------|
-| Module / distribution boundary vs `ai-sentinel-benchmark` | Deferred packaging decision |
+| Module / distribution boundary vs `ai-sentinel-benchmark` | **Decided (current stage):** Kit remains in `ai-sentinel-core`; benchmark stays separate JMH tooling; no Kit-specific published artifact; distribution = repository script (see §2) |
 | Large artifact storage | Deferred |
 | Deterministic corpus generator implementation | Implemented (`feature-level`, multi-family) |
 | Versioned reference corpus inventory | Checked in under `evaluation/kit-reference/` |
 | One-command generated-corpus evaluation CLI | Available via `scripts/evaluate-generated-corpus.sh` |
 | JSON + HTML evaluation reports / event inspection | Written under `--output` (`kit-evaluation-result.json`, `event-inspection.json`, `evaluation-report.html`) |
-| Container packaging | Not currently supported |
+| Container packaging | Not currently supported (later packaging path) |
 | BYO datasets / comparison UX | Not currently supported |
+| Separate Evaluation Kit Maven module / Central artifact | Not created at this stage |
 
 ---
 
@@ -401,7 +427,8 @@ scripts/validate-evaluation-kit-contracts.sh
 
 ## 13. Non-goals of this contract package
 
-- No new Maven module
+- No new Maven module (Evaluation Kit remains in `ai-sentinel-core` at this stage)
+- No Evaluation Kit–specific Maven Central publication
 - No container packaging in this contract package
 - No production runtime decision-behavior change
 - No modification of historical evidence or the `v0.4.0` release tag
