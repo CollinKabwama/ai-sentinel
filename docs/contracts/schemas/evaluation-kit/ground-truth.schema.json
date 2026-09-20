@@ -7,7 +7,6 @@
   "required": [
     "annotationSchemaVersion",
     "annotationId",
-    "corpusId",
     "annotations"
   ],
   "properties": {
@@ -18,7 +17,12 @@
       "$ref": "common.schema.json#/$defs/nonEmptyString"
     },
     "corpusId": {
-      "$ref": "common.schema.json#/$defs/nonEmptyString"
+      "$ref": "common.schema.json#/$defs/nonEmptyString",
+      "description": "Corpus identity for generated-corpus ground truth. Mutually exclusive with datasetId."
+    },
+    "datasetId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString",
+      "description": "Dataset identity for evaluator-provided (BYO) ground truth. Mutually exclusive with corpusId."
     },
     "scenarioId": {
       "$ref": "common.schema.json#/$defs/nonEmptyString"
@@ -50,5 +54,15 @@
       "type": "string",
       "description": "Sidecar/evaluation-only. MUST NOT appear in detector-facing EvaluationEvent records."
     }
-  }
+  },
+  "oneOf": [
+    {
+      "required": ["corpusId"],
+      "not": { "required": ["datasetId"] }
+    },
+    {
+      "required": ["datasetId"],
+      "not": { "required": ["corpusId"] }
+    }
+  ]
 }

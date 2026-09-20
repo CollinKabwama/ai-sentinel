@@ -5,7 +5,7 @@ Normative contract foundations for the AI-Sentinel Evaluation Kit.
 JSON is the **normative machine representation** for schemas and fixtures in this package.
 JSON does **not** permanently constrain human authoring UX: later CLI/tooling may accept YAML or other conveniences that normalize to the same logical contract.
 
-This document defines Evaluation Kit contracts. It does not claim production efficacy and does not change production runtime decision behavior. A deterministic corpus generator for feature-level scenario families lives in core; a versioned repository reference inventory is checked in under `evaluation/kit-reference/`. A repository one-command evaluation CLI is available via `scripts/evaluate-generated-corpus.sh`. When `--output` is supplied, the CLI writes machine-readable Kit evaluation-result JSON, event-inspection JSON, a self-contained HTML evaluation report, and specialized detection evidence beside each other. An optional local container image (`Dockerfile.evaluation-kit`) packages the same evaluator without requiring a host JDK/Maven install at runtime; BYO datasets and comparison product surfaces are not currently supported.
+This document defines Evaluation Kit contracts. It does not claim production efficacy and does not change production runtime decision behavior. A deterministic corpus generator for feature-level scenario families lives in core; a versioned repository reference inventory is checked in under `evaluation/kit-reference/`. A repository one-command evaluation CLI is available via `scripts/evaluate-generated-corpus.sh` and accepts either a generated corpus (`--corpus`) or an evaluator-provided (BYO) dataset (`--dataset`). When `--output` is supplied, the CLI writes machine-readable Kit evaluation-result JSON, event-inspection JSON, a self-contained HTML evaluation report, and specialized detection evidence beside each other. An optional local container image (`Dockerfile.evaluation-kit`) packages the same evaluator without requiring a host JDK/Maven install at runtime. Comparison product surfaces are not currently supported.
 
 Current schema versions for Kit machine contracts in this package: `"1"`.
 
@@ -219,30 +219,41 @@ replay/scoring. Generated corpora must not pre-assert them.
 
 ### One-command evaluation (CLI)
 
-Evaluate one generated corpus directory without writing Java or assembling Maven modules by hand
+Evaluate one Evaluation Kit input directory without writing Java or assembling Maven modules by hand
 (JDK 21 required; the script builds/runs the module itself). It can be invoked from the repository
-root or any other directory:
+root or any other directory. Exactly one of `--corpus` or `--dataset` is required.
+
+Generated corpus:
 
 ```bash
 ./scripts/evaluate-generated-corpus.sh \
   --corpus evaluation/kit-reference/corpora/kit.abrupt-burst
 ```
 
+Evaluator-provided (BYO) dataset:
+
+```bash
+./scripts/evaluate-generated-corpus.sh \
+  --dataset path/to/my-byo-dataset
+```
+
 Options:
 
 | Option | Required | Meaning |
 |--------|----------|---------|
-| `--corpus <directory>` | Yes | Generated corpus directory containing Kit + replay artifacts. Relative paths resolve against your current directory, not the repository root. |
+| `--corpus <directory>` | Exactly one of `--corpus` / `--dataset` | Generated corpus directory containing Kit + replay artifacts. Relative paths resolve against your current directory, not the repository root. |
+| `--dataset <directory>` | Exactly one of `--corpus` / `--dataset` | Evaluator-provided dataset directory (`dataset-manifest.json` + `events.jsonl` + optional `annotations.json`). No replay `manifest.json` or generator provenance required. |
 | `--output <directory>` | No | Evidence + report output directory (temporary if omitted; must not already exist). Writes Kit result JSON, event inspection, HTML report, and specialized detection evidence. |
 | `--threshold <0..1>` | No | Anomaly classification threshold (default `0.5`) |
 | `-h` / `--help` | No | Usage text |
 
-Exit codes: `0` success; `1` corpus load / integrity / ground-truth / evaluation failure; `2` invalid usage.
+Exit codes: `0` success; `1` load / integrity / ground-truth / evaluation failure; `2` invalid usage.
 
-The CLI is a thin adapter over `GeneratedCorpusDetectionEvaluator`. It prints a terminal summary of
-corpus provenance, this run's evaluation configuration, phase counts, binary detection metrics (with
-undefined ratios shown as `unavailable`), limitations, and (when `--output` is supplied) paths to
-durable report artifacts. It does not provide BYO/external datasets or comparison workflows.
+The CLI is a thin adapter over `GeneratedCorpusDetectionEvaluator` (`--corpus`) or
+`EvaluatorProvidedDatasetEvaluator` (`--dataset`). It prints a terminal summary of provenance,
+this run's evaluation configuration, phase counts, binary detection metrics (with undefined ratios
+shown as `unavailable`), limitations, and (when `--output` is supplied) paths to durable report
+artifacts. It does not provide comparison workflows.
 
 ### Durable evaluation reports (with `--output`)
 
@@ -250,7 +261,7 @@ When an evidence directory is requested, evaluation writes these sibling artifac
 
 | Artifact | Role |
 |----------|------|
-| `kit-evaluation-result.json` | Generated-corpus population of the Evaluation Kit result schema (schema: evaluation-result). The schema's `provenance` block currently requires generator/corpus-specific fields (`corpusId`, `seed`, `generatorBuildId`); it is not yet a dataset-source-neutral "generic" result usable for e.g. an external (BYO) dataset without those concepts. |
+| `kit-evaluation-result.json` | Evaluation Kit result (schema: evaluation-result). Provenance uses optional `datasetSource`: absent or `generated-corpus` retains generator/corpus fields; `evaluator-provided` uses dataset identity and forbids `seed` / `generatorBuildId` / `generatorContractVersion` / `corpusId`. |
 | `event-inspection.json` | Event-level join of authored ground truth and runtime replay outcomes |
 | `evaluation-report.html` | Self-contained human-readable report (provenance, metrics, timeline, event table) |
 | `evaluation.json` / `evaluation.md` | Specialized `DetectionEvaluationEvidence` (unchanged specialized format) |
@@ -258,6 +269,27 @@ When an evidence directory is requested, evaluation writes these sibling artifac
 Report projection explains what happened. It does not change how detection evaluation runs.
 Event inspection keeps ground-truth labels separate from detector-facing inputs.
 Undefined metric ratios remain unavailable (not fabricated zeros).
+
+### Evaluator-provided (BYO) datasets
+
+An evaluator may supply a local dataset directory that is **not** a generated corpus:
+
+```text
+dataset-manifest.json   # evaluator-dataset-manifest schema
+events.jsonl            # EvaluationEvent JSONL (detector-facing, no labels)
+annotations.json        # OPTIONAL Kit-style ground truth; when present uses datasetId (not corpusId)
+```
+
+Rules:
+
+- No `corpus-manifest.json`, no generator seed/build identity, and no fabricated generator metadata.
+- No separate replay `manifest.json` is required; the evaluator builds a `ReplayDataset` in memory.
+- Ground-truth sidecar (when present) uses `datasetId` instead of `corpusId`.
+- BYO evaluation is controlled evidence only. It is **not** production validation and is **not**
+  independent third-party validation of production efficacy.
+- Comparison against other datasets or product ranking UX is out of scope for this path.
+
+**Machine schema:** [`schemas/evaluation-kit/evaluator-dataset-manifest.schema.json`](schemas/evaluation-kit/evaluator-dataset-manifest.schema.json)
 
 ---
 
@@ -296,6 +328,7 @@ The generic `artifacts` array accepts detector-facing event artifacts only. Grou
 - Join key typically `eventId` (and optional `scenarioId`)
 - **MUST NOT** appear inside detector-facing `EvaluationEvent` representation
 - May be absent entirely for unlabeled / BYO evaluation
+- Identity: generated corpora use `corpusId`; evaluator-provided datasets use `datasetId` (mutually exclusive)
 
 Isolation invariant:
 
@@ -312,8 +345,10 @@ Ground-truth sidecar           →  join by eventId at evaluation time only
 
 ### Required foundation
 
-- `resultId`, `resultSchemaVersion`
-- Provenance bindings (scenario / corpus / generator / seed / schemas / engine identity)
+- `resultId`, `resultSchemaVersion` (`"1"`; compatible evolution via `datasetSource` discriminator)
+- Provenance bindings:
+  - **Generated corpus** (absent `datasetSource` or `datasetSource: "generated-corpus"`): scenario / corpus / generator / seed / schemas / engine identity
+  - **Evaluator-provided** (`datasetSource: "evaluator-provided"`): `datasetId`, `datasetSchemaVersion`, `eventsSha256`, schema versions, `representationMode`, engine identity — and must not include `seed`, `generatorBuildId`, `generatorContractVersion`, or `corpusId`
 - Artifact bindings and checksums where applicable
 - `status` and `limitations` where appropriate
 
@@ -394,10 +429,11 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 | Large artifact storage | Deferred |
 | Deterministic corpus generator implementation | Implemented (`feature-level`, multi-family) |
 | Versioned reference corpus inventory | Checked in under `evaluation/kit-reference/` |
-| One-command generated-corpus evaluation CLI | Available via `scripts/evaluate-generated-corpus.sh` |
+| One-command generated-corpus evaluation CLI | Available via `scripts/evaluate-generated-corpus.sh` (`--corpus`) |
+| One-command evaluator-provided (BYO) dataset CLI | Available via the same script (`--dataset`) |
 | JSON + HTML evaluation reports / event inspection | Written under `--output` (`kit-evaluation-result.json`, `event-inspection.json`, `evaluation-report.html`) |
 | Container packaging | Local image build via `Dockerfile.evaluation-kit` (not published to a registry) |
-| BYO datasets / comparison UX | Not currently supported |
+| Comparison UX | Not currently supported |
 | Separate Evaluation Kit Maven module / Central artifact | Not created at this stage |
 
 ---
@@ -410,6 +446,7 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 | Scenario | [`schemas/evaluation-kit/scenario.schema.json`](schemas/evaluation-kit/scenario.schema.json) |
 | Corpus manifest | [`schemas/evaluation-kit/corpus-manifest.schema.json`](schemas/evaluation-kit/corpus-manifest.schema.json) |
 | Corpus inventory | [`schemas/evaluation-kit/corpus-inventory.schema.json`](schemas/evaluation-kit/corpus-inventory.schema.json) |
+| Evaluator-provided dataset manifest | [`schemas/evaluation-kit/evaluator-dataset-manifest.schema.json`](schemas/evaluation-kit/evaluator-dataset-manifest.schema.json) |
 | Ground truth | [`schemas/evaluation-kit/ground-truth.schema.json`](schemas/evaluation-kit/ground-truth.schema.json) |
 | Evaluation result | [`schemas/evaluation-kit/evaluation-result.schema.json`](schemas/evaluation-kit/evaluation-result.schema.json) |
 | Event inspection | [`schemas/evaluation-kit/event-inspection.schema.json`](schemas/evaluation-kit/event-inspection.schema.json) |
@@ -427,8 +464,9 @@ scripts/validate-evaluation-kit-contracts.sh
 
 ## 13. Containerized evaluator (local packaging)
 
-The container is a packaging/distribution surface around the existing generated-corpus evaluator.
-It does **not** redefine evaluation, report schemas, or detection semantics.
+The container is a packaging/distribution surface around the existing Evaluation Kit evaluator
+(`GeneratedCorpusEvaluationMain`). It does **not** redefine evaluation, report schemas, or detection
+semantics. The same entry accepts `--corpus` or `--dataset`.
 
 ### Build (local only)
 
@@ -443,16 +481,39 @@ image to Docker Hub, GHCR, or another registry as part of this packaging path.
 
 ### Run
 
-Mount a corpus directory read-only and an empty host output directory for persistent evidence:
+Mount a corpus or BYO dataset directory read-only. Bind-mount a writable host directory for
+persistent evidence, and pass an `--output` path that does **not** already exist inside the
+container (the CLI refuses pre-existing output directories). A practical pattern is to mount a
+host parent at `/output` and write to a child such as `/output/run`.
+
+Generated corpus:
 
 ```bash
+mkdir -p "$PWD/out"
 docker run --rm \
   --network=none \
+  --read-only \
+  --tmpfs /tmp \
   -v "$PWD/evaluation/kit-reference/corpora/kit.abrupt-burst:/input:ro" \
   -v "$PWD/out:/output" \
   ai-sentinel-evaluation-kit:local \
   --corpus /input \
-  --output /output
+  --output /output/run
+```
+
+Evaluator-provided dataset:
+
+```bash
+mkdir -p "$PWD/out"
+docker run --rm \
+  --network=none \
+  --read-only \
+  --tmpfs /tmp \
+  -v "$PWD/path/to/my-byo-dataset:/input:ro" \
+  -v "$PWD/out:/output" \
+  ai-sentinel-evaluation-kit:local \
+  --dataset /input \
+  --output /output/run
 ```
 
 Path semantics inside the container are ordinary absolute paths. `/input` and `/output` are
@@ -470,11 +531,11 @@ Expected persistent artifacts (unchanged from the host CLI):
 
 | Topic | Behavior |
 |-------|----------|
-| Entrypoint | `GeneratedCorpusEvaluationMain` (same CLI/exit codes as the host script) |
+| Entrypoint | `GeneratedCorpusEvaluationMain` (same CLI/exit codes as the host script; supports `--corpus` and `--dataset`) |
 | No `--output` | Terminal summary only; temporary evidence is created under the container `/tmp` and deleted before exit |
 | No args | Exit `2` with usage on stderr |
 | `--help` | Exit `0` |
-| Corpus mount | Prefer `:ro`; the evaluator does not mutate the corpus tree |
+| Input mount | Prefer `:ro`; the evaluator does not mutate the input tree |
 | Runtime network | Not required after the image is built (verify with `--network=none`) |
 | Read-only root FS | Supported when `/tmp` is writable (for example `--read-only --tmpfs /tmp`) and output is a writable mount |
 | Image user | Non-root UID `10001` |

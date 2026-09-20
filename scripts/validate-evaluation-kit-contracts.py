@@ -20,6 +20,7 @@ SCHEMA_BY_PREFIX = {
     "scenario.": "scenario.schema.json",
     "corpus-manifest.": "corpus-manifest.schema.json",
     "corpus-inventory.": "corpus-inventory.schema.json",
+    "evaluator-dataset-manifest.": "evaluator-dataset-manifest.schema.json",
     "ground-truth.": "ground-truth.schema.json",
     "evaluation-result.": "evaluation-result.schema.json",
     "event-inspection.": "event-inspection.schema.json",

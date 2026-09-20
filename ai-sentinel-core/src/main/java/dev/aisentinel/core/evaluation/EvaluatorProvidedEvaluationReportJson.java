@@ -5,19 +5,16 @@ import java.util.Locale;
 import java.util.Objects;
 
 /**
- * Deterministic JSON projection for generated-corpus Kit evaluation results and event inspection.
- * <p>
- * Kit result JSON conforms to the Evaluation Kit evaluation-result schema. Event inspection is a
- * companion artifact referenced by path from the Kit result.
+ * Deterministic JSON projection for evaluator-provided (BYO) Kit evaluation results.
  */
-final class GeneratedCorpusEvaluationReportJson {
+final class EvaluatorProvidedEvaluationReportJson {
 
-    private GeneratedCorpusEvaluationReportJson() {
+    private EvaluatorProvidedEvaluationReportJson() {
     }
 
-    static String kitResult(GeneratedCorpusEvaluationResult result) {
-        GeneratedCorpusEvaluationResult safe = Objects.requireNonNull(result, "result");
-        GeneratedCorpusProvenance provenance = safe.provenance();
+    static String kitResult(EvaluatorProvidedDatasetEvaluationResult result) {
+        EvaluatorProvidedDatasetEvaluationResult safe = Objects.requireNonNull(result, "result");
+        EvaluatorProvidedDatasetProvenance provenance = safe.provenance();
         GeneratedCorpusPhaseCounts phases = safe.phaseCounts();
         DetectionEvaluationMetrics metrics = safe.detectionRun().metrics();
         DetectionConfusionMatrix confusion = metrics.confusionMatrix();
@@ -27,7 +24,7 @@ final class GeneratedCorpusEvaluationReportJson {
         StringBuilder json = new StringBuilder();
         json.append('{');
         appendString(json, "resultSchemaVersion", "1", true);
-        appendString(json, "resultId", "result." + provenance.corpusId(), false);
+        appendString(json, "resultId", "result." + provenance.datasetId(), false);
         appendString(
             json,
             "status",
@@ -45,19 +42,16 @@ final class GeneratedCorpusEvaluationReportJson {
         json.append(']');
 
         json.append(",\"provenance\":{");
-        appendString(json, "datasetSource", "generated-corpus", true);
-        appendString(json, "scenarioId", provenance.scenarioId(), false);
-        appendString(json, "scenarioVersion", provenance.scenarioVersion(), false);
-        appendString(json, "scenarioSha256", provenance.scenarioSha256(), false);
-        appendString(json, "corpusId", provenance.corpusId(), false);
-        appendString(json, "corpusSchemaVersion", "1", false);
-        appendString(json, "corpusEventsSha256", provenance.eventsSha256(), false);
-        appendString(json, "annotationsSha256", provenance.annotationsSha256(), false);
-        appendString(json, "seed", provenance.seed(), false);
-        appendString(json, "generatorContractVersion", provenance.generatorContractVersion(), false);
-        appendString(json, "generatorBuildId", provenance.generatorBuildId(), false);
+        appendString(json, "datasetSource", "evaluator-provided", true);
+        appendString(json, "datasetId", provenance.datasetId(), false);
+        appendString(json, "datasetSchemaVersion", provenance.datasetSchemaVersion(), false);
+        appendString(json, "eventsSha256", provenance.eventsSha256(), false);
+        if (provenance.labeled() && !provenance.annotationsSha256().isEmpty()) {
+            appendString(json, "annotationsSha256", provenance.annotationsSha256(), false);
+        }
         appendString(json, "featureSchemaVersion", provenance.featureSchemaVersion(), false);
         appendString(json, "evaluationEventSchemaVersion", provenance.evaluationEventSchemaVersion(), false);
+        appendString(json, "representationMode", provenance.representationMode(), false);
         appendString(json, "aiSentinelVersion", replay.aiSentinelVersion(), false);
         appendString(json, "scorerId", replay.scorerId(), false);
         appendString(json, "scorerVersion", replay.scorerVersion(), false);
@@ -87,23 +81,23 @@ final class GeneratedCorpusEvaluationReportJson {
             .append(escape(DetectionEvaluationEvidenceWriter.JSON_FILE_NAME))
             .append('"');
         json.append(",\"eventInspectionRef\":\"")
-            .append(escape(GeneratedCorpusEvaluationReportWriter.EVENT_INSPECTION_FILE_NAME))
+            .append(escape(EvaluatorProvidedEvaluationReportWriter.EVENT_INSPECTION_FILE_NAME))
             .append('"');
         json.append(",\"htmlReportRef\":\"")
-            .append(escape(GeneratedCorpusEvaluationReportWriter.HTML_REPORT_FILE_NAME))
+            .append(escape(EvaluatorProvidedEvaluationReportWriter.HTML_REPORT_FILE_NAME))
             .append('"');
-        json.append(",\"notes\":\"Controlled synthetic reference-evaluation observations only; not production validation.\"");
+        json.append(",\"notes\":\"Evaluator-provided dataset observations only; not production validation.\"");
         json.append('}');
         return json.toString();
     }
 
-    static String eventInspection(GeneratedCorpusEvaluationResult result) {
-        GeneratedCorpusEvaluationResult safe = Objects.requireNonNull(result, "result");
+    static String eventInspection(EvaluatorProvidedDatasetEvaluationResult result) {
+        EvaluatorProvidedDatasetEvaluationResult safe = Objects.requireNonNull(result, "result");
         StringBuilder json = new StringBuilder();
         json.append('{');
         appendString(json, "inspectionSchemaVersion", "1", true);
-        appendString(json, "corpusId", safe.provenance().corpusId(), false);
-        appendString(json, "scenarioId", safe.provenance().scenarioId(), false);
+        appendString(json, "datasetSource", "evaluator-provided", false);
+        appendString(json, "datasetId", safe.provenance().datasetId(), false);
         appendNumber(json, "eventCount", safe.eventInspections().size(), false);
         appendNumber(
             json,

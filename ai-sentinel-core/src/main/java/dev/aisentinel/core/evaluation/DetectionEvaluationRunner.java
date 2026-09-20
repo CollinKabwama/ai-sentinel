@@ -117,8 +117,9 @@ public final class DetectionEvaluationRunner {
      * Same as {@link #evaluate(ReplayDataset, ReferenceDatasetAnnotations, ReplayConfiguration,
      * DetectionClassificationConfiguration, Path)} but also returns the per-event replay results.
      * <p>
-     * Package-private and used only by {@link GeneratedCorpusDetectionEvaluator} to build
-     * event-level report inspections. Replay results are deliberately kept off the shared public
+     * Package-private and used by {@link GeneratedCorpusDetectionEvaluator} and
+     * {@link EvaluatorProvidedDatasetEvaluator} to build event-level report inspections.
+     * Replay results are deliberately kept off the shared public
      * {@link DetectionEvaluationRun} contract: every other caller of this runner (historical
      * reference evaluation, candidate evaluation, baseline capture) neither needs nor should be
      * forced to retain a full per-event replay-result list.

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Capture the caller's directory before switching to the repository root below, so relative
-# --corpus/--output paths are resolved against where the user actually ran this script from,
+# --corpus/--dataset/--output paths are resolved against where the user actually ran this script from,
 # not against the repository root the script itself needs to build/run from.
 CALLER_DIR="$(pwd)"
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -25,7 +25,7 @@ resolve_path() {
 ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --corpus|--output)
+    --corpus|--output|--dataset)
       ARGS+=("$1")
       shift
       # Only resolve a genuine value; a following "-"-prefixed token is left untouched so the

@@ -13,9 +13,8 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
- * Package-private orchestration for the generated-corpus evaluation command-line entry.
- * Parses arguments, invokes {@link GeneratedCorpusDetectionEvaluator}, formats a terminal
- * summary, and returns a process exit code.
+ * Package-private orchestration for the Evaluation Kit evaluation command-line entry.
+ * Supports generated-corpus ({@code --corpus}) and evaluator-provided ({@code --dataset}) modes.
  */
 final class GeneratedCorpusEvaluationCli {
 
@@ -59,23 +58,25 @@ final class GeneratedCorpusEvaluationCli {
     }
 
     private static int evaluate(ParsedArguments parsed, PrintStream out, PrintStream err) throws IOException {
-        Path corpusDirectory = parsed.corpusDirectory().toAbsolutePath().normalize();
-        if (!Files.exists(corpusDirectory)) {
+        Path inputDirectory = parsed.inputDirectory().toAbsolutePath().normalize();
+        if (!Files.exists(inputDirectory)) {
             throw new GeneratedCorpusEvaluationException(
                 GeneratedCorpusEvaluationFailureKind.MISSING_ARTIFACT,
-                "Corpus directory does not exist: " + corpusDirectory);
+                (parsed.datasetMode() ? "Dataset" : "Corpus") + " directory does not exist: " + inputDirectory);
         }
-        if (!Files.isDirectory(corpusDirectory)) {
+        if (!Files.isDirectory(inputDirectory)) {
             throw new GeneratedCorpusEvaluationException(
                 GeneratedCorpusEvaluationFailureKind.MISSING_ARTIFACT,
-                "Corpus path must be a directory: " + corpusDirectory);
+                (parsed.datasetMode() ? "Dataset" : "Corpus") + " path must be a directory: " + inputDirectory);
         }
 
-        // Evidence writer creates the output directory; the target path must not exist beforehand.
         Path outputDirectory = parsed.outputDirectory();
         boolean temporaryOutput = false;
         if (outputDirectory == null) {
-            outputDirectory = Files.createTempDirectory("ai-sentinel-generated-corpus-eval-");
+            String prefix = parsed.datasetMode()
+                ? "ai-sentinel-evaluator-dataset-eval-"
+                : "ai-sentinel-generated-corpus-eval-";
+            outputDirectory = Files.createTempDirectory(prefix);
             Files.delete(outputDirectory);
             temporaryOutput = true;
         } else {
@@ -92,18 +93,28 @@ final class GeneratedCorpusEvaluationCli {
         }
 
         try {
-            GeneratedCorpusEvaluationResult result = new GeneratedCorpusDetectionEvaluator().evaluate(
-                corpusDirectory,
-                ReplayConfiguration.referenceDefaults(),
-                new DetectionClassificationConfiguration(parsed.anomalyThreshold()),
-                outputDirectory
-            );
-
-            out.print(GeneratedCorpusEvaluationSummaryFormatter.format(result, outputDirectory, temporaryOutput));
+            if (parsed.datasetMode()) {
+                EvaluatorProvidedDatasetEvaluationResult result =
+                    new EvaluatorProvidedDatasetEvaluator().evaluate(
+                        inputDirectory,
+                        ReplayConfiguration.referenceDefaults(),
+                        new DetectionClassificationConfiguration(parsed.anomalyThreshold()),
+                        outputDirectory
+                    );
+                out.print(EvaluatorProvidedEvaluationSummaryFormatter.format(
+                    result, outputDirectory, temporaryOutput));
+            } else {
+                GeneratedCorpusEvaluationResult result = new GeneratedCorpusDetectionEvaluator().evaluate(
+                    inputDirectory,
+                    ReplayConfiguration.referenceDefaults(),
+                    new DetectionClassificationConfiguration(parsed.anomalyThreshold()),
+                    outputDirectory
+                );
+                out.print(GeneratedCorpusEvaluationSummaryFormatter.format(
+                    result, outputDirectory, temporaryOutput));
+            }
             return EXIT_SUCCESS;
         } finally {
-            // Temporary evaluation evidence is deleted when the caller did not request persistent output,
-            // whether evaluation succeeded or failed partway.
             if (temporaryOutput) {
                 deleteRecursively(outputDirectory);
             }
@@ -126,11 +137,12 @@ final class GeneratedCorpusEvaluationCli {
 
     private static ParsedArguments parse(String[] args) {
         if (args == null || args.length == 0) {
-            throw new UsageException("Missing required option: --corpus <directory>");
+            throw new UsageException("Exactly one of --corpus <directory> or --dataset <directory> is required");
         }
 
         boolean help = false;
         Path corpus = null;
+        Path dataset = null;
         Path output = null;
         Double threshold = null;
 
@@ -142,6 +154,10 @@ final class GeneratedCorpusEvaluationCli {
             }
             if ("--corpus".equals(arg)) {
                 corpus = Path.of(requireValue(args, ++i, "--corpus"));
+                continue;
+            }
+            if ("--dataset".equals(arg)) {
+                dataset = Path.of(requireValue(args, ++i, "--dataset"));
                 continue;
             }
             if ("--output".equals(arg)) {
@@ -158,11 +174,17 @@ final class GeneratedCorpusEvaluationCli {
         if (help) {
             return ParsedArguments.help();
         }
-        if (corpus == null) {
-            throw new UsageException("Missing required option: --corpus <directory>");
+        if (corpus != null && dataset != null) {
+            throw new UsageException("--corpus and --dataset are mutually exclusive; provide exactly one");
+        }
+        if (corpus == null && dataset == null) {
+            throw new UsageException("Exactly one of --corpus <directory> or --dataset <directory> is required");
         }
         double resolvedThreshold = threshold == null ? DEFAULT_THRESHOLD : threshold;
-        return new ParsedArguments(false, corpus, output, resolvedThreshold);
+        if (dataset != null) {
+            return new ParsedArguments(false, true, dataset, output, resolvedThreshold);
+        }
+        return new ParsedArguments(false, false, corpus, output, resolvedThreshold);
     }
 
     private static String requireValue(String[] args, int index, String option) {
@@ -192,14 +214,22 @@ final class GeneratedCorpusEvaluationCli {
     static void printHelp(PrintStream stream) {
         stream.println("Usage:");
         stream.println("  evaluate-generated-corpus --corpus <directory> [--output <directory>] [--threshold <0..1>]");
+        stream.println("  evaluate-generated-corpus --dataset <directory> [--output <directory>] [--threshold <0..1>]");
         stream.println();
-        stream.println("Evaluate one generated Evaluation Kit corpus directory (controlled reference-corpus");
-        stream.println("evaluation). Resolves Kit corpus-manifest, replay manifest, events, and ground-truth");
-        stream.println("annotations from the directory. Does not require writing Java or assembling Maven modules.");
+        stream.println("Evaluate one Evaluation Kit input directory. Exactly one of --corpus or --dataset is");
+        stream.println("required. Does not require writing Java or assembling Maven modules.");
+        stream.println();
+        stream.println("Modes:");
+        stream.println("  --corpus   Generated Evaluation Kit corpus (corpus-manifest + replay manifest +");
+        stream.println("             events + annotations). Controlled reference-corpus evaluation.");
+        stream.println("  --dataset  Evaluator-provided (BYO) dataset (dataset-manifest + events + optional");
+        stream.println("             annotations). Does not use generator seed/build provenance.");
         stream.println();
         stream.println("Options:");
-        stream.println("  --corpus <directory>     Required. Corpus directory path (relative or absolute;");
-        stream.println("                           relative paths resolve against your current directory).");
+        stream.println("  --corpus <directory>     Generated corpus directory (mutually exclusive with --dataset).");
+        stream.println("                           Relative paths resolve against your current directory.");
+        stream.println("  --dataset <directory>    Evaluator-provided dataset directory (mutually exclusive with");
+        stream.println("                           --corpus). Relative paths resolve against your current directory.");
         stream.println("  --output <directory>     Optional. Evidence + report output directory (temp if omitted).");
         stream.println("                           Writes kit-evaluation-result.json, event-inspection.json,");
         stream.println("                           evaluation-report.html, and specialized detection evidence.");
@@ -208,11 +238,11 @@ final class GeneratedCorpusEvaluationCli {
         stream.println();
         stream.println("Exit codes:");
         stream.println("  0  Evaluation succeeded");
-        stream.println("  1  Corpus load / integrity / ground-truth / evaluation failure");
+        stream.println("  1  Load / integrity / ground-truth / evaluation failure");
         stream.println("  2  Invalid usage");
         stream.println();
         stream.println("Evidence boundaries:");
-        stream.println("  Synthetic evaluation is not production validation.");
+        stream.println("  Synthetic / BYO evaluation is not production validation.");
         stream.println("  Evaluation is not deployment.");
         stream.println("  Ground truth is not detector input.");
         stream.println("  Undefined metrics print as unavailable (not fabricated zeros).");
@@ -220,12 +250,13 @@ final class GeneratedCorpusEvaluationCli {
 
     private record ParsedArguments(
         boolean helpRequested,
-        Path corpusDirectory,
+        boolean datasetMode,
+        Path inputDirectory,
         Path outputDirectory,
         double anomalyThreshold
     ) {
         static ParsedArguments help() {
-            return new ParsedArguments(true, null, null, DEFAULT_THRESHOLD);
+            return new ParsedArguments(true, false, null, null, DEFAULT_THRESHOLD);
         }
     }
 

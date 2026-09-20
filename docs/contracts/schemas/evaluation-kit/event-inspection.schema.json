@@ -2,19 +2,24 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://aisentinel.dev/schemas/evaluation-kit/event-inspection.schema.json",
   "title": "Evaluation Kit Event Inspection",
-  "description": "Event-level join of authored ground truth with runtime replay outcomes for generated-corpus evaluation reports.",
+  "description": "Event-level join of authored ground truth with runtime replay outcomes for Kit evaluation reports (generated corpus or evaluator-provided dataset).",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "inspectionSchemaVersion",
-    "corpusId",
-    "scenarioId",
     "eventCount",
     "events"
   ],
   "properties": {
     "inspectionSchemaVersion": {
       "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "datasetSource": {
+      "type": "string",
+      "enum": ["generated-corpus", "evaluator-provided"]
+    },
+    "datasetId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
     },
     "corpusId": {
       "$ref": "common.schema.json#/$defs/nonEmptyString"
@@ -72,5 +77,41 @@
         }
       }
     }
-  }
+  },
+  "allOf": [
+    {
+      "if": {
+        "anyOf": [
+          { "required": ["corpusId"] },
+          {
+            "properties": { "datasetSource": { "const": "generated-corpus" } },
+            "required": ["datasetSource"]
+          },
+          {
+            "allOf": [
+              { "not": { "required": ["datasetSource"] } },
+              { "not": { "required": ["datasetId"] } }
+            ]
+          }
+        ]
+      },
+      "then": {
+        "required": ["corpusId", "scenarioId"],
+        "not": { "required": ["datasetId"] }
+      }
+    },
+    {
+      "if": {
+        "properties": { "datasetSource": { "const": "evaluator-provided" } },
+        "required": ["datasetSource"]
+      },
+      "then": {
+        "required": ["datasetSource", "datasetId"],
+        "not": { "anyOf": [
+          { "required": ["corpusId"] },
+          { "required": ["scenarioId"] }
+        ] }
+      }
+    }
+  ]
 }
