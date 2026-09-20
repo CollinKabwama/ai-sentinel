@@ -1,0 +1,66 @@
+# Local-only container packaging for the Evaluation Kit generated-corpus evaluator.
+# Builds ai-sentinel-core and runs the existing GeneratedCorpusEvaluationMain entry.
+# Does not publish an image registry artifact and is not a production deployment image.
+
+# syntax=docker/dockerfile:1.6
+
+ARG MAVEN_IMAGE=maven:3.9.9-eclipse-temurin-21
+ARG RUNTIME_IMAGE=eclipse-temurin:21.0.6_7-jre-jammy
+
+FROM ${MAVEN_IMAGE} AS build
+WORKDIR /build
+
+# Parent reactor POMs must exist for Maven project resolution; only core sources are compiled.
+COPY pom.xml ./
+COPY ai-sentinel-core/pom.xml ai-sentinel-core/pom.xml
+COPY ai-sentinel-spring-boot-starter/pom.xml ai-sentinel-spring-boot-starter/pom.xml
+COPY ai-sentinel-trainer/pom.xml ai-sentinel-trainer/pom.xml
+COPY ai-sentinel-demo/pom.xml ai-sentinel-demo/pom.xml
+COPY ai-sentinel-benchmark/pom.xml ai-sentinel-benchmark/pom.xml
+COPY ai-sentinel-core/src ai-sentinel-core/src
+
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -B -ntp -pl ai-sentinel-core -am package -DskipTests \
+      dependency:copy-dependencies \
+      -DincludeScope=runtime \
+      -DoutputDirectory=/build/runtime-lib
+
+# ai-sentinel-core declares slf4j-api at compile scope but no runtime binding, so consuming
+# applications choose one (the Spring Boot starter/demo bring logback transitively; the host
+# evaluation script's classpath incidentally resolves logback-classic, a test-scope dependency
+# of ai-sentinel-core). This container has no such consumer, so without a binding SLF4J prints
+# its "no providers found" warning to stderr on every run, including successful ones. Adding
+# slf4j-nop here (container-only, not a change to ai-sentinel-core's own dependencies) satisfies
+# SLF4J's provider requirement with a true no-op logger, matching the evaluator's existing
+# observed behavior of producing no log output on the console.
+RUN --mount=type=cache,target=/root/.m2 \
+    mvn -B -ntp dependency:copy \
+      -Dartifact=org.slf4j:slf4j-nop:2.0.13:jar \
+      -DoutputDirectory=/build/runtime-lib
+
+FROM ${RUNTIME_IMAGE} AS runtime
+
+LABEL org.opencontainers.image.title="AI-Sentinel Evaluation Kit" \
+      org.opencontainers.image.description="Local containerized runner for the generated-corpus Evaluation Kit evaluator in ai-sentinel-core." \
+      org.opencontainers.image.source="https://github.com/CollinKabwama/ai-sentinel" \
+      org.opencontainers.image.licenses="Apache-2.0"
+
+RUN groupadd --system --gid 10001 aisentinel \
+ && useradd --system --uid 10001 --gid aisentinel --home-dir /home/aisentinel --create-home aisentinel \
+ && mkdir -p /opt/ai-sentinel/lib /work \
+ && chown -R aisentinel:aisentinel /opt/ai-sentinel /work /home/aisentinel
+
+COPY --from=build --chown=aisentinel:aisentinel \
+  /build/ai-sentinel-core/target/ai-sentinel-core-*.jar /opt/ai-sentinel/ai-sentinel-core.jar
+COPY --from=build --chown=aisentinel:aisentinel \
+  /build/runtime-lib/ /opt/ai-sentinel/lib/
+COPY --chown=aisentinel:aisentinel --chmod=755 \
+  docker/evaluation-kit/docker-entrypoint.sh /opt/ai-sentinel/docker-entrypoint.sh
+
+USER aisentinel
+WORKDIR /work
+
+# No default corpus is bundled. Callers mount a corpus directory and optional output directory.
+# No default CMD: an empty argument list reaches GeneratedCorpusEvaluationMain (usage exit 2),
+# matching the host CLI. Pass --help explicitly for usage on stdout.
+ENTRYPOINT ["/opt/ai-sentinel/docker-entrypoint.sh"]

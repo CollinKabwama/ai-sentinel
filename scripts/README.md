@@ -118,6 +118,12 @@ Details: [`docs/performance/BENCHMARKING.md`](../docs/performance/BENCHMARKING.m
 
 These scripts operate on the tracked synthetic corpus under [`evaluation/reference/`](../evaluation/reference/). They do not establish an official detection baseline.
 
+For generated-corpus Evaluation Kit evaluation, prefer
+[`scripts/evaluate-generated-corpus.sh`](evaluate-generated-corpus.sh) on a host with JDK 21 + Maven,
+or the optional local container image built from [`Dockerfile.evaluation-kit`](../Dockerfile.evaluation-kit)
+(see [`docs/contracts/EVALUATION_KIT.md`](../docs/contracts/EVALUATION_KIT.md) §13). The container reuses the
+same Java entry point and is not published to a registry by this packaging path.
+
 ### Regenerate / compare reference dataset (`generate-reference-dataset.sh`)
 
 ```bash
