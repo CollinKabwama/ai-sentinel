@@ -5,7 +5,7 @@ Normative contract foundations for the AI-Sentinel Evaluation Kit.
 JSON is the **normative machine representation** for schemas and fixtures in this package.
 JSON does **not** permanently constrain human authoring UX: later CLI/tooling may accept YAML or other conveniences that normalize to the same logical contract.
 
-This document defines Evaluation Kit contracts. It does not claim production efficacy and does not change production runtime decision behavior. A deterministic corpus generator for feature-level scenario families lives in core; a versioned repository reference inventory is checked in under `evaluation/kit-reference/`. A repository one-command evaluation CLI is available via `scripts/evaluate-generated-corpus.sh`. When `--output` is supplied, the CLI writes machine-readable Kit evaluation-result JSON, event-inspection JSON, a self-contained HTML evaluation report, and specialized detection evidence beside each other. Containers, BYO datasets, and comparison product surfaces are not currently supported.
+This document defines Evaluation Kit contracts. It does not claim production efficacy and does not change production runtime decision behavior. A deterministic corpus generator for feature-level scenario families lives in core; a versioned repository reference inventory is checked in under `evaluation/kit-reference/`. A repository one-command evaluation CLI is available via `scripts/evaluate-generated-corpus.sh`. When `--output` is supplied, the CLI writes machine-readable Kit evaluation-result JSON, event-inspection JSON, a self-contained HTML evaluation report, and specialized detection evidence beside each other. An optional local container image (`Dockerfile.evaluation-kit`) packages the same evaluator without requiring a host JDK/Maven install at runtime; BYO datasets and comparison product surfaces are not currently supported.
 
 Current schema versions for Kit machine contracts in this package: `"1"`.
 
@@ -47,11 +47,11 @@ Existing `evaluation/reference/` is a **historical seed instance**, not the Kit 
 |------|------------------|
 | **Module boundary** | Evaluation Kit execution, report projection, corpus generation helpers, and the repository CLI entry live in **`ai-sentinel-core`** (`dev.aisentinel.core.evaluation`, `dev.aisentinel.core.dataset.corpus`, `dev.aisentinel.core.replay`). |
 | **Artifact boundary** | No separate Evaluation Kit Maven module or artifact. Kit capabilities ship inside `dev.aisentinel:ai-sentinel-core` when that artifact is released. |
-| **Distribution boundary** | Evaluators obtain and run the Kit via **repository checkout** + **`scripts/evaluate-generated-corpus.sh`** (JDK 21 + Maven required). There is no separate executable packaging or container image at this stage. |
+| **Distribution boundary** | Primary evaluator front door remains **repository checkout** + **`scripts/evaluate-generated-corpus.sh`** (host JDK 21 + Maven). An optional **local** container image (`Dockerfile.evaluation-kit`) packages the same `GeneratedCorpusEvaluationMain` entry so runtime evaluation does not require a host JDK/Maven install. There is no published registry image and no separate executable installer. |
 | **Publication boundary** | No Evaluation Kit–specific Maven Central artifact. Published library coordinates remain the existing release set (`ai-sentinel`, `ai-sentinel-core`, `ai-sentinel-spring-boot-starter`). Benchmark, trainer, and demo remain non-Central libraries. |
 | **Schema ownership** | Authoritative machine schemas remain under [`docs/contracts/schemas/evaluation-kit/`](schemas/evaluation-kit/). Do not duplicate them into classpath copies unless a future packaging change introduces a single build-owned source. |
 
-**Rationale (durable):** generated-corpus evaluation reuses the same offline replay and detection-evaluation pipeline that already lives in core. Splitting a module now would not remove JDK/Maven or repository requirements for the reference path, would enlarge the reactor without improving evaluator UX, and would risk freezing a separate Java API before external-dataset and comparison surfaces exist. Container packaging remains a later distribution step.
+**Rationale (durable):** generated-corpus evaluation reuses the same offline replay and detection-evaluation pipeline that already lives in core. Splitting a module now would enlarge the reactor without changing evaluator semantics or removing the repository-based reference path. A local container packages that same core evaluator for language-neutral runtime use; it is not a second evaluator and does not introduce a Kit Maven coordinate.
 
 Dependency direction for Evaluation Kit tooling remains:
 
@@ -396,7 +396,7 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 | Versioned reference corpus inventory | Checked in under `evaluation/kit-reference/` |
 | One-command generated-corpus evaluation CLI | Available via `scripts/evaluate-generated-corpus.sh` |
 | JSON + HTML evaluation reports / event inspection | Written under `--output` (`kit-evaluation-result.json`, `event-inspection.json`, `evaluation-report.html`) |
-| Container packaging | Not currently supported (later packaging path) |
+| Container packaging | Local image build via `Dockerfile.evaluation-kit` (not published to a registry) |
 | BYO datasets / comparison UX | Not currently supported |
 | Separate Evaluation Kit Maven module / Central artifact | Not created at this stage |
 
@@ -425,11 +425,72 @@ scripts/validate-evaluation-kit-contracts.sh
 
 ---
 
-## 13. Non-goals of this contract package
+## 13. Containerized evaluator (local packaging)
+
+The container is a packaging/distribution surface around the existing generated-corpus evaluator.
+It does **not** redefine evaluation, report schemas, or detection semantics.
+
+### Build (local only)
+
+From the repository root (Docker required):
+
+```bash
+docker build -f Dockerfile.evaluation-kit -t ai-sentinel-evaluation-kit:local .
+```
+
+The resulting tag is a **local** image name. This repository does not publish the Evaluation Kit
+image to Docker Hub, GHCR, or another registry as part of this packaging path.
+
+### Run
+
+Mount a corpus directory read-only and an empty host output directory for persistent evidence:
+
+```bash
+docker run --rm \
+  --network=none \
+  -v "$PWD/evaluation/kit-reference/corpora/kit.abrupt-burst:/input:ro" \
+  -v "$PWD/out:/output" \
+  ai-sentinel-evaluation-kit:local \
+  --corpus /input \
+  --output /output
+```
+
+Path semantics inside the container are ordinary absolute paths. `/input` and `/output` are
+recommended mount points, not hard-coded evaluator requirements.
+
+Expected persistent artifacts (unchanged from the host CLI):
+
+1. `evaluation.json`
+2. `evaluation.md`
+3. `kit-evaluation-result.json`
+4. `event-inspection.json`
+5. `evaluation-report.html`
+
+### Behavior notes
+
+| Topic | Behavior |
+|-------|----------|
+| Entrypoint | `GeneratedCorpusEvaluationMain` (same CLI/exit codes as the host script) |
+| No `--output` | Terminal summary only; temporary evidence is created under the container `/tmp` and deleted before exit |
+| No args | Exit `2` with usage on stderr |
+| `--help` | Exit `0` |
+| Corpus mount | Prefer `:ro`; the evaluator does not mutate the corpus tree |
+| Runtime network | Not required after the image is built (verify with `--network=none`) |
+| Read-only root FS | Supported when `/tmp` is writable (for example `--read-only --tmpfs /tmp`) and output is a writable mount |
+| Image user | Non-root UID `10001` |
+| Output file ownership | On Docker Desktop, bind-mounted output is typically surfaced as the host user. On native Linux, files created under a bind-mounted `--output` directory are owned by the container UID (`10001`) unless the container is run with an explicit host UID/GID mapping. |
+| Reference corpora | Not bundled in the image; mount `evaluation/kit-reference/corpora/...` (or another corpus directory) |
+| Schemas | Authoritative schemas remain under `docs/contracts/schemas/evaluation-kit/` on the host; the image does not introduce a second schema source |
+
+Containerized evaluator ≠ production deployment image. Synthetic evaluation ≠ production validation.
+
+---
+
+## 14. Non-goals of this contract package
 
 - No new Maven module (Evaluation Kit remains in `ai-sentinel-core` at this stage)
 - No Evaluation Kit–specific Maven Central publication
-- No container packaging in this contract package
+- No published Evaluation Kit container registry artifact in this packaging path
 - No production runtime decision-behavior change
 - No modification of historical evidence or the `v0.4.0` release tag
 - No production-efficacy claims
