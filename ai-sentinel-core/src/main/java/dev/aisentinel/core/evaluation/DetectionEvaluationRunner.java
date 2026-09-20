@@ -90,6 +90,25 @@ public final class DetectionEvaluationRunner {
                                            Path outputDirectory) throws IOException {
         Path safeDatasetDirectory = requireExistingDirectory(datasetDirectory, "datasetDirectory");
         Path safeAnnotationsFile = requireExistingFile(annotationsFile, "annotationsFile");
+        ReplayDataset dataset = datasetLoader.load(safeDatasetDirectory, safeAnnotationsFile);
+        ReferenceDatasetAnnotations annotations = annotationsLoader.load(safeAnnotationsFile);
+        return evaluate(dataset, annotations, replayConfiguration, classification, outputDirectory);
+    }
+
+    /**
+     * Executes detection evaluation from an already-loaded replay dataset and annotations.
+     * Used for generated Evaluation Kit corpora after ground-truth adaptation.
+     * <p>
+     * Package-private: {@link GeneratedCorpusDetectionEvaluator} is the public entry point for
+     * that path; no cross-package caller currently needs this overload directly.
+     */
+    DetectionEvaluationRun evaluate(ReplayDataset dataset,
+                                    ReferenceDatasetAnnotations annotations,
+                                    ReplayConfiguration replayConfiguration,
+                                    DetectionClassificationConfiguration classification,
+                                    Path outputDirectory) throws IOException {
+        ReplayDataset safeDataset = Objects.requireNonNull(dataset, "dataset");
+        ReferenceDatasetAnnotations safeAnnotations = Objects.requireNonNull(annotations, "annotations");
         ReplayConfiguration safeReplayConfiguration =
             Objects.requireNonNull(replayConfiguration, "replayConfiguration");
         DetectionClassificationConfiguration safeClassification =
@@ -97,25 +116,24 @@ public final class DetectionEvaluationRunner {
         Path safeOutputDirectory = Objects.requireNonNull(outputDirectory, "outputDirectory")
             .toAbsolutePath()
             .normalize();
-
-        ReplayDataset dataset = datasetLoader.load(safeDatasetDirectory, safeAnnotationsFile);
-        ReferenceDatasetAnnotations annotations = annotationsLoader.load(safeAnnotationsFile);
-        requireDatasetAnnotationConsistency(dataset, annotations);
+        // Same full consistency check as the file-path entry point (datasetId + schemaVersion +
+        // scenarioCount) — this overload must not accept a weaker guarantee than that one.
+        requireDatasetAnnotationConsistency(safeDataset, safeAnnotations);
 
         Path replayDirectory = Files.createTempDirectory("detection-evaluation-replay-");
         try {
             ReplayEngine.ReplayRun replayRun =
-                replayEngine.run(dataset, safeReplayConfiguration, replayDirectory);
-            replayOutputValidator.validate(replayDirectory, dataset, safeReplayConfiguration);
+                replayEngine.run(safeDataset, safeReplayConfiguration, replayDirectory);
+            replayOutputValidator.validate(replayDirectory, safeDataset, safeReplayConfiguration);
 
             ReferenceEvaluationAlignment alignment =
-                aligner.align(dataset, annotations, replayRun.results(), predictionSource(safeReplayConfiguration));
+                aligner.align(safeDataset, safeAnnotations, replayRun.results(), predictionSource(safeReplayConfiguration));
             DetectionEvaluationMetrics metrics =
                 metricsCalculator.compute(alignment, safeClassification);
             TemporalDetectionEvaluation temporal =
                 temporalEvaluator.evaluate(alignment, safeClassification);
             DetectionEvaluationEvidence evidence = evidenceGenerator.generate(
-                dataset,
+                safeDataset,
                 alignment,
                 replayRun.manifest(),
                 metrics,
