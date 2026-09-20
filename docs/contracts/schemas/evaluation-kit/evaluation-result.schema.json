@@ -68,25 +68,25 @@
     "provenance": {
       "type": "object",
       "additionalProperties": false,
-      "required": [
-        "scenarioId",
-        "scenarioVersion",
-        "corpusId",
-        "corpusSchemaVersion",
-        "seed",
-        "generatorContractVersion",
-        "generatorBuildId",
-        "featureSchemaVersion",
-        "evaluationEventSchemaVersion",
-        "aiSentinelVersion"
-      ],
       "properties": {
+        "datasetSource": {
+          "type": "string",
+          "enum": ["generated-corpus", "evaluator-provided"],
+          "description": "Discriminator for provenance variants. Absent or generated-corpus retains generator/corpus fields; evaluator-provided uses dataset identity and forbids generator fields."
+        },
         "scenarioId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
         "scenarioVersion": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
         "scenarioSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
         "corpusId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
         "corpusSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
         "corpusEventsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+        "datasetId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "datasetSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "eventsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+        "representationMode": {
+          "type": "string",
+          "enum": ["request-like", "feature-level", "both"]
+        },
         "annotationId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
         "annotationsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
         "seed": { "$ref": "common.schema.json#/$defs/seed" },
@@ -103,7 +103,67 @@
         "replayRunManifestRef": { "type": "string" },
         "candidateProvenanceRef": { "type": "string" },
         "reproducibilityManifestRef": { "type": "string" }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              { "not": { "required": ["datasetSource"] } },
+              {
+                "properties": { "datasetSource": { "const": "generated-corpus" } }
+              }
+            ]
+          },
+          "then": {
+            "required": [
+              "scenarioId",
+              "scenarioVersion",
+              "corpusId",
+              "corpusSchemaVersion",
+              "seed",
+              "generatorContractVersion",
+              "generatorBuildId",
+              "featureSchemaVersion",
+              "evaluationEventSchemaVersion",
+              "aiSentinelVersion"
+            ],
+            "allOf": [
+              { "not": { "required": ["datasetId"] } },
+              { "not": { "required": ["datasetSchemaVersion"] } },
+              { "not": { "required": ["eventsSha256"] } },
+              { "not": { "required": ["representationMode"] } }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": { "datasetSource": { "const": "evaluator-provided" } },
+            "required": ["datasetSource"]
+          },
+          "then": {
+            "required": [
+              "datasetId",
+              "datasetSchemaVersion",
+              "eventsSha256",
+              "featureSchemaVersion",
+              "evaluationEventSchemaVersion",
+              "aiSentinelVersion",
+              "representationMode"
+            ],
+            "allOf": [
+              { "not": { "required": ["seed"] } },
+              { "not": { "required": ["generatorBuildId"] } },
+              { "not": { "required": ["generatorContractVersion"] } },
+              { "not": { "required": ["corpusId"] } },
+              { "not": { "required": ["scenarioId"] } },
+              { "not": { "required": ["scenarioVersion"] } },
+              { "not": { "required": ["scenarioSha256"] } },
+              { "not": { "required": ["corpusSchemaVersion"] } },
+              { "not": { "required": ["corpusEventsSha256"] } }
+            ]
+          }
+        }
+      ]
     },
     "artifactBindings": {
       "type": "array",

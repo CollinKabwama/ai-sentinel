@@ -1,0 +1,13 @@
+{
+  "annotationSchemaVersion": "1",
+  "annotationId": "ann.byo.invalid.both-ids",
+  "corpusId": "corpus.should.not.appear",
+  "datasetId": "byo.should.not.appear",
+  "annotations": [
+    {
+      "eventId": "evt-1",
+      "expectedClass": "benign",
+      "category": "warmup"
+    }
+  ]
+}

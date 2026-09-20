@@ -48,6 +48,7 @@ class GeneratedCorpusEvaluationReportWriterTest {
         assertThat(kit).contains("\"resultSchemaVersion\":\"1\"");
         assertThat(kit).contains("\"resultId\":\"result." + result.provenance().corpusId() + "\"");
         assertThat(kit).contains("\"status\":\"completed_with_limitations\"");
+        assertThat(kit).contains("\"datasetSource\":\"generated-corpus\"");
         assertThat(kit).contains("\"corpusId\":\"" + result.provenance().corpusId() + "\"");
         assertThat(kit).contains("\"scenarioId\":\"" + result.provenance().scenarioId() + "\"");
         assertThat(kit).contains("\"seed\":\"" + result.provenance().seed() + "\"");

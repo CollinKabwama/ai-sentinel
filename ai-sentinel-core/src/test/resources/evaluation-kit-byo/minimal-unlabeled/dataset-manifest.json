@@ -1,0 +1,15 @@
+{
+  "datasetSchemaVersion": "1",
+  "datasetId": "byo.minimal.unlabeled.001",
+  "featureSchemaVersion": "1",
+  "evaluationEventSchemaVersion": "1",
+  "representationMode": "feature-level",
+  "ordering": "append-order",
+  "events": {
+    "role": "events",
+    "path": "events.jsonl",
+    "sha256": "1a96d9b37894c49f9b105bb435f7aefac7e4d9e631153e3e2fa9b29ae947de87"
+  },
+  "eventCount": 4,
+  "notes": "Tiny unlabeled BYO fixture."
+}

@@ -17,6 +17,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -36,34 +37,51 @@ public final class ReplayDatasetLoader {
 
         String manifestText = Files.readString(manifestPath, StandardCharsets.UTF_8);
         byte[] eventBytes = Files.readAllBytes(eventsPath);
-        String eventsText = new String(eventBytes, StandardCharsets.UTF_8);
-        String eventsSha256 = TrainingFingerprintHashes.sha256HexBytes(eventBytes);
         EvaluationDatasetManifest manifest = parseManifest(manifestText);
-        if (!manifest.eventsSha256().equals(eventsSha256)) {
-            throw new ReplayException(ReplayFailureKind.DATASET_VALIDATION_FAILURE, "Dataset checksum mismatch");
-        }
-        if (manifest.recordCount() <= 0) {
-            throw new ReplayException(ReplayFailureKind.DATASET_VALIDATION_FAILURE, "Dataset recordCount must be > 0");
-        }
-        if (!EvaluationDatasetSchemas.ORDERING_APPEND_ORDER.equals(manifest.ordering())) {
-            throw new ReplayException(ReplayFailureKind.UNSUPPORTED_SCHEMA, "Unsupported dataset ordering");
-        }
-        if (!EvaluationDatasetSchemas.EVENTS_FILE_NAME.equals(manifest.eventsFile())) {
-            throw new ReplayException(ReplayFailureKind.DATASET_VALIDATION_FAILURE, "Unsupported events file name");
-        }
-
-        List<ReplayDataset.ReplaySourceEvent> events = parseEvents(eventsText);
-        if (events.size() != manifest.recordCount()) {
-            throw new ReplayException(ReplayFailureKind.DATASET_VALIDATION_FAILURE, "Manifest recordCount mismatch");
-        }
-        requireUniqueEventIds(events);
-
         ReplayDataset.AnnotationMetadata annotations = ReplayDataset.AnnotationMetadata.absent(manifest.datasetId());
         if (annotationsPath != null) {
             requireExists(annotationsPath);
             annotations = parseAnnotations(Files.readString(annotationsPath, StandardCharsets.UTF_8), manifest.datasetId());
         }
-        return new ReplayDataset(manifest, eventsSha256, events, annotations);
+        return fromManifestAndEvents(manifest, eventBytes, annotations);
+    }
+
+    /**
+     * Builds a {@link ReplayDataset} from an in-memory manifest and events JSONL bytes.
+     * Used by evaluator-provided (BYO) datasets that do not ship a separate replay {@code manifest.json}.
+     */
+    public ReplayDataset fromManifestAndEvents(
+        EvaluationDatasetManifest manifest,
+        byte[] eventBytes,
+        ReplayDataset.AnnotationMetadata annotations
+    ) {
+        EvaluationDatasetManifest safeManifest = Objects.requireNonNull(manifest, "manifest");
+        byte[] safeBytes = Objects.requireNonNull(eventBytes, "eventBytes");
+        ReplayDataset.AnnotationMetadata safeAnnotations = annotations == null
+            ? ReplayDataset.AnnotationMetadata.absent(safeManifest.datasetId())
+            : annotations;
+
+        String eventsSha256 = TrainingFingerprintHashes.sha256HexBytes(safeBytes);
+        if (!safeManifest.eventsSha256().equals(eventsSha256)) {
+            throw new ReplayException(ReplayFailureKind.DATASET_VALIDATION_FAILURE, "Dataset checksum mismatch");
+        }
+        if (safeManifest.recordCount() <= 0) {
+            throw new ReplayException(ReplayFailureKind.DATASET_VALIDATION_FAILURE, "Dataset recordCount must be > 0");
+        }
+        if (!EvaluationDatasetSchemas.ORDERING_APPEND_ORDER.equals(safeManifest.ordering())) {
+            throw new ReplayException(ReplayFailureKind.UNSUPPORTED_SCHEMA, "Unsupported dataset ordering");
+        }
+        if (!EvaluationDatasetSchemas.EVENTS_FILE_NAME.equals(safeManifest.eventsFile())) {
+            throw new ReplayException(ReplayFailureKind.DATASET_VALIDATION_FAILURE, "Unsupported events file name");
+        }
+
+        List<ReplayDataset.ReplaySourceEvent> events =
+            parseEvents(new String(safeBytes, StandardCharsets.UTF_8));
+        if (events.size() != safeManifest.recordCount()) {
+            throw new ReplayException(ReplayFailureKind.DATASET_VALIDATION_FAILURE, "Manifest recordCount mismatch");
+        }
+        requireUniqueEventIds(events);
+        return new ReplayDataset(safeManifest, eventsSha256, events, safeAnnotations);
     }
 
     private static void requireExists(Path path) {

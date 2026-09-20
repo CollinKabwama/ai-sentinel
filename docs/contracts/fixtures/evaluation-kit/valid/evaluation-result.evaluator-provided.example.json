@@ -1,0 +1,52 @@
+{
+  "resultSchemaVersion": "1",
+  "resultId": "result.byo.example.minimal.001",
+  "status": "completed_with_limitations",
+  "limitations": [
+    "Evaluator-provided dataset evaluation is not production validation."
+  ],
+  "provenance": {
+    "datasetSource": "evaluator-provided",
+    "datasetId": "byo.example.minimal.001",
+    "datasetSchemaVersion": "1",
+    "eventsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "annotationsSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "featureSchemaVersion": "1",
+    "evaluationEventSchemaVersion": "1",
+    "representationMode": "feature-level",
+    "aiSentinelVersion": "0.4.0",
+    "scorerId": "statistical-baseline",
+    "scorerVersion": "1"
+  },
+  "artifactBindings": [
+    {
+      "role": "events",
+      "path": "events.jsonl",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "role": "annotations",
+      "path": "annotations.json",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "metricFamilies": {
+    "structural": {
+      "availability": "available",
+      "values": {
+        "eventCount": 4
+      }
+    },
+    "detectionLabeled": {
+      "availability": "available",
+      "values": {
+        "truePositives": 1,
+        "falsePositives": 0
+      }
+    }
+  },
+  "detectionEvidenceRef": "evaluation.json",
+  "eventInspectionRef": "event-inspection.json",
+  "htmlReportRef": "evaluation-report.html",
+  "notes": "Evaluator-provided dataset observations only; not production validation."
+}

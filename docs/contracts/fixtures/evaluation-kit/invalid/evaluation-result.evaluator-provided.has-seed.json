@@ -1,0 +1,22 @@
+{
+  "resultSchemaVersion": "1",
+  "resultId": "result.byo.invalid.has-seed",
+  "status": "completed",
+  "provenance": {
+    "datasetSource": "evaluator-provided",
+    "datasetId": "byo.example.invalid.seed",
+    "datasetSchemaVersion": "1",
+    "eventsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "featureSchemaVersion": "1",
+    "evaluationEventSchemaVersion": "1",
+    "representationMode": "feature-level",
+    "aiSentinelVersion": "0.4.0",
+    "seed": "42"
+  },
+  "metricFamilies": {
+    "structural": {
+      "availability": "unavailable",
+      "reason": "invalid fixture"
+    }
+  }
+}

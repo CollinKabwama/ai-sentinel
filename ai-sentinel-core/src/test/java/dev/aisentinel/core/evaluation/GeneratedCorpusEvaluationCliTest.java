@@ -26,7 +26,9 @@ class GeneratedCorpusEvaluationCliTest {
         assertThat(capture.exitCode()).isEqualTo(GeneratedCorpusEvaluationCli.EXIT_SUCCESS);
         assertThat(capture.stdout()).contains("Usage:");
         assertThat(capture.stdout()).contains("--corpus");
-        assertThat(capture.stdout()).contains("Synthetic evaluation is not production validation");
+        assertThat(capture.stdout()).contains("--dataset");
+        assertThat(capture.stdout()).contains("mutually exclusive");
+        assertThat(capture.stdout()).contains("Synthetic / BYO evaluation is not production validation");
         assertThat(capture.stdout()).doesNotContain("NaN");
         assertThat(capture.stdout()).doesNotContain("Infinity");
         assertNoInternalMetadata(capture.stdout());
@@ -36,8 +38,19 @@ class GeneratedCorpusEvaluationCliTest {
     void missingCorpusOptionIsUsageFailure() {
         Capture capture = run();
         assertThat(capture.exitCode()).isEqualTo(GeneratedCorpusEvaluationCli.EXIT_USAGE);
-        assertThat(capture.stderr()).contains("Missing required option: --corpus");
+        assertThat(capture.stderr()).contains("Exactly one of --corpus");
+        assertThat(capture.stderr()).contains("--dataset");
         assertThat(capture.stderr()).contains("Usage:");
+    }
+
+    @Test
+    void corpusAndDatasetMutualExclusionIsUsageFailure() {
+        Capture capture = run(
+            "--corpus", corpus("kit.established-normal").toString(),
+            "--dataset", tempDir.resolve("byo").toString()
+        );
+        assertThat(capture.exitCode()).isEqualTo(GeneratedCorpusEvaluationCli.EXIT_USAGE);
+        assertThat(capture.stderr()).contains("mutually exclusive");
     }
 
     @Test
