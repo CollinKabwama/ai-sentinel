@@ -5,7 +5,7 @@ Normative contract foundations for the AI-Sentinel Evaluation Kit.
 JSON is the **normative machine representation** for schemas and fixtures in this package.
 JSON does **not** permanently constrain human authoring UX: later CLI/tooling may accept YAML or other conveniences that normalize to the same logical contract.
 
-This document is **contract-only**. It does not claim production efficacy, does not change production runtime behavior, and does not implement a generator, CLI, container, or new Java public API.
+This document defines Evaluation Kit contracts. It does not claim production efficacy and does not change production runtime decision behavior. A deterministic corpus-generator MVP for one scenario family lives in core; CLI, container, and HTML productization remain out of scope for this package.
 
 Current schema versions for Kit machine contracts in this package: `"1"`.
 
@@ -21,7 +21,7 @@ Current schema versions for Kit machine contracts in this package: `"1"`.
 
 **Scenario ≠ Generator ≠ Corpus.**
 
-Existing `evaluation/reference/` is a **historical seed instance**, not the Kit generative architecture. Deterministic corpus generation is a later implementation concern; this package defines the contracts only.
+Existing `evaluation/reference/` is a **historical seed instance**, not the Kit generative architecture. Deterministic corpus generation for Kit scenarios is implemented as an MVP under `dev.aisentinel.core.dataset.corpus` (first family: warmup-then-burst, feature-level). Multi-family inventory remains later work.
 
 ---
 
@@ -119,7 +119,7 @@ This rule is **additional to** ground-truth ≠ detector input.
 
 ## 5. Corpus Generator contract
 
-**Normative I/O** (implementation is deferred; contracts only here):
+**Normative I/O** (MVP implementation: `dev.aisentinel.core.dataset.corpus.CorpusGenerator`):
 
 **Inputs**
 
@@ -271,7 +271,7 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 |-------|--------|
 | Module / distribution boundary vs `ai-sentinel-benchmark` | Deferred packaging decision |
 | Large artifact storage | Deferred |
-| Deterministic corpus generator implementation | Deferred |
+| Deterministic corpus generator implementation | MVP (`feature-level`, `warmup-then-burst` family) |
 | Multi-family corpus inventory | Deferred |
 | CLI / HTML report UX / container | Deferred |
 | BYO datasets / comparison UX | Deferred |
@@ -302,8 +302,7 @@ scripts/validate-evaluation-kit-contracts.sh
 ## 13. Non-goals of this contract package
 
 - No new Maven module
-- No new public Java Evaluation Kit API
-- No production runtime behavior change
-- No generator / CLI / container / HTML UX implementation
+- No Evaluation Kit product surface (CLI / container / HTML)
+- No production runtime decision-behavior change
 - No modification of historical evidence or the `v0.4.0` release tag
 - No production-efficacy claims
