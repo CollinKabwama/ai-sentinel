@@ -1,0 +1,56 @@
+{
+  "resultSchemaVersion": "1",
+  "resultId": "result.example.labeled.001",
+  "status": "completed",
+  "limitations": [],
+  "provenance": {
+    "scenarioId": "kit.example.warmup-then-burst",
+    "scenarioVersion": "1.0.0",
+    "scenarioSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "corpusId": "corpus.example.warmup-then-burst.001",
+    "corpusSchemaVersion": "1",
+    "corpusEventsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "annotationId": "ann.example.warmup-then-burst.001",
+    "annotationsSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "seed": "42",
+    "generatorContractVersion": "1",
+    "generatorBuildId": "aisentinel-corpus-generator@dev+example",
+    "featureSchemaVersion": "1",
+    "evaluationEventSchemaVersion": "1",
+    "aiSentinelVersion": "0.4.0",
+    "aiSentinelBuildId": "local-dev",
+    "scorerId": "statistical-baseline",
+    "scorerVersion": "1",
+    "replayRunManifestRef": "replay-run-manifest.json",
+    "reproducibilityManifestRef": "reproducibility-manifest.example.json"
+  },
+  "artifactBindings": [
+    {
+      "role": "events",
+      "path": "events.jsonl",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "role": "annotations",
+      "path": "annotations.json",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "metricFamilies": {
+    "structural": {
+      "availability": "available",
+      "values": {
+        "eventCount": 12
+      }
+    },
+    "detectionLabeled": {
+      "availability": "available",
+      "values": {
+        "truePositives": 1,
+        "falsePositives": 0
+      }
+    }
+  },
+  "detectionEvidenceRef": "detection-evaluation-evidence.json",
+  "notes": "Optional specialized DetectionEvaluationEvidence is referenced, not required as the generic result type."
+}

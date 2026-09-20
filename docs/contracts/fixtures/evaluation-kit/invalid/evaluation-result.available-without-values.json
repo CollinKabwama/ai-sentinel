@@ -1,0 +1,23 @@
+{
+  "resultSchemaVersion": "1",
+  "resultId": "result.bad.available-without-values",
+  "status": "completed",
+  "provenance": {
+    "scenarioId": "kit.example.warmup-then-burst",
+    "scenarioVersion": "1.0.0",
+    "corpusId": "corpus.example.warmup-then-burst.unlabeled.001",
+    "corpusSchemaVersion": "1",
+    "seed": "42",
+    "generatorContractVersion": "1",
+    "generatorBuildId": "aisentinel-corpus-generator@dev+example",
+    "featureSchemaVersion": "1",
+    "evaluationEventSchemaVersion": "1",
+    "aiSentinelVersion": "0.4.0"
+  },
+  "metricFamilies": {
+    "structural": {
+      "availability": "available"
+    }
+  },
+  "notes": "availability=available must not omit values; that would let an unavailable metric be mistaken for zero."
+}

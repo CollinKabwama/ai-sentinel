@@ -67,3 +67,6 @@ logs/
 # Local config / env (optional; uncomment if used)
 # .env
 # application-local.yaml
+
+# Local contract-validation venv (Evaluation Kit schema checks; not a runtime dependency)
+.venv-eval-kit-validate/

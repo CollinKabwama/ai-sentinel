@@ -1,0 +1,27 @@
+{
+  "resultSchemaVersion": "1",
+  "resultId": "result.bad.fabricated-metrics",
+  "status": "completed",
+  "provenance": {
+    "scenarioId": "kit.example.warmup-then-burst",
+    "scenarioVersion": "1.0.0",
+    "corpusId": "corpus.example.warmup-then-burst.unlabeled.001",
+    "corpusSchemaVersion": "1",
+    "seed": "42",
+    "generatorContractVersion": "1",
+    "generatorBuildId": "aisentinel-corpus-generator@dev+example",
+    "featureSchemaVersion": "1",
+    "evaluationEventSchemaVersion": "1",
+    "aiSentinelVersion": "0.4.0"
+  },
+  "metricFamilies": {
+    "detectionLabeled": {
+      "availability": "not_applicable",
+      "reason": "Unlabeled",
+      "values": {
+        "truePositives": 3,
+        "falsePositives": 1
+      }
+    }
+  }
+}

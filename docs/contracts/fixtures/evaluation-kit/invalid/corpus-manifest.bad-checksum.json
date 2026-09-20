@@ -1,0 +1,23 @@
+{
+  "corpusSchemaVersion": "1",
+  "corpusId": "corpus.bad.checksum",
+  "scenarioId": "kit.example.warmup-then-burst",
+  "scenarioVersion": "1.0.0",
+  "seed": "42",
+  "generatorContractVersion": "1",
+  "generatorBuildId": "aisentinel-corpus-generator@dev+example",
+  "featureSchemaVersion": "1",
+  "evaluationEventSchemaVersion": "1",
+  "representationMode": "feature-level",
+  "artifacts": [
+    {
+      "role": "events",
+      "path": "events.jsonl",
+      "sha256": "not-a-sha256"
+    }
+  ],
+  "timing": {
+    "warmupDurationSeconds": 60,
+    "evaluationDurationSeconds": 120
+  }
+}

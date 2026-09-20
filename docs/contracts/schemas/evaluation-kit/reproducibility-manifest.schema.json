@@ -1,0 +1,119 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aisentinel.dev/schemas/evaluation-kit/reproducibility-manifest.schema.json",
+  "title": "Evaluation Kit Reproducibility / Provenance Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reproducibilitySchemaVersion",
+    "resultId",
+    "scenario",
+    "generator",
+    "corpus",
+    "schemas",
+    "engine"
+  ],
+  "properties": {
+    "reproducibilitySchemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "resultId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scenarioId", "scenarioVersion", "scenarioSchemaVersion"],
+      "properties": {
+        "scenarioId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "scenarioVersion": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "scenarioSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "scenarioSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" }
+      }
+    },
+    "generator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generatorContractVersion", "generatorBuildId", "seed"],
+      "properties": {
+        "generatorContractVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "generatorBuildId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "seed": { "$ref": "common.schema.json#/$defs/seed" }
+      }
+    },
+    "corpus": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["corpusId", "corpusSchemaVersion"],
+      "properties": {
+        "corpusId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "corpusSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "eventsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+        "manifestSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" }
+      }
+    },
+    "annotations": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "annotationId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "annotationSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "annotationsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" }
+      }
+    },
+    "schemas": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["featureSchemaVersion", "evaluationEventSchemaVersion", "resultSchemaVersion"],
+      "properties": {
+        "featureSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "evaluationEventSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "resultSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" }
+      }
+    },
+    "replay": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Composition reference to ReplayRunManifest / ReplayProvenance — not a replacement type.",
+      "properties": {
+        "replayRunManifestRef": { "type": "string" },
+        "replayRunId": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    },
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Evaluation subject configuration declared independently of scenario expected outcomes.",
+      "properties": {
+        "scorerId": { "type": "string" },
+        "scorerVersion": { "type": "string" },
+        "policyId": { "type": "string" },
+        "policyVersion": { "type": "string" },
+        "configurationFingerprint": { "type": "string" }
+      }
+    },
+    "candidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional composition of CandidateEvaluationProvenance — candidate-specific only.",
+      "properties": {
+        "candidateProvenanceRef": { "type": "string" },
+        "artifactDigest": { "type": "string" },
+        "notes": { "type": "string" }
+      }
+    },
+    "engine": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aiSentinelVersion"],
+      "properties": {
+        "aiSentinelVersion": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "aiSentinelBuildId": { "type": "string" },
+        "gitCommit": { "type": "string" },
+        "toolingRuntime": { "type": "string" }
+      }
+    },
+    "notes": { "type": "string" }
+  }
+}

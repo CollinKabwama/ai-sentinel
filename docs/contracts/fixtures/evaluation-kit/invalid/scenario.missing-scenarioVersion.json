@@ -1,0 +1,22 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "kit.example.missing-version",
+  "featureSchemaVersion": "1",
+  "population": {
+    "identityCount": 1
+  },
+  "normalBehavior": {
+    "summary": "Missing scenarioVersion on purpose."
+  },
+  "timing": {
+    "warmup": { "durationSeconds": 10 },
+    "evaluation": { "durationSeconds": 10 }
+  },
+  "transitions": [
+    {
+      "transitionId": "t1",
+      "intent": "legitimate",
+      "summary": "ok"
+    }
+  ]
+}
