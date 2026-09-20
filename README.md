@@ -1,6 +1,8 @@
 # AI-Sentinel
 
-**Zero-trust–oriented API defense** — continuous identity-keyed behavioral risk evaluation and adaptive application response. The Java decision core is framework-independent; the primary in-process integration is a **Java 21 Spring Boot/Servlet** library. The same engine can be reached over an authenticated **remote evaluation HTTP API**, with a reference **ASP.NET Core** client under [`dotnet/`](dotnet/).
+**Zero Trust–aligned behavioral-risk and adaptive application-security tooling** for HTTP/API workloads. It continuously evaluates post-authentication behavior and enables risk-informed application responses as that behavior changes. It is designed to **complement** identity, authorization, device, network, and monitoring controls — not to replace them, and not as a complete Zero Trust architecture or certification claim.
+
+The Java decision core is framework-independent; the primary in-process integration is a **Java 21 Spring Boot/Servlet** library. The same engine can be reached over an authenticated **remote evaluation HTTP API**, with a reference **ASP.NET Core** client under [`dotnet/`](dotnet/).
 
 ---
 
@@ -18,6 +20,8 @@ AI-Sentinel evaluates each request using privacy-oriented behavioral features (r
 
 ## Key capabilities
 
+### Runtime
+
 - **Identity-aware security** — Optional integration with Spring Security and HTTP sessions to resolve `IdentityContext` and attach trust metadata to the request.
 - **Behavioral trust** — Per-identity baselines and trust scores derived from request history, drift signals, and burst patterns.
 - **Anomaly detection** — Statistical baselines plus an optional in-core Isolation Forest model.
@@ -25,6 +29,38 @@ AI-Sentinel evaluates each request using privacy-oriented behavioral features (r
 - **Adaptive enforcement** — Threshold-driven actions (throttle, block, quarantine) with monitor-only mode and startup grace.
 - **Distributed state (optional)** — Redis-backed cluster quarantine and throttle, asynchronous **training candidate** export, a standalone **trainer** application, and filesystem **model registry** refresh on serving nodes.
 - **Distributed behavioral baselines (optional)** — Redis-backed continuity for per-identity behavioral baselines across instances, with fail-open fallback to in-memory storage when Redis is slow or unavailable.
+
+### Offline Detection Evaluation Framework
+
+Engineering evidence machinery (not part of the request path):
+
+- privacy-safe reference corpus and independent annotations
+- deterministic replay
+- truth/replay alignment
+- explicit detector classification (caller-supplied threshold)
+- aggregate and scenario metrics
+- temporal anomaly evaluation (detection delay, recovery/stabilization semantics)
+- deterministic `evaluation.json` / `evaluation.md` evidence
+- reusable `DetectionEvaluationRunner` orchestration
+
+Details: [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md).
+
+`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `REPORT != BASELINE` · `REFERENCE DATASET != DETECTION BASELINE`
+
+### Candidate scorer lifecycle (engineering capability in 0.4.0)
+
+`ai-sentinel-core` includes an offline/opt-in candidate-model path packaged in **0.4.0**. It is **not** required for ordinary starter usage and does **not** rewire the authoritative runtime scorer. Steps below are **caller-driven** (not automatic transitions):
+
+1. Validate artifact descriptor / integrity metadata
+2. Verify and load candidate bytes (bounded; supported Isolation Forest/`aif1`)
+3. Replay and evaluate against the reference corpus
+4. Optionally assess engineering **acceptance**
+5. Optionally enable **shadow** scoring (observational; identity-bound; default OFF)
+6. Optionally designate challenger / approve / promote a **lifecycle champion** designation
+
+`VALID ARTIFACT != GOOD MODEL` · `EVALUATION COMPLETED != ACCEPTED` · `ACCEPTANCE != AUTOMATIC SHADOW ENABLEMENT` · `PROMOTED != PRODUCTION DEPLOYED`
+
+Contracts: [`docs/contracts/SCORER_ARTIFACT.md`](docs/contracts/SCORER_ARTIFACT.md) · [`SCORER_CANDIDATE_LOADING.md`](docs/contracts/SCORER_CANDIDATE_LOADING.md) · [`SCORER_CANDIDATE_EVALUATION.md`](docs/contracts/SCORER_CANDIDATE_EVALUATION.md) · [`SCORER_CANDIDATE_SHADOW.md`](docs/contracts/SCORER_CANDIDATE_SHADOW.md) · [`SCORER_MODEL_LIFECYCLE.md`](docs/contracts/SCORER_MODEL_LIFECYCLE.md).
 
 ---
 
@@ -57,15 +93,21 @@ Request
   → Feature extraction
   → SentinelDecisionEngine
       → Behavioral trust (optional)
-      → Anomaly scoring (AnomalyScorer)
+      → Authoritative anomaly scoring (AnomalyScorer)
       → Risk fusion (optional)
       → Policy evaluation (PolicyEngine)
       → Trust-aware policy adjustment (optional)
-  → Enforcement
+  → Enforcement response
   → Telemetry / metrics
 ```
 
-**Optional training path** (off the servlet hot path for model refresh): serving nodes may publish `TrainingCandidateRecord` events (log or Kafka) → **trainer** consumes → writes registry artifacts → nodes **poll** and install new Isolation Forest models when configured.
+**Authoritative path:** `AUTHORITATIVE RUNTIME SCORER → PRODUCTION DECISION → POLICY → ENFORCEMENT`.
+
+**Optional observational path** (explicitly enabled only): same request features → accepted candidate shadow scorer → observational evidence (`SHADOW RESULT != PRODUCTION DECISION`; default OFF).
+
+**Optional offline governance path** (not wired into starter auto-configuration): validated candidate artifact → load/evaluate/accept → explicit challenger designation → approval → lifecycle promotion of a champion designation only (`PROMOTED LIFECYCLE CHAMPION != RUNNING PRODUCTION SCORER`).
+
+**Optional training path** (off the servlet hot path for model refresh): serving nodes may publish `TrainingCandidateRecord` events (log or Kafka) → **trainer** consumes → writes registry artifacts → nodes **poll** and install new Isolation Forest models when configured. Do not confuse filesystem model-registry refresh with candidate lifecycle promotion.
 
 ---
 
@@ -96,19 +138,19 @@ ai:
     mode: MONITOR   # default; set ENFORCE only after MONITOR validation — see docs/deployment.md
 ```
 
-Add the starter dependency:
+Add the starter dependency (version **0.4.0** packaging line):
 
 ```xml
 <dependency>
     <groupId>dev.aisentinel</groupId>
     <artifactId>ai-sentinel-spring-boot-starter</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
 </dependency>
 ```
 
-The **0.3.0** line is the first stable compatibility baseline in this repository. The latest published Maven Central release is **0.2.0** (tag `v0.2.0`); until **0.3.0** is tagged and published, install locally with `mvn clean install` and depend on tree version **0.3.0**.
+**0.4.0** packages the candidate-integration, observational shadow, and lifecycle-governance engineering capabilities described above. Prefer **`mode=MONITOR`** for initial adoption. Central publication of **0.4.0** requires separate release authorization after review; until then, build/install from this repository. The previously published Central line remains **0.3.0** ([tag `v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)).
 
-Upgrade notes from **0.2.0** (and unreleased **0.2.1** development trees): [`docs/migration.md`](docs/migration.md). Full history: [`CHANGELOG.md`](CHANGELOG.md).
+Upgrade notes: [`docs/migration.md`](docs/migration.md). Full history: [`CHANGELOG.md`](CHANGELOG.md).
 
 ---
 
@@ -178,19 +220,40 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 
 ---
 
+## Offline detection evaluation
+
+The **Detection Evaluation Framework** is complete on the **0.4.0** packaging line. Tracked corpus and docs live under [`evaluation/`](evaluation/):
+
+- [`evaluation/REFERENCE_DATASET.md`](evaluation/REFERENCE_DATASET.md) — durable synthetic reference corpus
+- [`evaluation/DETERMINISTIC_REPLAY.md`](evaluation/DETERMINISTIC_REPLAY.md) — deterministic scoring/policy replay
+- [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md) — complete-run orchestration, metrics, temporal evaluation, evidence, and framework guarantees
+- [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md) — Official Detection Reference Baseline (capture, verification/drift, lifecycle/governance)
+
+These layers are offline engineering evidence machinery. The Official Detection Reference Baseline records current reference-corpus detector behavior under threshold `0.5`, verifies fresh deterministic evaluation against that tracked baseline, and provides explicit **baseline-candidate** approval/promotion with historical retention (not scorer/model-candidate integration). None of these approve production detection efficacy or create quality gates.
+
+`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `BASELINE != QUALITY GATE` · `DRIFT != REGRESSION` · `DRIFT != APPROVAL` · `REFERENCE DATASET != DETECTION BASELINE`
+
+Candidate shadow scoring and lifecycle designation governance are packaged as engineering capabilities in **0.4.0**. Shadow remains observational (`SHADOW RESULT != PRODUCTION DECISION`); promotion remains designation-only (`PROMOTED != PRODUCTION DEPLOYED`). This packaging does **not** claim production efficacy, ENFORCE readiness, or production model activation.
+
+---
+
 ## Current limitations
 
-- **Stable baseline** — **0.3.0** is the first stable compatibility baseline in this repository. Published Maven Central line to date is **0.2.0**. Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
+- **Candidate / lifecycle boundaries** — Validated, loaded, evaluated, accepted, shadowed, or lifecycle-promoted candidates do not become the running production scorer. Explicit production model activation is out of scope on the current line (`PROMOTED LIFECYCLE CHAMPION != RUNNING PRODUCTION SCORER`). Pilot evidence remains required for operational claims (`PILOT_EVIDENCE_REQUIRED`).
+- **Official Detection Reference Baseline** — Capture, verification/drift, and lifecycle/governance are complete under [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Drift means difference, not detector-quality acceptance or production approval.
+- **Stable software baseline** — **0.4.0** is the packaging line for candidate/shadow/lifecycle engineering capability after published **0.3.0**. Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
 - **MONITOR default** — Default `ai.sentinel.mode=MONITOR` (observe/learn; no client denial). Explicit `ENFORCE` enables client denial only after ENFORCE preconditions. Full mode matrix, restart behavior, and the availability-first **failure-mode profile**: [`docs/deployment.md`](docs/deployment.md). Statistical warmup is a lifecycle state (`EvaluationStatus.STATISTICAL_WARMUP`), not evidence of abuse; default warmup action is `MONITOR`. Default baseline learning skips `THROTTLE`/`BLOCK`/`QUARANTINE` risk (`ALLOW_OR_MONITOR`).
-- **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository).
+- **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository). Do not confuse registry refresh with candidate lifecycle promotion.
 - **Trainer `eventId` dedup** is JVM-local; multiple trainer instances are not coordinated without external design.
 - **Multi-JVM / Docker validation** — cluster quarantine Testcontainers runs when Docker is available (single-JVM + second Redis client). Multi-process / multi-host proof remains an operator responsibility; see the coverage matrix in [`docs/deployment.md`](docs/deployment.md).
 - **Registry disk** — Publishing a new Isolation Forest artifact writes new `{version}.meta.json` / `{version}.payload.bin` files and updates `active.json`. **Prior version files are not deleted automatically.** Operators prune obsolete artifacts after confirming rollback needs; see [`docs/deployment.md`](docs/deployment.md#model-registry-disk-retention).
 - **Gated baseline learning** — Default `ALLOW_OR_MONITOR` skips learning on elevated risk actions (protects against baseline poisoning). A **legitimate permanent workload change** can therefore remain elevated relative to the prior baseline until an explicit `BaselineLifecycle.reset` (when `relearn-mode=EXPLICIT_ONLY`) or equivalent operational action. Idle TTL does **not** clear sticky elevation while elevated traffic continues. See [`docs/deployment.md`](docs/deployment.md#legitimate-workload-transitions-and-gated-learning).
 - **Isolation Forest** returns one scalar score — no per-feature attribution (SHAP/LIME are out of scope).
 - **IF enabled without a loaded model** — fallback score is visible in telemetry/actuator, but the composite blend uses the statistical score only until mode is `MODEL`.
+- **Shadow scoring** — when explicitly enabled, runs synchronously in-process and may add compute/latency; it is not an async shadow platform.
 - **Characterization test fidelity** — sudden-step detector scenarios use controlled `RequestFeatures` (not full extractor E2E). Production `requestsPerWindow` is a rolling bucket count that increments per request (~`1, 2, 3, …`), so a synthetic `10 → 100` step cannot be produced through the extractor alone.
 - **Custom SPI breaking change** — core SPIs take `HttpRequestView` / `EnforcementResponse` (not servlet types); starter auto-config consumers are unaffected.
+- **Performance vs detection** — In-process JMH/resource baselines measure cost, not detection effectiveness (`PERFORMANCE != DETECTION EFFECTIVENESS`). See [`docs/performance/REFERENCE_BASELINE.md`](docs/performance/REFERENCE_BASELINE.md).
 
 ---
 

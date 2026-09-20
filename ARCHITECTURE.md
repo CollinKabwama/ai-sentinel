@@ -35,11 +35,14 @@ ai-sentinel/
 ├── ai-sentinel-spring-boot-starter/  # Current Servlet filter, auto-config, actuator, Micrometer
 ├── ai-sentinel-trainer/              # Optional app: Kafka consumer, IF training, filesystem registry publisher
 ├── ai-sentinel-demo/                 # Reference Spring Boot application
+├── evaluation/                       # Tracked synthetic corpus + offline replay/evaluation docs
 ├── dotnet/                           # Reference ASP.NET Core remote adapter (no C# scoring engine)
-└── scripts/                          # Optional Python traffic / training helpers
+└── scripts/                          # Optional Python helpers, evaluation corpus scripts, JMH runners
 ```
 
 There is **no** `ai-sentinel-dashboard` module; visualize via Prometheus/Grafana or logs.
+
+Offline **Detection Evaluation Framework** (`dev.aisentinel.core.replay`, `dev.aisentinel.core.evaluation`, orchestrated by `DetectionEvaluationRunner`) is engineering evidence machinery against the tracked corpus. Path: reference dataset → deterministic replay → alignment → explicit classification → metrics/scenarios → temporal evaluation → deterministic evidence. It is **not** part of the request path. A READY candidate scorer may be injected into that same offline path (`ReplayEngine.withEvaluationScorer` / `CandidateDetectionEvaluationRunner`; packaged in **0.4.0**; engineering capability only — not production activation) to produce candidate-specific evidence and, when an explicit policy is supplied, an engineering acceptance assessment; that does not grant production scoring authority. Optional **shadow scoring** (`dev.aisentinel.core.scoring.shadow`; packaged in **0.4.0**; engineering capability only — not production activation) may run an explicitly enabled, identity-bound candidate beside the authoritative scorer for observational comparison only (`SHADOW RESULT != PRODUCTION DECISION`; default disabled). Explicit **lifecycle governance** (`dev.aisentinel.core.scoring.lifecycle`, packaged in **0.4.0**; engineering capability only — not production activation) can designate challengers and promote a lifecycle champion designation only (`PROMOTED LIFECYCLE CHAMPION != RUNNING PRODUCTION SCORER`); the starter does not auto-wire promotion into `SentinelDecisionEngine`. The separate **Official Detection Reference Baseline** (capture, verification/drift, lifecycle/governance) is tracked under [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Neither establishes production efficacy (`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`, `DETECTION BASELINE != PRODUCTION EFFICACY`, `EVALUATED CANDIDATE != ACCEPTED CANDIDATE`, `ACCEPTED CANDIDATE != PRODUCTION MODEL`, `ACCEPTANCE != AUTOMATIC SHADOW ENABLEMENT`, `PROMOTION != PRODUCTION DEPLOYMENT`). See [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md), [`docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](docs/contracts/SCORER_CANDIDATE_EVALUATION.md), [`docs/contracts/SCORER_CANDIDATE_SHADOW.md`](docs/contracts/SCORER_CANDIDATE_SHADOW.md), and [`docs/contracts/SCORER_MODEL_LIFECYCLE.md`](docs/contracts/SCORER_MODEL_LIFECYCLE.md).
 
 ---
 
@@ -56,15 +59,40 @@ SentinelPipeline
   → IdentityContextResolver (optional)
   → FeatureExtractor
   → SentinelDecisionEngine → RiskDecision
+      (authoritative AnomalyScorer → policy → RiskDecision)
   → EnforcementHandler
   → TrainingCandidatePublisher / IdentityResponseHook
 ```
+
+**Authoritative runtime path:**
+
+```
+AUTHORITATIVE RUNTIME SCORER → PRODUCTION DECISION → POLICY → ENFORCEMENT
+```
+
+**Optional observational shadow path** (explicit enablement; default OFF):
+
+```
+REQUEST FEATURES → SHADOW CANDIDATE → OBSERVATIONAL EVIDENCE
+```
+
+Candidate output never enters policy, enforcement, or baseline update.
+
+**Optional governance path** (caller-driven; not production rewiring):
+
+```
+CANDIDATE EVIDENCE → CHALLENGER → GOVERNANCE → LIFECYCLE CHAMPION DESIGNATION
+```
+
+`PROMOTED LIFECYCLE CHAMPION != RUNNING PRODUCTION SCORER`
 
 **Optional training / registry path** (async and off-request for registry refresh; not on the servlet hot path for model fetch):
 
 ```
 TrainingCandidatePublisher → Kafka (optional) → ai-sentinel-trainer → filesystem registry → ModelRefreshScheduler → IsolationForestScorer
 ```
+
+Filesystem model-registry refresh installs Isolation Forest artifacts for the configured scorer path. It is a separate concern from candidate lifecycle designation governance.
 
 ```mermaid
 flowchart TB
@@ -313,6 +341,7 @@ Dedicated distributed meters (`aisentinel.distributed.*`, `aisentinel.identity.t
 Canonical release-gate command and characterization inventory: [`docs/testing.md`](docs/testing.md).
 
 - **Unit tests** — `ai-sentinel-core`: scorers, policy boundaries, resolver logic, enforcement maps, IF buffer and retrain behavior, codec/metadata.
+- **Offline evaluation** — deterministic replay, alignment, metrics, temporal evaluation, evidence, and complete-run hardening under `dev.aisentinel.core.replay` / `dev.aisentinel.core.evaluation` (including `DetectionEvaluationRunner`), plus the Official Detection Reference Baseline under [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Framework/baseline readiness is not detector-quality acceptance or production efficacy. See [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md).
 - **Architecture tests** — `CoreIndependenceArchTest` (no Spring/servlet/`reactor.*` in core); starter `StarterServletBoundaryArchTest` (servlet types only under `autoconfigure.web`).
 - **Spring slice tests** — `ai-sentinel-spring-boot-starter`: auto-configuration, actuator JSON shape, filter/proxy integration, model registry beans (`dev.aisentinel.autoconfigure.model.*`).
 - **Distributed / Redis** — `dev.aisentinel.validation.*` and related tests: Testcontainers Redis (`@Testcontainers(disabledWithoutDocker = true)`). **Docker** (or a Docker-compatible CI agent) is required to run those tests; they are skipped when Docker is unavailable. These suites prove **single-JVM** coordination through Redis (often with a second Lettuce client as a stand-in peer). They are **not** a multi-process / multi-host proof — see [`docs/deployment.md`](docs/deployment.md) distributed notes.

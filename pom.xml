@@ -13,7 +13,7 @@
 
     <groupId>dev.aisentinel</groupId>
     <artifactId>ai-sentinel</artifactId>
-    <version>0.3.0</version>
+    <version>0.4.0</version>
     <packaging>pom</packaging>
     <name>ai-sentinel</name>
     <description>AI-Assisted Zero-Trust API Defense for Spring Boot</description>
@@ -46,12 +46,13 @@
         <module>ai-sentinel-spring-boot-starter</module>
         <module>ai-sentinel-trainer</module>
         <module>ai-sentinel-demo</module>
+        <module>ai-sentinel-benchmark</module>
     </modules>
 
     <properties>
         <java.version>21</java.version>
         <lombok.version>1.18.38</lombok.version>
-        <aisentinel.api.compatibility.oldVersion>0.2.0</aisentinel.api.compatibility.oldVersion>
+        <aisentinel.api.compatibility.oldVersion>0.3.0</aisentinel.api.compatibility.oldVersion>
     </properties>
 
     <dependencyManagement>
@@ -156,10 +157,11 @@
                         <extensions>true</extensions>
                         <configuration>
                             <publishingServerId>central</publishingServerId>
-                            <!-- Demo and trainer are not Maven Central libraries. -->
+                            <!-- Demo, trainer, and benchmarks are not Maven Central libraries. -->
                             <excludeArtifacts>
                                 <excludeArtifact>ai-sentinel-demo</excludeArtifact>
                                 <excludeArtifact>ai-sentinel-trainer</excludeArtifact>
+                                <excludeArtifact>ai-sentinel-benchmark</excludeArtifact>
                             </excludeArtifacts>
                         </configuration>
                     </plugin>

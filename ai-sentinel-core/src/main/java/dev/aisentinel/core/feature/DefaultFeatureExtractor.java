@@ -10,6 +10,8 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
+import java.util.function.LongSupplier;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicIntegerArray;
 import java.util.regex.Pattern;
@@ -36,21 +38,27 @@ public final class DefaultFeatureExtractor implements FeatureExtractor {
     private final Map<String, EndpointHistoryEntry> endpointHistory;
     private final int maxKeys;
     private final long ttlMs;
+    private final LongSupplier clock;
 
     public DefaultFeatureExtractor(BaselineStore requestCountStore) {
-        this(requestCountStore, 100_000, 300_000L);
+        this(requestCountStore, 100_000, 300_000L, System::currentTimeMillis);
     }
 
     public DefaultFeatureExtractor(BaselineStore requestCountStore, int maxKeys, long ttlMs) {
+        this(requestCountStore, maxKeys, ttlMs, System::currentTimeMillis);
+    }
+
+    public DefaultFeatureExtractor(BaselineStore requestCountStore, int maxKeys, long ttlMs, LongSupplier clock) {
         this.requestCountStore = requestCountStore;
         this.endpointHistory = new ConcurrentHashMap<>();
         this.maxKeys = Math.max(1, maxKeys);
         this.ttlMs = Math.max(1000L, ttlMs);
+        this.clock = Objects.requireNonNull(clock, "clock");
     }
 
     @Override
     public RequestFeatures extract(HttpRequestView request, String identityHash, RequestContext ctx) {
-        long now = System.currentTimeMillis();
+        long now = clock.getAsLong();
         String endpoint = normalizeEndpoint(request.getRequestURI());
         IdentityEndpointKey stateKey = IdentityEndpointKey.forEndpoint(identityHash, endpoint);
 

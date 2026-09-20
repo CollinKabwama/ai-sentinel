@@ -63,6 +63,9 @@ public final class EvaluationRequestValidator {
         if (!path.startsWith("/")) {
             throw new EvaluationContractException("path must start with '/'");
         }
+        if (path.indexOf('?') >= 0 || path.indexOf('#') >= 0) {
+            throw new EvaluationContractException("path must not contain query or fragment delimiters");
+        }
         if (identityKey == null) {
             throw new EvaluationContractException("identityKey is required");
         }

@@ -8,11 +8,78 @@ for the published library line.
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-09-19
+
+Engineering capability packaging of post-`0.3.0` candidate-scorer integration,
+observational shadow scoring, and lifecycle-governance designation work.
+
+This is a **pre-1.0 capability increment** and the intended stable engineering
+reference immediately before any later evaluation-first development. It does
+**not** implement evaluation-first architecture, new detectors/models, production
+model activation, production ENFORCE readiness, pilot validation, or production
+efficacy claims.
+
+**Recommended initial deployment mode remains `MONITOR`.** Prefer
+`ai.sentinel.mode=MONITOR` until operators complete application-specific
+validation. Enabling `ENFORCE` remains an explicit operator decision.
+
+Invariant reminder:
+
+`VALIDATED CANDIDATE ARTIFACT != RUNTIME-AVAILABLE CANDIDATE != EVALUATED != APPROVED != SHADOW != CHAMPION != PRODUCTION`
+
+`SCORER HEALTH != DETECTION QUALITY` · `PROMOTED != PRODUCTION DEPLOYED` ·
+`SHADOW RESULT != PRODUCTION DECISION` · `ACCEPTANCE != AUTOMATIC SHADOW ENABLEMENT`
+
+See also: [`docs/migration.md`](docs/migration.md) · [`docs/deployment.md`](docs/deployment.md) ·
+[`docs/testing.md`](docs/testing.md) · [`docs/contracts/SCORER_ARTIFACT.md`](docs/contracts/SCORER_ARTIFACT.md)
+
 ### Added
+
+- Opt-in JMH **benchmark foundation** module (`ai-sentinel-benchmark`) for in-process latency/throughput measurement (not an SLA gate). See [`docs/performance/BENCHMARKING.md`](docs/performance/BENCHMARKING.md).
+- Offline **detection evaluation framework** orchestration (`DetectionEvaluationRunner`) with deterministic evidence generation for the tracked reference corpus. See [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md). Framework readiness is not detector-quality acceptance.
+- Initial **Official Detection Reference Baseline** definition and capture (`evaluation/detection-reference-baseline/`) under reference classification threshold `0.5`. See [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Not production efficacy, not a quality gate.
+- Official Detection Reference Baseline **verification and drift detection** (`DetectionReferenceBaselineVerifier`, `scripts/verify-detection-reference-baseline.sh`). Drift means difference, not defect.
+- Official Detection Reference Baseline **lifecycle and governance** (`DetectionReferenceBaselineLifecycle`, `scripts/lifecycle-detection-reference-baseline.sh`): baseline-candidate create/approve/reject/promote, history retention, rollback. Drift is never auto-approved. Capability complete (not production efficacy / not a quality gate).
+- Candidate scorer/model **artifact contract and validation** (`ScorerArtifactDescriptor`, artifact digest / configuration fingerprint checks). Valid artifact metadata is not a good model and not production authority. See [`docs/contracts/SCORER_ARTIFACT.md`](docs/contracts/SCORER_ARTIFACT.md).
+- Candidate scorer **loading, health, and runtime isolation** (`CandidateScorerLoader`): bounded SHA-256-verified Isolation Forest/`aif1` load into operational readiness. Verified bytes are the consumed bytes; readiness is not quality, acceptance, or production authority. See [`docs/contracts/SCORER_CANDIDATE_LOADING.md`](docs/contracts/SCORER_CANDIDATE_LOADING.md).
+- Candidate scorer/model **replay/evaluation acceptance** (`CandidateDetectionEvaluationRunner`, `CandidateEvaluationAcceptancePolicy`) takes an operationally READY candidate through existing deterministic replay and detection evaluation, then optionally assesses the produced metrics against an explicit engineering policy (`NOT_ASSESSED` / `ACCEPTED` / `REJECTED`). Evaluation completion is not acceptance, and acceptance is not approval, shadow enablement, champion selection, or production deployment. See [`docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](docs/contracts/SCORER_CANDIDATE_EVALUATION.md).
+- Candidate **shadow scoring and comparison telemetry** (`ShadowScoringExecutor`) optionally executes an identity-bound accepted candidate beside the authoritative scorer and emits observational comparison data. Default is disabled; acceptance does not auto-enable shadow; candidate output never enters policy, enforcement, or baseline update (`SHADOW RESULT != PRODUCTION DECISION`). See [`docs/contracts/SCORER_CANDIDATE_SHADOW.md`](docs/contracts/SCORER_CANDIDATE_SHADOW.md).
+- Candidate **champion/challenger lifecycle governance** (`ModelLifecycleManager`): explicit challenger designation, objective comparable-metric deltas, eligibility assessment, explicit approve/reject, explicit promotion of lifecycle champion designation, history retention, and explicit rollback. Promotion does not rewire production scorers (`PROMOTED != PRODUCTION DEPLOYED`). See [`docs/contracts/SCORER_MODEL_LIFECYCLE.md`](docs/contracts/SCORER_MODEL_LIFECYCLE.md).
+- Integrated **lifecycle regressions** (`CandidateModelLifecycleRcHardeningRegressionTest`) covering load→evaluate→accept→shadow→challenger→approve→promote→rollback/restart while asserting the authoritative runtime scorer remains sole production authority.
 
 ### Changed
 
+- Public API compatibility gate (`-Papi-compatibility`) now compares published modules against **0.3.0** (previously **0.2.0**). Prior intentional 0.2.0-era japicmp excludes were removed after retarget.
+- Operator and architecture docs describe the candidate lifecycle as packaged engineering capability on the **0.4.0** line while preserving MONITOR-first guidance and authority boundaries.
+- Cross-linked reference dataset, deterministic replay, and detection-evaluation docs so offline evaluation stages are discoverable from project entry points.
+- Synchronized project and evaluation docs after Detection Evaluation Framework completion: framework is documented as complete; performance baseline docs distinguish detection quality.
+- Documented Official Detection Reference Baseline capture, verification/drift, and lifecycle/governance as a completed offline engineering capability (still not production efficacy).
+
 ### Fixed
+
+- Clarified reference-performance baseline audit wording for FIND-002: `capture-reference-baseline.sh` does not generate `analysis.json`; the tracked `analysisSha256` remains a historical selection-analysis hash (not baseline regeneration). See [`docs/performance/REFERENCE_BASELINE.md`](docs/performance/REFERENCE_BASELINE.md).
+
+### Compatibility / Migration
+
+- **Additive APIs** for candidate artifact validation, loading/readiness, offline evaluation/acceptance, observational shadow scoring, and lifecycle designation governance. Ordinary starter usage does not require configuring these paths.
+- **No intentional public API removals** relative to published **0.3.0**. Binary/source compatibility is validated with japicmp against **0.3.0**.
+- Upgrade notes: [`docs/migration.md`](docs/migration.md).
+
+### Known limitations
+
+- Production-ready ENFORCE without real-traffic validation is **not** claimed
+- Production candidate/model activation (rewiring the authoritative runtime scorer) is **not** included
+- Pilot evidence remains required for operational production claims (`PILOT_EVIDENCE_REQUIRED`)
+- Partner / production latency evidence remains open
+- Automatic baseline relearning is not offered
+- Fail-closed request path is not offered
+- WebFlux / reactive servlet adapter is not included
+- Isolation Forest per-feature attribution / SHAP is not included
+- Formal JMH / SLA certification is not included
+- Kafka trainer real-broker E2E is not included
+- FIND-002 (historical performance-baseline `analysis.json` consistency) remains an open MEDIUM evidence note; not a packaging blocker
+- Shadow scoring, when enabled, is synchronous/in-process (not an async shadow platform)
+- Evaluation-first architecture and tooling are **out of scope** for this release
 
 ## [0.3.0] — 2026-08-30
 
@@ -42,7 +109,7 @@ See also: [`docs/migration.md`](docs/migration.md) · [`docs/deployment.md`](doc
 - **ASP.NET Core reference adapter** (`dotnet/`) — thin remote client for the evaluation contract; middleware, sample app, cross-language fixtures, and opt-in live E2E test. No C# behavioral engine.
 - **Evaluation status contributor SPI** — scorers may implement `EvaluationStatusContributor` so operational markers appear without status code knowing concrete scorer types. Engine-owned statuses cannot be injected by untrusted contributors.
 - **Feature schema contract** — `FeatureSchema` publishes layout version and explicit statistical / Isolation Forest / export dimensions and ordered names; training export/parser align on the same constants.
-- **Public API compatibility gate** — Maven profile `api-compatibility` runs japicmp for published modules against the configured Central baseline (default **0.2.0** until **0.3.0** is published and retargeted).
+- **Public API compatibility gate** — Maven profile `api-compatibility` runs japicmp for published modules against the configured Central baseline (**0.2.0** at this release, with approved exclusions). Retargeting that baseline to **0.3.0** is a follow-up after publication.
 
 ### Documentation
 
@@ -180,7 +247,8 @@ See also: [`docs/migration.md`](docs/migration.md) · [`docs/deployment.md`](doc
 Initial Maven Central library line: Spring Boot starter, framework-independent scoring core,
 local MONITOR/ENFORCE deployment, optional Isolation Forest and distributed integrations.
 
-[Unreleased]: https://github.com/CollinKabwama/ai-sentinel/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/CollinKabwama/ai-sentinel/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/CollinKabwama/ai-sentinel/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/CollinKabwama/ai-sentinel/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/CollinKabwama/ai-sentinel/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.1.0

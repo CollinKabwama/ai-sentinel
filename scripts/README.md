@@ -1,6 +1,6 @@
 # Developer scripts
 
-Optional **Python 3.7+** helpers (standard library only). They assume the demo app is running and **`/actuator/sentinel`** is exposed.
+Helpers for local development. Python scripts assume the demo app is running and **`/actuator/sentinel`** is exposed. Shell scripts under this directory also cover offline evaluation corpus work and opt-in JMH benchmarks.
 
 ---
 
@@ -94,3 +94,110 @@ Output includes counts, elapsed time, actual RPS, and latency min/avg/max/p50/p9
 `lastDecision` is the **most recent completed decision on this JVM** (action/policy band, anomaly vs policy score, evaluation statuses / operator phases, IF mode, statistical dominant signal). It intentionally omits identity, endpoint, headers, IP, and tokens — not a request history.
 
 When IF is enabled, `/actuator/sentinel` also includes fields such as `isolationForestModelLoaded`, `isolationForestBufferedSampleCount`, `isolationForestModelVersion`, retrain timestamps, `acceptedTrainingSampleCount`, and `rejectedTrainingSampleCount`. With Micrometer wired, you may also see `scoreSummary`, `latencySummary`, and retrain counters — see `SentinelActuatorEndpoint` in the starter module for the authoritative list.
+
+---
+
+## Opt-in JMH benchmarks (`run-benchmarks.sh`)
+
+Builds `ai-sentinel-benchmark` and runs the shaded JMH jar. **Not** part of normal `mvn test` / CI performance gating.
+
+```bash
+./scripts/run-benchmarks.sh smoke       # developer quick check — not official baseline
+./scripts/run-benchmarks.sh full        # intermediate suite
+./scripts/run-benchmarks.sh reference   # official controlled JMH profile
+./scripts/capture-reference-baseline.sh # three reference runs → results/reference-capture/
+```
+
+Official measured baseline: [`docs/performance/REFERENCE_BASELINE.md`](../docs/performance/REFERENCE_BASELINE.md).
+
+Details: [`docs/performance/BENCHMARKING.md`](../docs/performance/BENCHMARKING.md).
+
+---
+
+## Offline evaluation corpus helpers
+
+These scripts operate on the tracked synthetic corpus under [`evaluation/reference/`](../evaluation/reference/). They do not establish an official detection baseline.
+
+### Regenerate / compare reference dataset (`generate-reference-dataset.sh`)
+
+```bash
+./scripts/generate-reference-dataset.sh          # generate to a temp dir and compare to tracked artifacts
+./scripts/generate-reference-dataset.sh --write  # refresh tracked artifacts intentionally
+```
+
+Details: [`evaluation/REFERENCE_DATASET.md`](../evaluation/REFERENCE_DATASET.md).
+
+### Replay the reference dataset (`replay-reference-dataset.sh`)
+
+```bash
+./scripts/replay-reference-dataset.sh
+./scripts/replay-reference-dataset.sh build/reference-replay
+```
+
+Compiles `ai-sentinel-core`, runs `ReferenceDatasetReplayMain`, and prints the output path plus checksums.
+
+Details: [`evaluation/DETERMINISTIC_REPLAY.md`](../evaluation/DETERMINISTIC_REPLAY.md).
+
+### Complete detection-evaluation evidence
+
+There is no dedicated shell wrapper yet. After compiling `ai-sentinel-core`, run the thin CLI adapter with an **explicit** `--threshold`:
+
+```bash
+mvn -q -pl ai-sentinel-core -DskipTests compile dependency:build-classpath \
+  -Dmdep.outputFile=/tmp/ai-sentinel-cp.txt
+java -cp "ai-sentinel-core/target/classes:$(cat /tmp/ai-sentinel-cp.txt)" \
+  dev.aisentinel.core.evaluation.ReferenceDetectionEvaluationEvidenceMain \
+  --threshold 0.5 \
+  --output build/reference-detection-evaluation-evidence
+```
+
+Any numeric threshold here is caller-supplied for that run only. It is not recommended, approved, or official.
+
+`DIAGNOSTIC RESULT != ACCEPTANCE CRITERION`
+
+Candidate scorer evaluation reuses the same framework through `CandidateDetectionEvaluationRunner` (Java API; no dedicated shell wrapper). READY candidates produce `candidate-evaluation.json` / `candidate-evaluation.md` in a caller-supplied directory that must not be the Official Detection Reference Baseline path. An explicit `CandidateEvaluationAcceptancePolicy` is optional; omitting it leaves acceptance `NOT_ASSESSED`. See [`docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](../docs/contracts/SCORER_CANDIDATE_EVALUATION.md).
+
+Details: [`evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md).
+
+### Official Detection Reference Baseline capture
+
+```bash
+./scripts/capture-detection-reference-baseline.sh
+./scripts/capture-detection-reference-baseline.sh /tmp/detection-reference-baseline-preview
+```
+
+Uses `DetectionReferenceBaselineConfiguration.officialReference()` (reference classification threshold `0.5`). This is **not** a general evaluator default and is **not** the performance reference baseline. Refuses an existing destination (no overwrite flags).
+
+Details: [`evaluation/DETECTION_REFERENCE_BASELINE.md`](../evaluation/DETECTION_REFERENCE_BASELINE.md).
+
+### Official Detection Reference Baseline verification
+
+```bash
+./scripts/verify-detection-reference-baseline.sh
+./scripts/verify-detection-reference-baseline.sh evaluation/detection-reference-baseline /tmp/baseline-verify-report
+```
+
+Compares a fresh official-reference evaluation against the tracked baseline.
+Exit `0` = `MATCH`; `1` = `DRIFT_DETECTED` (difference, not quality rejection).
+Does not modify official baseline artifacts.
+
+### Official Detection Reference Baseline lifecycle
+
+```bash
+./scripts/lifecycle-detection-reference-baseline.sh create-candidate --candidate-id <id>
+./scripts/lifecycle-detection-reference-baseline.sh approve-candidate \
+  --candidate-id <id> --rationale "..." --approver "..."
+./scripts/lifecycle-detection-reference-baseline.sh reject-candidate \
+  --candidate-id <id> --rationale "..." --approver "..."
+./scripts/lifecycle-detection-reference-baseline.sh promote-candidate --candidate-id <id>
+./scripts/lifecycle-detection-reference-baseline.sh rollback \
+  --history-id <id> --rationale "..." --approver "..."
+./scripts/lifecycle-detection-reference-baseline.sh list-history
+```
+
+Explicit baseline-candidate approval/promotion with historical retention and rollback.
+A baseline candidate is a proposed replacement for official baseline evidence; it is
+not a scorer/model candidate. Drift is never auto-approved. No `--force` /
+`--overwrite` / threshold tuning / Git automation. Approver metadata is declarative
+(`SUPPLIED APPROVER IDENTIFIER != VERIFIED HUMAN IDENTITY`).
+Details: [`evaluation/DETECTION_REFERENCE_BASELINE.md`](../evaluation/DETECTION_REFERENCE_BASELINE.md).

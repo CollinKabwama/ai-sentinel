@@ -7,7 +7,9 @@ Do not enable `ENFORCE` based on synthetic regression suites alone. Application-
 
 Property defaults (verified): `ai.sentinel.enabled=true`, `ai.sentinel.mode=MONITOR`. **Client denial requires explicit `ai.sentinel.mode=ENFORCE`** after MONITOR validation.
 
-Full property tables: [`configuration.md`](configuration.md). Upgrade from **0.2.0** (or unreleased **0.2.1** development trees) to **0.3.0**: [`migration.md`](migration.md). Validation gates: [`testing.md`](testing.md).
+The packaging library line is **0.4.0**. The previously published Central line is **0.3.0** ([Maven Central](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.3.0), tag [`v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)) until **0.4.0** Central publication is separately authorized.
+
+Full property tables: [`configuration.md`](configuration.md). Upgrade from **0.3.0** to **0.4.0**: [`migration.md`](migration.md). Validation gates: [`testing.md`](testing.md).
 Architecture (security model vs Java core vs current adapter) and observability: [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
 ---
@@ -125,7 +127,7 @@ Default statistical learning uses **`ALLOW_OR_MONITOR`**: after a risk decision,
 4. **Idle TTL** after traffic stops may expire unused keys; continuous elevated traffic refreshes access and does not clear sticky elevation.
 5. **Deliberate policy change** (for example `ALWAYS`) allows continuous learning to absorb a new plateau — an operational choice, not automatic relearning.
 
-There is **no** automatic skip-triggered relearn and **no** shadow/candidate baseline in the current line. Automatic continuous adaptation after elevated risk remains an **architecture/product decision** and must not be assumed for production **ENFORCE** readiness. Prefer MONITOR until operators understand transition handling for their traffic.
+There is **no** automatic skip-triggered relearn and **no** automatic shadow-candidate baseline learning in the current line (observational shadow scoring, when explicitly enabled, does not train the authoritative baseline). Automatic continuous adaptation after elevated risk remains an **architecture/product decision** and must not be assumed for production **ENFORCE** readiness. Prefer MONITOR until operators understand transition handling for their traffic.
 
 ### Model registry disk retention
 

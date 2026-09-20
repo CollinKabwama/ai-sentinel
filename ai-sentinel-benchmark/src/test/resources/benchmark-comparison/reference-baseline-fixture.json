@@ -1,0 +1,44 @@
+{
+  "commit": "baseline-commit",
+  "environmentId": "fixture-dev-laptop",
+  "jmhConfiguration": {
+    "profile": "reference"
+  },
+  "environment": {
+    "os": "Mac OS X",
+    "architecture": "aarch64",
+    "javaVersion": "21.0.10",
+    "logicalCpus": 10,
+    "maxHeapBytes": 6442450944,
+    "featureSchemaVersion": "1",
+    "deploymentMode": "in-process",
+    "stateBackend": "local-memory",
+    "suiteName": "ai-sentinel-benchmark-foundation"
+  },
+  "results": [
+    {
+      "benchmark": "score",
+      "params": {
+        "scorerKind": "statistical"
+      },
+      "mode": "sample",
+      "unit": "ns/op",
+      "mean": 110.0,
+      "p50": 100.0,
+      "p95": 130.0,
+      "p99": 150.0,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score"
+    },
+    {
+      "benchmark": "processThroughputOneThread",
+      "params": {},
+      "mode": "thrpt",
+      "unit": "ops/s",
+      "mean": 1000.0,
+      "p50": null,
+      "p95": null,
+      "p99": null,
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.PipelineBenchmark.processThroughputOneThread"
+    }
+  ]
+}

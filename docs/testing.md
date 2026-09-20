@@ -35,20 +35,20 @@ mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am
 ```
 
 CI runs this after the reactor verify. The baseline version is
-`aisentinel.api.compatibility.oldVersion` (default `0.2.0` until **0.3.0** is published). Narrow excludes (documented in module
-POMs) cover the removed one-argument `EnforcementHandler.isQuarantined(String)` and a pre-existing
-Spring `@Bean` signature change on `SentinelAutoConfiguration.enforcementHandlerImpl`; both should be
-removed when **0.3.0** becomes the next published baseline.
+`aisentinel.api.compatibility.oldVersion` (currently **0.3.0** for the **0.4.0** packaging line).
+Prior 0.2.0-era japicmp excludes were removed when the baseline was retargeted.
 
 Expected shape (may grow if tests are added):
 
 | Module | Typical tests | Notes |
 |--------|---------------|--------|
-| `ai-sentinel-core` | ~555 | Includes characterization + architecture |
+| `ai-sentinel-core` | ~725 | Includes characterization, architecture, and offline evaluation |
 | `ai-sentinel-spring-boot-starter` | ~264 | Includes 5 Docker/Testcontainers skips when Docker is unavailable |
 | `ai-sentinel-trainer` | 16 | |
 | `ai-sentinel-demo` | 4 | |
-| **Total** | **~839** | 0 failures / 0 errors |
+| **Total** | **~1000+** | 0 failures / 0 errors; infra skips may apply; grows as suites expand |
+
+The reactor also compiles **`ai-sentinel-benchmark`**. Its **support-code** unit tests are included in the total above; the JMH suite does **not** run on `verify`. See [`performance/BENCHMARKING.md`](performance/BENCHMARKING.md). Official measured 0.3.0 reference values (not CI gates / not SLAs): [`performance/REFERENCE_BASELINE.md`](performance/REFERENCE_BASELINE.md).
 
 Run **twice** before cutting a release tag so flakes are visible.
 
@@ -82,6 +82,10 @@ required**. Passing `mvn clean verify` already executes them.
 | `AutomaticRelearnPoisoningRegressionTest` | No automatic relearn poisoning path |
 | `CompositeScorerIsolationForestBlendTest` | IF fallback excluded from blend unless `MODEL` |
 | `CoreIndependenceArchTest` / starter ArchUnit | Framework boundary guards |
+| `DetectionEvaluationFrameworkHardeningTest` | Complete-run offline evaluation orchestration / isolation / determinism |
+| `DetectionEvaluationEvidenceTest` | Evidence generation and writer contracts |
+
+These offline evaluation tests validate framework machinery. Passing them is **not** detector-quality acceptance (`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`). See [`../evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md).
 
 ### Focused characterization command
 
@@ -117,5 +121,8 @@ Included in `ai-sentinel-core` / starter Surefire:
 - Multi-host distributed end-to-end behavior beyond documented Testcontainers coverage
 - Isolation Forest per-feature attribution
 - Fail-closed availability
+- Official detection baseline quality or production detection efficacy
 
 Preserve MONITOR-first adoption: [`deployment.md`](deployment.md).
+
+Offline detection-evaluation machinery (reference corpus, deterministic replay, complete-run evidence, and the Official Detection Reference Baseline) is documented under [`../evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md) and [`../evaluation/DETECTION_REFERENCE_BASELINE.md`](../evaluation/DETECTION_REFERENCE_BASELINE.md). The Detection Evaluation Framework and Official Detection Reference Baseline are complete as offline engineering evidence; neither is detector-quality acceptance for production (`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`, `BASELINE != QUALITY GATE`). A READY candidate may be evaluated through that same framework ([`../docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](../docs/contracts/SCORER_CANDIDATE_EVALUATION.md)); evaluated is not accepted, and accepted is not approved, shadowed, or production-selected. Observational shadow scoring is a separate explicit opt-in ([`../docs/contracts/SCORER_CANDIDATE_SHADOW.md`](../docs/contracts/SCORER_CANDIDATE_SHADOW.md)); `SHADOW RESULT != PRODUCTION DECISION`. Champion/challenger lifecycle governance is a separate explicit capability ([`../docs/contracts/SCORER_MODEL_LIFECYCLE.md`](../docs/contracts/SCORER_MODEL_LIFECYCLE.md)); `PROMOTED != PRODUCTION DEPLOYED`.

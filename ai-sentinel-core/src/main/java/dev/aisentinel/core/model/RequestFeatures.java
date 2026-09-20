@@ -93,6 +93,13 @@ public final class RequestFeatures {
     public int ipBucket() { return ipBucket; }
 
     /**
+     * Canonical privacy-safe feature values aligned with {@link FeatureSchema#CANONICAL_FEATURES}.
+     */
+    public FeatureSnapshot toFeatureSnapshot() {
+        return FeatureSnapshot.from(this);
+    }
+
+    /**
      * Full export vector (training snapshots / diagnostics).
      * Order matches {@link FeatureSchema#EXPORT_FEATURE_NAMES} (schemaVersion {@link FeatureSchema#VERSION}).
      * <p>

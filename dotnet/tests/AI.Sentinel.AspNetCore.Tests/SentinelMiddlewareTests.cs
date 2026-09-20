@@ -153,6 +153,7 @@ public class SentinelMiddlewareTests
         request.Headers.Add("X-Session-Token", "session-secret");
         request.Headers.Add("X-Api-Key", "api-secret");
         request.Headers.Add("X-Request-ID", "safe-request-id");
+        request.Headers.Add("X-Token-Issued-At", "1700000000");
         request.Headers.UserAgent.ParseAdd("safe-agent");
 
         var response = await client.SendAsync(request);
@@ -161,18 +162,44 @@ public class SentinelMiddlewareTests
         Assert.NotNull(capturedRequest);
         Assert.Equal("safe-request-id", capturedRequest!.Headers["x-request-id"]);
         Assert.Equal("safe-agent", capturedRequest.Headers["user-agent"]);
+        Assert.Equal("present", capturedRequest.Headers["authorization"]);
+        Assert.Equal("1700000000", capturedRequest.Headers["x-token-issued-at"]);
         Assert.DoesNotContain("x-forwarded-for", capturedRequest.Headers.Keys);
         Assert.DoesNotContain("forwarded", capturedRequest.Headers.Keys);
         Assert.DoesNotContain("x-real-ip", capturedRequest.Headers.Keys);
         Assert.DoesNotContain("x-forwarded-host", capturedRequest.Headers.Keys);
         Assert.DoesNotContain("x-forwarded-proto", capturedRequest.Headers.Keys);
         Assert.DoesNotContain("x-ai-sentinel-api-key", capturedRequest.Headers.Keys);
-        Assert.DoesNotContain("authorization", capturedRequest.Headers.Keys);
         Assert.DoesNotContain("cookie", capturedRequest.Headers.Keys);
         Assert.DoesNotContain("x-custom-secret", capturedRequest.Headers.Keys);
         Assert.DoesNotContain("x-csrf-token", capturedRequest.Headers.Keys);
         Assert.DoesNotContain("x-session-token", capturedRequest.Headers.Keys);
         Assert.DoesNotContain("x-api-key", capturedRequest.Headers.Keys);
+        Assert.DoesNotContain("Bearer secret", capturedRequest.Headers.Values);
+    }
+
+    [Fact]
+    public async Task QueryParametersAreShapeOnlyInEvaluationRequest()
+    {
+        EvaluationRequest? capturedRequest = null;
+        await using var host = await CreateHostAsync(
+            enabled: true,
+            request =>
+            {
+                capturedRequest = request;
+                return Task.FromResult(FixturePaths.ReadResponseFixture("allow.json"));
+            });
+
+        var response = await host.GetTestClient().GetAsync("/api/hello?password=secret&token=abc");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.NotNull(capturedRequest);
+        Assert.Equal("present", capturedRequest!.Parameters["p0"]);
+        Assert.Equal("present", capturedRequest.Parameters["p1"]);
+        Assert.DoesNotContain("password", capturedRequest.Parameters.Keys);
+        Assert.DoesNotContain("token", capturedRequest.Parameters.Keys);
+        Assert.DoesNotContain("secret", capturedRequest.Parameters.Values);
+        Assert.DoesNotContain("abc", capturedRequest.Parameters.Values);
     }
 
     [Fact]

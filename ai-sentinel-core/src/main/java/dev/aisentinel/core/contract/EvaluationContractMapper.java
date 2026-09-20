@@ -13,6 +13,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -20,12 +21,29 @@ import java.util.UUID;
  */
 public final class EvaluationContractMapper {
 
+    static final String AUTHORIZATION_PRESENT_SENTINEL = "present";
+    static final String PARAMETER_PRESENT_SENTINEL = "present";
+    static final Set<String> SAFE_REQUEST_HEADERS = Set.of(
+        "accept",
+        "accept-language",
+        "authorization",
+        "content-length",
+        "content-type",
+        "traceparent",
+        "tracestate",
+        "user-agent",
+        "x-correlation-id",
+        "x-request-id",
+        "x-token-issued-at"
+    );
+
     private EvaluationContractMapper() {
     }
 
     /**
      * Build an {@link EvaluationRequest} from an existing {@link HttpRequestView} for local adapters.
-     * Does not require Authorization/Cookie; copies headers present on the view for feature parity.
+     * Copies only a bounded safe-header allowlist needed for remote behavioral parity.
+     * Authorization is represented as presence-only and never forwards bearer credentials.
      */
     public static EvaluationRequest fromHttpRequestView(HttpRequestView view,
                                                         String identityKey,
@@ -45,15 +63,18 @@ public final class EvaluationContractMapper {
                     continue;
                 }
                 String normalized = EvaluationRequest.normalizeHeaderName(name);
-                if (normalized.isBlank() || headers.containsKey(normalized)) {
+                if (normalized.isBlank() || headers.containsKey(normalized) || !SAFE_REQUEST_HEADERS.contains(normalized)) {
                     continue;
                 }
                 if (headers.size() >= EvaluationContract.MAX_HEADERS) {
                     break;
                 }
                 String value = view.getHeader(name);
-                if (value == null) {
+                if (value == null || value.isBlank()) {
                     continue;
+                }
+                if ("authorization".equals(normalized)) {
+                    value = AUTHORIZATION_PRESENT_SENTINEL;
                 }
                 if (value.length() > EvaluationContract.MAX_STRING_LENGTH) {
                     value = value.substring(0, EvaluationContract.MAX_STRING_LENGTH);
@@ -65,6 +86,7 @@ public final class EvaluationContractMapper {
         LinkedHashMap<String, String> parameters = new LinkedHashMap<>();
         Map<String, String[]> raw = view.getParameterMap();
         if (raw != null) {
+            int parameterIndex = 0;
             for (Map.Entry<String, String[]> e : raw.entrySet()) {
                 if (parameters.size() >= EvaluationContract.MAX_PARAMETERS) {
                     break;
@@ -73,16 +95,17 @@ public final class EvaluationContractMapper {
                 if (key == null || key.isBlank()) {
                     continue;
                 }
-                String[] values = e.getValue();
-                String first = values != null && values.length > 0 && values[0] != null ? values[0] : "";
-                if (first.length() > EvaluationContract.MAX_STRING_LENGTH) {
-                    first = first.substring(0, EvaluationContract.MAX_STRING_LENGTH);
-                }
-                parameters.put(key, first);
+                parameters.put("p" + parameterIndex++, PARAMETER_PRESENT_SENTINEL);
             }
         }
 
         String path = view.getRequestURI() != null ? view.getRequestURI() : "/";
+        int queryStart = path.indexOf('?');
+        int fragmentStart = path.indexOf('#');
+        int delimiter = firstDelimiter(queryStart, fragmentStart);
+        if (delimiter >= 0) {
+            path = path.substring(0, delimiter);
+        }
         if (!path.startsWith("/")) {
             path = "/" + path;
         }
@@ -182,5 +205,15 @@ public final class EvaluationContractMapper {
 
     static Double finiteOrNull(double score) {
         return Double.isFinite(score) ? score : null;
+    }
+
+    private static int firstDelimiter(int queryStart, int fragmentStart) {
+        if (queryStart < 0) {
+            return fragmentStart;
+        }
+        if (fragmentStart < 0) {
+            return queryStart;
+        }
+        return Math.min(queryStart, fragmentStart);
     }
 }

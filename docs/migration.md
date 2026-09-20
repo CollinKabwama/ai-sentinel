@@ -1,15 +1,68 @@
-# Migrating to AI-Sentinel 0.3.0
+# Migrating to AI-Sentinel 0.4.0
 
-This guide covers upgrading from the published **0.2.0** line, or unreleased **0.2.1** development trees, to **0.3.0**. Notes for **0.1.0 → 0.2.0** remain below for operators still on the earlier line.
+This guide covers upgrading from the published **0.3.0** line to **0.4.0**. Notes for **0.2.0 / unreleased 0.2.1 → 0.3.0** and **0.1.0 → 0.2.0** remain below.
 
-**Recommended first deployment mode remains `MONITOR`.** From **0.3.0**, `MONITOR` is also the **library default**. Do not enable `ENFORCE` based on
-synthetic suites alone — see [`deployment.md`](deployment.md).
+**0.4.0** is the packaging line for candidate-scorer integration, observational shadow scoring, and lifecycle-governance designation. Central publication of **0.4.0** requires separate release authorization after review; until then, prefer a source/local install of this repository. Published Central remains **0.3.0** ([tag `v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)) until that authorization completes.
+
+**Recommended first deployment mode remains `MONITOR`.** Do not enable `ENFORCE` based on synthetic suites alone — see [`deployment.md`](deployment.md).
+
+`VALIDATED CANDIDATE ARTIFACT != RUNTIME-AVAILABLE CANDIDATE != EVALUATED != APPROVED != SHADOW != CHAMPION != PRODUCTION` · `PROMOTED != PRODUCTION DEPLOYED`
 
 For the full user-facing change list, see the root [`CHANGELOG.md`](../CHANGELOG.md).
 
 ---
 
-## Dependency version
+## Dependency version (0.4.0)
+
+```xml
+<dependency>
+  <groupId>dev.aisentinel</groupId>
+  <artifactId>ai-sentinel-spring-boot-starter</artifactId>
+  <version>0.4.0</version>
+</dependency>
+```
+
+Until Central publication is authorized, install from this repository (`mvn clean install`) or depend on the previously published [`0.3.0`](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.3.0) coordinate if you do not need 0.4.0 APIs.
+
+---
+
+## 0.3.0 → 0.4.0
+
+### What changes for ordinary starter users
+
+- Default operating mode remains **`MONITOR`**.
+- No intentional public API removals relative to **0.3.0**.
+- Optional Redis/Kafka integrations remain optional.
+- You do **not** need to configure candidate scorers, shadow scoring, or lifecycle governance for ordinary runtime scoring.
+
+### What is new (opt-in engineering capability)
+
+- Candidate artifact validation / verified-bytes loading / readiness
+- Offline candidate replay, detection evaluation, and optional engineering acceptance
+- Explicit opt-in observational shadow scoring (default OFF; does not affect policy/enforcement)
+- Explicit challenger/approval/promotion/rollback for lifecycle champion **designation only**
+
+These paths do **not** rewire the authoritative runtime scorer. See contracts under [`docs/contracts/`](contracts/).
+
+### Suggested upgrade checklist
+
+1. Bump the starter dependency to `0.4.0` (or install from source until Central publish).
+2. Leave `ai.sentinel.mode=MONITOR` unless you already run an explicit ENFORCE posture.
+3. Do not enable shadow scoring or lifecycle governance unless you intentionally operate those engineering paths.
+4. Re-run the reactor gate ([`testing.md`](testing.md)).
+5. Review Actuator / telemetry in staging before any ENFORCE decision.
+
+---
+
+## Migrating to AI-Sentinel 0.3.0 (historical)
+
+This section covers upgrading from the published **0.2.0** line, or unreleased **0.2.1** development trees, to **0.3.0**.
+
+**0.3.0 is published** to Maven Central (tag [`v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)).
+
+---
+
+## Dependency version (0.3.0)
 
 ```xml
 <dependency>
@@ -18,6 +71,8 @@ For the full user-facing change list, see the root [`CHANGELOG.md`](../CHANGELOG
   <version>0.3.0</version>
 </dependency>
 ```
+
+Maven Central: [`dev.aisentinel:ai-sentinel-spring-boot-starter:0.3.0`](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.3.0).
 
 ---
 

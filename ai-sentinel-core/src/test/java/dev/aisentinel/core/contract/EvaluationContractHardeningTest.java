@@ -56,6 +56,25 @@ class EvaluationContractHardeningTest {
     }
 
     @Test
+    void pathRejectsQueryAndFragmentDelimiters() {
+        assertThatThrownBy(() -> EvaluationRequest.builder()
+            .correlationId("corr")
+            .identityKey("id")
+            .path("/api?token=secret")
+            .build())
+            .isInstanceOf(EvaluationContractException.class)
+            .hasMessageContaining("path");
+
+        assertThatThrownBy(() -> EvaluationRequest.builder()
+            .correlationId("corr")
+            .identityKey("id")
+            .path("/api#fragment")
+            .build())
+            .isInstanceOf(EvaluationContractException.class)
+            .hasMessageContaining("path");
+    }
+
+    @Test
     void controlCharactersRejectedFromMaps() {
         assertThatThrownBy(() -> EvaluationRequest.builder()
             .correlationId("corr")

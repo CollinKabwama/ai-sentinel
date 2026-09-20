@@ -44,6 +44,7 @@ When your PR **deprecates** functionality (but keeps it working for a transition
 | **ai-sentinel-trainer** | Optional standalone Spring Boot app: consumes training candidates (Kafka when enabled), trains IF, publishes to a filesystem model registry. See [`ai-sentinel-trainer/README.md`](ai-sentinel-trainer/README.md). |
 | **ai-sentinel-demo** | Reference Spring Boot app for local runs and smoke tests. |
 | **dotnet/** | Reference ASP.NET Core remote adapter (`AI.Sentinel.AspNetCore`) — consumes remote evaluation HTTP API; no C# scoring engine. See [`dotnet/README.md`](dotnet/README.md). |
+| **evaluation/** | Offline Detection Evaluation Framework docs, tracked synthetic corpus, and Official Detection Reference Baseline (capture/verify/lifecycle). Engineering evidence only — not production efficacy or a quality gate. Start at [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md) and [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). |
 
 ---
 
@@ -53,6 +54,7 @@ When your PR **deprecates** functionality (but keeps it working for a transition
 2. **`SentinelDecisionEngine`** — [`.../decision/SentinelDecisionEngine.java`](ai-sentinel-core/src/main/java/dev/aisentinel/core/decision/SentinelDecisionEngine.java) — framework-free risk decision returning `RiskDecision` (never writes the HTTP response).
 3. **`SentinelFilter`** — [`ai-sentinel-spring-boot-starter/.../SentinelFilter.java`](ai-sentinel-spring-boot-starter/src/main/java/dev/aisentinel/autoconfigure/web/SentinelFilter.java) — servlet entry point and adapter boundary.
 4. **`SentinelAutoConfiguration`** — [`.../SentinelAutoConfiguration.java`](ai-sentinel-spring-boot-starter/src/main/java/dev/aisentinel/autoconfigure/config/SentinelAutoConfiguration.java) — beans and `@ConditionalOnMissingBean` extension points.
+5. **Offline evaluation** — `dev.aisentinel.core.replay` and `dev.aisentinel.core.evaluation` (including `DetectionEvaluationRunner` and `CandidateDetectionEvaluationRunner`) for deterministic replay and complete-run evidence against [`evaluation/reference/`](evaluation/reference/). See [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md) and [`docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](docs/contracts/SCORER_CANDIDATE_EVALUATION.md).
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) and [`docs/configuration.md`](docs/configuration.md) for the full picture.
 
@@ -87,7 +89,7 @@ If a maintainer designates an issue as **hotfix**, **security**, or **release-bl
 
 ### Releases
 
-Maintainers merge `dev` → `main` and tag releases. Contributors do not manage releases.
+Maintainers merge `dev` → `main` and tag releases (for example [`v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)). After promoting a release, keep `dev` and `main` tips aligned. Contributors do not manage releases.
 
 ---
 
@@ -109,9 +111,9 @@ java -version   # expect 21
 mvn clean install
 ```
 
-To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter` at the version in the parent `pom.xml` (currently **0.3.0** on `dev`; latest published Maven Central release is **0.2.0**). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
+To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter` at the version in the parent `pom.xml` (currently **0.4.0** packaging line). The previously published Central coordinate remains **0.3.0** (tag `v0.3.0`) until **0.4.0** Central publication is authorized. There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
 
-Characterization and release-gate testing: [`docs/testing.md`](docs/testing.md). Upgrading from the previous published line: [`docs/migration.md`](docs/migration.md). Docs index and reading order: [`docs/README.md`](docs/README.md).
+Characterization and release-gate testing: [`docs/testing.md`](docs/testing.md). Upgrading from the previous published line: [`docs/migration.md`](docs/migration.md). Docs index and reading order: [`docs/README.md`](docs/README.md). Offline evaluation corpus helpers: [`scripts/README.md`](scripts/README.md) and [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md).
 
 **Publishing to Maven Central:** see **[`RELEASING.md`](RELEASING.md)** for the full release checklist (Central Portal, GPG, `-Prelease` deploy).
 
@@ -130,13 +132,13 @@ mvn clean verify
 
 `mvn clean verify` is the same primary gate used for release validation ([`docs/testing.md`](docs/testing.md)). Without Docker, a small number of Testcontainers tests are skipped rather than failed.
 
-Optional **public API compatibility** check against the last published Central baseline (`0.2.0` by default; property `aisentinel.api.compatibility.oldVersion`):
+Optional **public API compatibility** check against the japicmp baseline (`0.3.0` by default; property `aisentinel.api.compatibility.oldVersion`):
 
 ```bash
 mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am verify -DskipTests
 ```
 
-CI runs this profile after the main reactor verify. After **0.3.0** is published to Maven Central, retarget the baseline property and drop the intentional excludes documented in `ai-sentinel-core/pom.xml` and `ai-sentinel-spring-boot-starter/pom.xml` (removed one-argument quarantine lookup; pre-existing Spring `@Bean` signature change for `enforcementHandlerImpl`).
+CI runs this profile after the main reactor verify. **0.3.0** is published; the japicmp property still compares against **0.2.0** until a follow-up retarget. After retargeting to **0.3.0**, drop the intentional excludes documented in `ai-sentinel-core/pom.xml` and `ai-sentinel-spring-boot-starter/pom.xml` (removed one-argument quarantine lookup; pre-existing Spring `@Bean` signature change for `enforcementHandlerImpl`).
 
 Running a single module in isolation only works when its dependencies are already installed with matching sources:
 
