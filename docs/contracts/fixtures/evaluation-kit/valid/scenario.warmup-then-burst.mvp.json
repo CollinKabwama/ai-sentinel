@@ -1,0 +1,55 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "kit.warmup-then-burst.mvp",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Warmup then burst (MVP)",
+  "description": "Deterministic Evaluation Kit scenario family: established warmup followed by an anomalous single-identity burst.",
+  "population": {
+    "identityCount": 3,
+    "identityKeyPrefix": "wb-id-",
+    "notes": "Pseudonymous identities only."
+  },
+  "normalBehavior": {
+    "summary": "Steady low-rate requests across a small endpoint set during warmup and early evaluation.",
+    "endpointKeys": ["/api/a", "/api/b"]
+  },
+  "timing": {
+    "warmup": {
+      "durationSeconds": 5,
+      "notes": "Baseline formation window."
+    },
+    "evaluation": {
+      "durationSeconds": 8,
+      "notes": "Post-warmup evaluation window including burst."
+    }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-normal",
+      "intent": "legitimate",
+      "summary": "Continue normal behavior after warmup.",
+      "startsAfterWarmupSeconds": 0
+    },
+    {
+      "transitionId": "t-burst",
+      "intent": "anomalous",
+      "summary": "Single identity bursts to one endpoint.",
+      "startsAfterWarmupSeconds": 3
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only. Must not configure scorer/thresholds/policy for the subject under test.",
+    "assertions": [
+      {
+        "assertionId": "a-burst-present",
+        "kind": "structural",
+        "statement": "Evaluation window includes anomalous burst events for the primary identity."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "warmup-then-burst",
+    "authoringNote": "Machine JSON form for deterministic corpus generation MVP."
+  }
+}
