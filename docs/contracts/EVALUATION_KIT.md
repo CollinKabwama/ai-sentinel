@@ -249,21 +249,19 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 
 ---
 
-## 10. EvaluationEvent convergence requirements (document only)
+## 10. EvaluationEvent convergence
 
-This contract package does **not** wire EvaluationEvent and does **not** add ground truth or scenario expected outcomes to the event schema.
+`EvaluationEvent` remains the detector-facing evidence atom. Convergence wiring in the Java core:
 
-Preferred initial direction: **sidecar / run-manifest metadata** for Kit join fields. Final wiring belongs to a later evaluation-event convergence task.
-
-### Convergence requirements
-
-1. Map generated corpus events → `EvaluationEvent` (or equivalent) **without labels**.
+1. Map corpus / reference events → `EvaluationEvent` **without labels** (canonical JSON via `EvaluationEventJson`).
 2. Keep ground-truth join **outside** the event schema (sidecar).
-3. Decide how Kit run metadata (`scenarioId`, `corpusId`, `resultId`, generator/seed bindings) attaches — prefer sidecar/run-manifest over expanding detector-facing events unless a strong reason exists.
-4. Ensure generation → replay → evaluation → reporting → BYO → comparison share versioned evidence semantics.
+3. Kit run metadata (`scenarioId`, `corpusId`, `resultId`, generator/seed bindings) attaches via **sidecar / run-manifest**, not detector-facing events.
+4. Dataset export and replay load share the same event encode/decode path; replay projections derive through `EvaluationEventReplayBridge`.
 5. Preserve privacy allow-list of `EvaluationEvent`.
 6. Do not require Spring or remote `EvaluationExecutor` for the basic offline Kit path.
-7. Close remaining EvaluationEvent wiring gaps for Kit paths without rewriting historical reference baselines.
+7. Historical reference baselines remain unmodified; compatibility is at the code/contract boundary.
+
+`DetectionEvaluationEvidence` and the generic Evaluation Kit Result remain separate abstractions.
 
 ---
 

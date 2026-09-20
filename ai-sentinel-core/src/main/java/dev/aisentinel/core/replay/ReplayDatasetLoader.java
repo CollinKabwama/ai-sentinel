@@ -1,12 +1,12 @@
 package dev.aisentinel.core.replay;
 
+import dev.aisentinel.core.contract.EvaluationContractException;
+import dev.aisentinel.core.contract.EvaluationEvent;
+import dev.aisentinel.core.contract.EvaluationEventJson;
 import dev.aisentinel.core.contract.EvaluationEventSchemas;
 import dev.aisentinel.core.dataset.EvaluationDatasetManifest;
 import dev.aisentinel.core.dataset.EvaluationDatasetSchemas;
 import dev.aisentinel.core.dataset.reference.ReferenceDatasetAnnotations;
-import dev.aisentinel.core.model.FeatureSchema;
-import dev.aisentinel.core.model.FeatureSnapshot;
-import dev.aisentinel.core.policy.EnforcementAction;
 import dev.aisentinel.distributed.training.TrainingFingerprintHashes;
 
 import java.io.IOException;
@@ -111,44 +111,11 @@ public final class ReplayDatasetLoader {
 
     private static ReplayDataset.ReplaySourceEvent parseEvent(String line, int sequence) {
         try {
-            String eventSchemaVersion = ReplayJsonSupport.requireString(line, "eventSchemaVersion");
-            EvaluationEventSchemas.requireSupported(eventSchemaVersion);
-            String featureSchemaVersion = ReplayJsonSupport.requireString(line, "featureSchemaVersion");
-            FeatureSchema.requireSupportedVersion(featureSchemaVersion);
-            FeatureSnapshot features = new FeatureSnapshot(
-                ReplayJsonSupport.requireDouble(line, "requestsPerWindow"),
-                ReplayJsonSupport.requireDouble(line, "endpointEntropy"),
-                ReplayJsonSupport.requireDouble(line, "endpointConcentration"),
-                ReplayJsonSupport.requireDouble(line, "tokenAgeSeconds"),
-                (int) ReplayJsonSupport.requireLong(line, "parameterCount"),
-                ReplayJsonSupport.requireLong(line, "payloadSizeBytes"),
-                ReplayJsonSupport.requireLong(line, "headerFingerprintHash"),
-                (int) ReplayJsonSupport.requireLong(line, "ipBucket")
-            );
-            ReplayInputRecord input = new ReplayInputRecord(
-                sequence,
-                ReplayJsonSupport.requireString(line, "eventId"),
-                Instant.parse(ReplayJsonSupport.requireString(line, "observedAt")),
-                ReplayJsonSupport.optionalString(line, "correlationId"),
-                ReplayJsonSupport.requireString(line, "identityKey"),
-                ReplayJsonSupport.optionalString(line, "identityType"),
-                ReplayJsonSupport.requireString(line, "endpointKey"),
-                featureSchemaVersion,
-                features
-            );
-            HistoricalReferenceOutput historicalOutput = new HistoricalReferenceOutput(
-                ReplayJsonSupport.requireString(line, "scorerId"),
-                ReplayJsonSupport.optionalString(line, "scorerVersion"),
-                ReplayJsonSupport.optionalDouble(line, "anomalyScore"),
-                ReplayJsonSupport.optionalDouble(line, "policyScore"),
-                EnforcementAction.valueOf(ReplayJsonSupport.requireString(line, "action")),
-                ReplayJsonSupport.parseStatuses(ReplayJsonSupport.arrayBody(line, "evaluationStatuses")),
-                ReplayJsonSupport.parseRiskFactors(line),
-                ReplayJsonSupport.optionalString(line, "policyId"),
-                ReplayJsonSupport.optionalString(line, "policyVersion"),
-                ReplayJsonSupport.optionalString(line, "evaluationMode")
-            );
-            return new ReplayDataset.ReplaySourceEvent(input, historicalOutput);
+            EvaluationEvent event = EvaluationEventJson.parse(line);
+            return EvaluationEventReplayBridge.toReplaySourceEvent(event, sequence);
+        } catch (EvaluationContractException e) {
+            throw new ReplayException(ReplayFailureKind.INPUT_PARSE_FAILURE,
+                "Failed to parse dataset event at sequence " + sequence + ": " + e.getMessage(), e);
         } catch (RuntimeException e) {
             throw new ReplayException(ReplayFailureKind.INPUT_PARSE_FAILURE,
                 "Failed to parse dataset event at sequence " + sequence, e);

@@ -40,7 +40,16 @@ FORBIDDEN_EVENT_FIELDS = {
     "label",
     "labels",
     "anomalyExpected",
+    "maliciousnessAsserted",
     "evaluationExpectations",
+    "scenarioId",
+    "corpusId",
+    "resultId",
+    "seed",
+    "generatorContractVersion",
+    "generatorBuildId",
+    "desiredAnomalyScore",
+    "expectedAction",
 }
 
 FORBIDDEN_SCORER_INPUT_FIELDS = {

@@ -15,6 +15,11 @@ import java.util.Objects;
  * <p>
  * This is a durable data/evidence contract, not an HTTP transport DTO and not a live
  * enforcement command. Event-schema and feature-schema versions are validated separately.
+ * <p>
+ * Detector-facing only: ground truth, scenario assertions, and Evaluation Kit run identity
+ * ({@code scenarioId}, {@code corpusId}, {@code resultId}, generator/seed bindings) must not
+ * appear on this type. Those join via sidecar / run-manifest metadata keyed by {@code eventId}.
+ * Use {@link EvaluationEventJson} for canonical JSON encode/decode shared by export and replay.
  */
 public record EvaluationEvent(
     String eventSchemaVersion,
