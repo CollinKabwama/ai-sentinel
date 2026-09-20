@@ -34,6 +34,6 @@ Most of this tree is gitignored (`docs/*`). Allowlisted root files plus **`docs/
 
 **Suggested reading order for candidate-model engineers:** artifact → loading → evaluation/acceptance → shadow → lifecycle governance (links above).
 
-Packaging library line: **0.4.0** (Central publish pending authorization; previously published **0.3.0**: [release notes](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)).
+Packaging / current release: **0.4.0** ([release notes](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.4.0)). Previous published line: **0.3.0** ([release notes](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)). Historical performance evidence remains the [0.3.0 reference baseline](performance/REFERENCE_BASELINE.md).
 
 For how the **Java decision core** relates to the **Spring Boot / Servlet** adapter, see [`../ARCHITECTURE.md`](../ARCHITECTURE.md) (security model vs core vs current adapter).

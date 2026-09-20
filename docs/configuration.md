@@ -5,7 +5,7 @@ Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer
 **Operator deployment modes, MONITOR-first adoption, ENFORCE preconditions, and restart/cold-start:** [`deployment.md`](deployment.md).  
 Upgrade notes (**0.3.0 → 0.4.0**, and earlier **0.2.x → 0.3.0**): [`migration.md`](migration.md). Release notes: [`../CHANGELOG.md`](../CHANGELOG.md).
 
-Packaging version is **0.4.0**. The previously published Maven Central line is **0.3.0** (tag `v0.3.0`) until **0.4.0** is authorized for Central. The japicmp API-compatibility baseline is **0.3.0**.
+Current published version is **0.4.0**. Previous published Maven Central line: **0.3.0** (tag `v0.3.0`). The japicmp API-compatibility baseline for **0.4.0** is **0.3.0**.
 
 This page is organized as:
 

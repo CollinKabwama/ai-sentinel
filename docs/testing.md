@@ -35,7 +35,7 @@ mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am
 ```
 
 CI runs this after the reactor verify. The baseline version is
-`aisentinel.api.compatibility.oldVersion` (currently **0.3.0** for the **0.4.0** packaging line).
+`aisentinel.api.compatibility.oldVersion` (currently **0.3.0** for the **0.4.0** release line).
 Prior 0.2.0-era japicmp excludes were removed when the baseline was retargeted.
 
 Expected shape (may grow if tests are added):

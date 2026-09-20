@@ -138,7 +138,7 @@ ai:
     mode: MONITOR   # default; set ENFORCE only after MONITOR validation — see docs/deployment.md
 ```
 
-Add the starter dependency (version **0.4.0** packaging line):
+Add the starter dependency (current release **0.4.0**):
 
 ```xml
 <dependency>
@@ -148,7 +148,7 @@ Add the starter dependency (version **0.4.0** packaging line):
 </dependency>
 ```
 
-**0.4.0** packages the candidate-integration, observational shadow, and lifecycle-governance engineering capabilities described above. Prefer **`mode=MONITOR`** for initial adoption. Central publication of **0.4.0** requires separate release authorization after review; until then, build/install from this repository. The previously published Central line remains **0.3.0** ([tag `v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)).
+**0.4.0** is the current published release ([GitHub Release](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.4.0), [Maven Central](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.4.0)). It packages the candidate-integration, observational shadow, and lifecycle-governance engineering capabilities described above. Prefer **`mode=MONITOR`** for initial adoption. Published Central coordinates: `dev.aisentinel:ai-sentinel`, `dev.aisentinel:ai-sentinel-core`, and `dev.aisentinel:ai-sentinel-spring-boot-starter` at **0.4.0**. Previous published line: **0.3.0** ([tag `v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)).
 
 Upgrade notes: [`docs/migration.md`](docs/migration.md). Full history: [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -222,7 +222,7 @@ Python (stdlib only): **[`scripts/README.md`](scripts/README.md)** (`train_monit
 
 ## Offline detection evaluation
 
-The **Detection Evaluation Framework** is complete on the **0.4.0** packaging line. Tracked corpus and docs live under [`evaluation/`](evaluation/):
+The **Detection Evaluation Framework** is complete on the **0.4.0** release line. Tracked corpus and docs live under [`evaluation/`](evaluation/):
 
 - [`evaluation/REFERENCE_DATASET.md`](evaluation/REFERENCE_DATASET.md) — durable synthetic reference corpus
 - [`evaluation/DETERMINISTIC_REPLAY.md`](evaluation/DETERMINISTIC_REPLAY.md) — deterministic scoring/policy replay
@@ -241,7 +241,7 @@ Candidate shadow scoring and lifecycle designation governance are packaged as en
 
 - **Candidate / lifecycle boundaries** — Validated, loaded, evaluated, accepted, shadowed, or lifecycle-promoted candidates do not become the running production scorer. Explicit production model activation is out of scope on the current line (`PROMOTED LIFECYCLE CHAMPION != RUNNING PRODUCTION SCORER`). Pilot evidence remains required for operational claims (`PILOT_EVIDENCE_REQUIRED`).
 - **Official Detection Reference Baseline** — Capture, verification/drift, and lifecycle/governance are complete under [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). Drift means difference, not detector-quality acceptance or production approval.
-- **Stable software baseline** — **0.4.0** is the packaging line for candidate/shadow/lifecycle engineering capability after published **0.3.0**. Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone.
+- **Stable software baseline** — **0.4.0** is the current published release for candidate/shadow/lifecycle engineering capability (after **0.3.0**). Treat production adoption as operator-owned after threat-model review (see [`SECURITY.md`](SECURITY.md)). Prefer **`mode=MONITOR`** first; do not claim production-ready ENFORCE from synthetic tests alone. Historical performance and Official Detection Reference Baseline evidence remain associated with **0.3.0** unless an artifact explicitly states otherwise.
 - **MONITOR default** — Default `ai.sentinel.mode=MONITOR` (observe/learn; no client denial). Explicit `ENFORCE` enables client denial only after ENFORCE preconditions. Full mode matrix, restart behavior, and the availability-first **failure-mode profile**: [`docs/deployment.md`](docs/deployment.md). Statistical warmup is a lifecycle state (`EvaluationStatus.STATISTICAL_WARMUP`), not evidence of abuse; default warmup action is `MONITOR`. Default baseline learning skips `THROTTLE`/`BLOCK`/`QUARANTINE` risk (`ALLOW_OR_MONITOR`).
 - **Filesystem model registry** only (no built-in S3 or Redis artifact store in this repository). Do not confuse registry refresh with candidate lifecycle promotion.
 - **Trainer `eventId` dedup** is JVM-local; multiple trainer instances are not coordinated without external design.
