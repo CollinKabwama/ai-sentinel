@@ -7,7 +7,7 @@ import java.nio.file.Path;
 import java.util.Objects;
 
 /**
- * Deterministic Evaluation Kit corpus generator (MVP).
+ * Deterministic Evaluation Kit corpus generator.
  * <p>
  * Compiles a Scenario / Test Plan plus seed and generator build identity into:
  * <ul>
@@ -17,6 +17,7 @@ import java.util.Objects;
  *   <li>replay-compatible {@code manifest.json} ({@link dev.aisentinel.core.dataset.EvaluationDatasetManifest})</li>
  * </ul>
  * Historical {@code ReferenceDatasetGenerator} remains a separate fixed seed artifact path and is not used here.
+ * Versioned repository reference corpora live under {@code evaluation/kit-reference/}.
  */
 public final class CorpusGenerator {
 
@@ -70,8 +71,7 @@ public final class CorpusGenerator {
                 "Unsupported featureSchemaVersion: " + scenario.featureSchemaVersion());
         }
 
-        WarmupThenBurstCompiler.CompiledCorpus compiled =
-            WarmupThenBurstCompiler.compile(scenario, seed, generatorBuildId);
+        CompiledCorpus compiled = CorpusFamilyCompilers.compile(scenario, seed, generatorBuildId);
         GeneratedCorpus generated = CorpusArtifactWriter.write(
             outputDirectory,
             scenario,

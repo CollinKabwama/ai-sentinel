@@ -5,7 +5,7 @@ Normative contract foundations for the AI-Sentinel Evaluation Kit.
 JSON is the **normative machine representation** for schemas and fixtures in this package.
 JSON does **not** permanently constrain human authoring UX: later CLI/tooling may accept YAML or other conveniences that normalize to the same logical contract.
 
-This document defines Evaluation Kit contracts. It does not claim production efficacy and does not change production runtime decision behavior. A deterministic corpus-generator MVP for one scenario family lives in core; CLI, container, and HTML productization remain out of scope for this package.
+This document defines Evaluation Kit contracts. It does not claim production efficacy and does not change production runtime decision behavior. A deterministic corpus generator for feature-level scenario families lives in core; a versioned repository reference inventory is checked in under `evaluation/kit-reference/`. CLI, container, and HTML productization remain out of scope for this package.
 
 Current schema versions for Kit machine contracts in this package: `"1"`.
 
@@ -21,7 +21,7 @@ Current schema versions for Kit machine contracts in this package: `"1"`.
 
 **Scenario ≠ Generator ≠ Corpus.**
 
-Existing `evaluation/reference/` is a **historical seed instance**, not the Kit generative architecture. Deterministic corpus generation for Kit scenarios is implemented as an MVP under `dev.aisentinel.core.dataset.corpus` (first family: warmup-then-burst, feature-level). Multi-family inventory remains later work.
+Existing `evaluation/reference/` is a **historical seed instance**, not the Kit generative architecture. Deterministic corpus generation for Kit scenarios is implemented under `dev.aisentinel.core.dataset.corpus` (feature-level). The repository-owned **versioned reference evaluation corpus** lives at [`evaluation/kit-reference/`](../../evaluation/kit-reference/) and is regenerated/verified via `scripts/verify-kit-reference-corpus.sh`.
 
 ---
 
@@ -142,6 +142,37 @@ This rule is **additional to** ground-truth ≠ detector input.
 - Never use scenario assertions to configure scorer/policy for the subject under test
 
 Machine recording of generator identity appears on the **Corpus Manifest** and **Reproducibility Manifest**.
+
+---
+
+## 5b. Versioned reference corpus inventory
+
+Repository path: [`evaluation/kit-reference/`](../../evaluation/kit-reference/)
+
+| Artifact | Role |
+|----------|------|
+| `generation-spec.json` | Declared generation inputs (scenario paths, seeds, generator build identity, inventory version). |
+| `scenarios/*.json` | Version-controlled Scenario / Test Plan definitions. |
+| `corpora/*/` | Generated events, Kit corpus-manifest, annotations sidecar, replay-compatible manifest. |
+| `inventory.json` | Derived inventory of **actual** generated corpora (checksums, counts, identities). |
+
+`inventoryVersion` versions the **membership and structure of this inventory** — which scenario
+families/corpus entries it contains and the shape of an inventory entry — independent of
+`generatorContractVersion` (I/O contract shape a single corpus generation honors) and
+`generatorBuildId` (identity of the concrete generator implementation that produced the corpora).
+Bump `inventoryVersion` when entries are added, removed, or renamed, or when an entry's recorded
+fields change shape; regenerating existing corpora with the same scenarios/seeds/generator
+identity does not require a bump.
+
+**Machine schema (inventory):** [`schemas/evaluation-kit/corpus-inventory.schema.json`](schemas/evaluation-kit/corpus-inventory.schema.json)
+
+Reproduce/verify:
+
+```bash
+./scripts/verify-kit-reference-corpus.sh
+```
+
+This inventory is synthetic evaluation evidence only. It does not prove production efficacy.
 
 ---
 
@@ -271,8 +302,8 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 |-------|--------|
 | Module / distribution boundary vs `ai-sentinel-benchmark` | Deferred packaging decision |
 | Large artifact storage | Deferred |
-| Deterministic corpus generator implementation | MVP (`feature-level`, `warmup-then-burst` family) |
-| Multi-family corpus inventory | Deferred |
+| Deterministic corpus generator implementation | Implemented (`feature-level`, multi-family) |
+| Versioned reference corpus inventory | Checked in under `evaluation/kit-reference/` |
 | CLI / HTML report UX / container | Deferred |
 | BYO datasets / comparison UX | Deferred |
 
@@ -285,6 +316,7 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 | Shared definitions | [`schemas/evaluation-kit/common.schema.json`](schemas/evaluation-kit/common.schema.json) |
 | Scenario | [`schemas/evaluation-kit/scenario.schema.json`](schemas/evaluation-kit/scenario.schema.json) |
 | Corpus manifest | [`schemas/evaluation-kit/corpus-manifest.schema.json`](schemas/evaluation-kit/corpus-manifest.schema.json) |
+| Corpus inventory | [`schemas/evaluation-kit/corpus-inventory.schema.json`](schemas/evaluation-kit/corpus-inventory.schema.json) |
 | Ground truth | [`schemas/evaluation-kit/ground-truth.schema.json`](schemas/evaluation-kit/ground-truth.schema.json) |
 | Evaluation result | [`schemas/evaluation-kit/evaluation-result.schema.json`](schemas/evaluation-kit/evaluation-result.schema.json) |
 | Reproducibility | [`schemas/evaluation-kit/reproducibility-manifest.schema.json`](schemas/evaluation-kit/reproducibility-manifest.schema.json) |

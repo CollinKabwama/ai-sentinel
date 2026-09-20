@@ -1,0 +1,76 @@
+{
+  "generationSpecVersion": "1",
+  "inventoryId": "kit-reference-corpus",
+  "inventoryVersion": "1.0.0",
+  "generatorContractVersion": "1",
+  "generatorBuildId": "aisentinel-kit-reference-corpus@1",
+  "representationMode": "feature-level",
+  "entries": [
+    {
+      "scenarioFile": "scenarios/kit.abrupt-burst.v1.json",
+      "corpusDirectory": "corpora/kit.abrupt-burst",
+      "seed": "kit-ref-abrupt-burst-1",
+      "scenarioId": "kit.abrupt-burst.v1"
+    },
+    {
+      "scenarioFile": "scenarios/kit.endpoint-distribution-change.v1.json",
+      "corpusDirectory": "corpora/kit.endpoint-distribution-change",
+      "seed": "kit-ref-endpoint-distribution-change-1",
+      "scenarioId": "kit.endpoint-distribution-change.v1"
+    },
+    {
+      "scenarioFile": "scenarios/kit.established-normal.v1.json",
+      "corpusDirectory": "corpora/kit.established-normal",
+      "seed": "kit-ref-established-normal-1",
+      "scenarioId": "kit.established-normal.v1"
+    },
+    {
+      "scenarioFile": "scenarios/kit.gradual-drift.v1.json",
+      "corpusDirectory": "corpora/kit.gradual-drift",
+      "seed": "kit-ref-gradual-drift-1",
+      "scenarioId": "kit.gradual-drift.v1"
+    },
+    {
+      "scenarioFile": "scenarios/kit.identity-session-transition.v1.json",
+      "corpusDirectory": "corpora/kit.identity-session-transition",
+      "seed": "kit-ref-identity-session-transition-1",
+      "scenarioId": "kit.identity-session-transition.v1"
+    },
+    {
+      "scenarioFile": "scenarios/kit.invalid-score-degradation.v1.json",
+      "corpusDirectory": "corpora/kit.invalid-score-degradation",
+      "seed": "kit-ref-invalid-score-degradation-1",
+      "scenarioId": "kit.invalid-score-degradation.v1"
+    },
+    {
+      "scenarioFile": "scenarios/kit.legitimate-burst.v1.json",
+      "corpusDirectory": "corpora/kit.legitimate-burst",
+      "seed": "kit-ref-legitimate-burst-1",
+      "scenarioId": "kit.legitimate-burst.v1"
+    },
+    {
+      "scenarioFile": "scenarios/kit.low-variance-deviation.v1.json",
+      "corpusDirectory": "corpora/kit.low-variance-deviation",
+      "seed": "kit-ref-low-variance-deviation-1",
+      "scenarioId": "kit.low-variance-deviation.v1"
+    },
+    {
+      "scenarioFile": "scenarios/kit.multi-feature-anomaly.v1.json",
+      "corpusDirectory": "corpora/kit.multi-feature-anomaly",
+      "seed": "kit-ref-multi-feature-anomaly-1",
+      "scenarioId": "kit.multi-feature-anomaly.v1"
+    },
+    {
+      "scenarioFile": "scenarios/kit.recovery.v1.json",
+      "corpusDirectory": "corpora/kit.recovery",
+      "seed": "kit-ref-recovery-1",
+      "scenarioId": "kit.recovery.v1"
+    },
+    {
+      "scenarioFile": "scenarios/kit.warmup-cold-start.v1.json",
+      "corpusDirectory": "corpora/kit.warmup-cold-start",
+      "seed": "kit-ref-warmup-cold-start-1",
+      "scenarioId": "kit.warmup-cold-start.v1"
+    }
+  ]
+}

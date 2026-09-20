@@ -1,0 +1,29 @@
+{
+  "inventorySchemaVersion": "1",
+  "inventoryId": "kit-reference-corpus-fixture",
+  "inventoryVersion": "1.0.0",
+  "generatorContractVersion": "1",
+  "generatorBuildId": "aisentinel-kit-reference-corpus@fixture",
+  "representationMode": "feature-level",
+  "entries": [
+    {
+      "scenarioId": "kit.fixture.example.v1",
+      "scenarioVersion": "1.0.0",
+      "family": "established-normal",
+      "scenarioPath": "scenarios/kit.fixture.example.v1.json",
+      "scenarioSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "seed": "fixture-seed-1",
+      "corpusId": "corpus.kit.fixture.example.v1.bbbbbbbbbbbb",
+      "corpusPath": "corpora/kit.fixture.example",
+      "representationMode": "feature-level",
+      "eventCount": 10,
+      "warmupEventCount": 4,
+      "evaluationEventCount": 6,
+      "eventsSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "annotationsSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "corpusManifestSha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "replayManifestSha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  ],
+  "notes": "Fixture only. Not a repository reference corpus entry."
+}

@@ -1,0 +1,49 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "kit.abrupt-burst.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Abrupt request-rate burst",
+  "description": "Established warmup followed by an anomalous single-identity request-rate burst. Synthetic only.",
+  "population": {
+    "identityCount": 3,
+    "identityKeyPrefix": "ab-id-",
+    "notes": "Pseudonymous identities only."
+  },
+  "normalBehavior": {
+    "summary": "Steady low-rate requests across a small endpoint set during warmup and early evaluation.",
+    "endpointKeys": ["/api/a", "/api/b"]
+  },
+  "timing": {
+    "warmup": { "durationSeconds": 4, "notes": "Baseline formation window." },
+    "evaluation": { "durationSeconds": 6, "notes": "Includes abrupt burst." }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-normal",
+      "intent": "legitimate",
+      "summary": "Continue normal behavior after warmup.",
+      "startsAfterWarmupSeconds": 0
+    },
+    {
+      "transitionId": "t-burst",
+      "intent": "anomalous",
+      "summary": "Single identity bursts to one endpoint.",
+      "startsAfterWarmupSeconds": 2
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only.",
+    "assertions": [
+      {
+        "assertionId": "a-burst-present",
+        "kind": "structural",
+        "statement": "Evaluation window includes anomalous burst events for the primary identity."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "abrupt-burst",
+    "authoringNote": "Versioned Kit reference scenario."
+  }
+}

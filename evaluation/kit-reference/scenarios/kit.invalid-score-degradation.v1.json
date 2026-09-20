@@ -1,0 +1,43 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "kit.invalid-score-degradation.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Invalid-score / degradation path",
+  "description": "Evaluation window supplies an input-side condition for invalid-score / degradation handling without asserting a runtime evaluation status or embedding ground truth in detector inputs. Synthetic only.",
+  "population": {
+    "identityCount": 2,
+    "identityKeyPrefix": "is-id-",
+    "notes": "Pseudonymous identities only."
+  },
+  "normalBehavior": {
+    "summary": "Normal feature traffic with later infra degradation markers.",
+    "endpointKeys": ["/api/a", "/api/b"]
+  },
+  "timing": {
+    "warmup": { "durationSeconds": 4, "notes": "Baseline formation window." },
+    "evaluation": { "durationSeconds": 6, "notes": "Includes invalid-score degradation." }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-invalid-score",
+      "intent": "unspecified",
+      "summary": "Infrastructure invalid-score / degradation path.",
+      "startsAfterWarmupSeconds": 2
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only. Ground truth class is unknown during degradation. The generated corpus does not assert EvaluationStatus.INVALID_SCORE itself; that is a decision-engine runtime output only real evaluation/replay can determine.",
+    "assertions": [
+      {
+        "assertionId": "a-invalid-score",
+        "kind": "structural",
+        "statement": "Later evaluation events carry unknown expectedClass in the sidecar and category=invalid-score; the events themselves carry no evaluationStatuses and no anomalyScore/policyScore."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "invalid-score-degradation",
+    "authoringNote": "Versioned Kit reference scenario."
+  }
+}
