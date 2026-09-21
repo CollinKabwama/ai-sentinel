@@ -1,0 +1,13 @@
+{
+  "artifactSchemaVersion": "1",
+  "artifactId": "evidence.invalid.absolute-path",
+  "artifactKind": "other-evidence-archive",
+  "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+  "sizeBytes": 10,
+  "disclosure": "public",
+  "recoveryMode": "retrieve-only",
+  "location": {
+    "scheme": "git-path",
+    "path": "/etc/passwd"
+  }
+}

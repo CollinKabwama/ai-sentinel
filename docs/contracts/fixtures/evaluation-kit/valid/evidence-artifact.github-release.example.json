@@ -1,0 +1,22 @@
+{
+  "artifactSchemaVersion": "1",
+  "artifactId": "evidence.example.public-corpus-archive.v1",
+  "artifactKind": "generated-corpus-archive",
+  "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "sizeBytes": 1048576,
+  "mediaType": "application/gzip",
+  "disclosure": "public",
+  "recoveryMode": "retrieve-or-regenerate",
+  "location": {
+    "scheme": "github-release-asset",
+    "owner": "example-org",
+    "repository": "ai-sentinel",
+    "tag": "evidence/kit-reference-large-v1",
+    "assetName": "kit-reference-large-v1.tar.gz"
+  },
+  "relatedIdentities": {
+    "inventoryId": "kit-reference-corpus",
+    "corpusId": "corpus.kit.example.large.v1"
+  },
+  "notes": "Illustrative public archive locator. Placeholder digest/size; GitHub Release asset location is not content identity."
+}

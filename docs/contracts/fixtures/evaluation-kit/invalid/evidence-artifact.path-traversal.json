@@ -1,0 +1,13 @@
+{
+  "artifactSchemaVersion": "1",
+  "artifactId": "evidence.invalid.path-traversal",
+  "artifactKind": "other-evidence-archive",
+  "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+  "sizeBytes": 10,
+  "disclosure": "public",
+  "recoveryMode": "retrieve-only",
+  "location": {
+    "scheme": "git-path",
+    "path": "../secrets/token"
+  }
+}

@@ -1,0 +1,14 @@
+{
+  "artifactSchemaVersion": "1",
+  "artifactId": "evidence.example.private-evaluation-bundle.v1",
+  "artifactKind": "evaluation-result-archive",
+  "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "sizeBytes": 2048,
+  "mediaType": "application/gzip",
+  "disclosure": "private",
+  "recoveryMode": "retrieve-only",
+  "relatedIdentities": {
+    "resultId": "result.private.example.001"
+  },
+  "notes": "Private evidence may omit a public locator. Identity remains sha256 + sizeBytes; retrieval is organization-controlled."
+}
