@@ -1,0 +1,35 @@
+{
+  "reproductionResultSchemaVersion": "1",
+  "packageId": "example.reproduction.minimal",
+  "status": "PASS",
+  "softwareVersion": "0.4.0",
+  "referenceConfiguration": {
+    "aiSentinelVersion": "0.3.0",
+    "scorerVersion": "0.3.0",
+    "policyVersion": "0.3.0"
+  },
+  "anomalyThreshold": 0.5,
+  "targets": [
+    {
+      "targetId": "example-target",
+      "status": "PASS",
+      "corpusId": "corpus.example",
+      "resultId": "result.corpus.example",
+      "evaluationRunId": "evalrun.0123456789abcdef01234567",
+      "layers": {
+        "input": "PASS",
+        "runIdentity": "PASS",
+        "artifactBytes": "PASS",
+        "structuralResult": "PASS"
+      },
+      "artifacts": [
+        {
+          "path": "kit-evaluation-result.json",
+          "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "sizeBytes": 100,
+          "status": "PASS"
+        }
+      ]
+    }
+  ]
+}

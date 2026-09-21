@@ -1,0 +1,31 @@
+{
+  "digestSchemaVersion": "1",
+  "targetId": "established-normal",
+  "artifacts": [
+    {
+      "path": "kit-evaluation-result.json",
+      "sha256": "47aad2befdd43ece13f685853ef31c42fa9e83c7080fd6f5f535a74f355ed43b",
+      "sizeBytes": 2335
+    },
+    {
+      "path": "event-inspection.json",
+      "sha256": "ee57d014e5234e5f2c87ffc655eda77487ae194530556ca1326f4079fdcbd7f2",
+      "sizeBytes": 3854
+    },
+    {
+      "path": "evaluation.json",
+      "sha256": "fee2a37ebcdd2c2ae74120d55afd05efa596014aef218fe2dd8e99b32c8bdd31",
+      "sizeBytes": 2917
+    },
+    {
+      "path": "evaluation.md",
+      "sha256": "212f774be85df92fe8c8ef652da1fabe5f02de9e82804d2aef7eee053476eca2",
+      "sizeBytes": 2966
+    },
+    {
+      "path": "evaluation-report.html",
+      "sha256": "5f35779aa17100f536db87658783bca1426601a618da84d8fa818327b1ada519",
+      "sizeBytes": 12477
+    }
+  ]
+}

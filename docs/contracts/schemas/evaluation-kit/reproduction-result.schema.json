@@ -1,0 +1,101 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aisentinel.dev/schemas/evaluation-kit/reproduction-result.schema.json",
+  "title": "Evaluation Kit Independent Reproduction Result",
+  "description": "Deterministic machine record of a reproduction verification. Must not include timestamps, absolute paths, hostnames, usernames, UUIDs, or durations.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reproductionResultSchemaVersion",
+    "packageId",
+    "status",
+    "softwareVersion",
+    "referenceConfiguration",
+    "anomalyThreshold",
+    "targets"
+  ],
+  "properties": {
+    "reproductionResultSchemaVersion": {
+      "const": "1"
+    },
+    "packageId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["PASS", "FAIL"]
+    },
+    "softwareVersion": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "referenceConfiguration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aiSentinelVersion", "scorerVersion", "policyVersion"],
+      "properties": {
+        "aiSentinelVersion": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "scorerVersion": { "type": "string" },
+        "policyVersion": { "type": "string" }
+      }
+    },
+    "anomalyThreshold": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "targetId",
+          "status",
+          "corpusId",
+          "resultId",
+          "evaluationRunId",
+          "layers",
+          "artifacts"
+        ],
+        "properties": {
+          "targetId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "status": { "enum": ["PASS", "FAIL"] },
+          "corpusId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "resultId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "evaluationRunId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+          "layers": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["input", "runIdentity", "artifactBytes", "structuralResult"],
+            "properties": {
+              "input": { "enum": ["PASS", "FAIL"] },
+              "runIdentity": { "enum": ["PASS", "FAIL"] },
+              "artifactBytes": { "enum": ["PASS", "FAIL"] },
+              "structuralResult": { "enum": ["PASS", "FAIL"] }
+            }
+          },
+          "artifacts": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": ["path", "sha256", "sizeBytes", "status"],
+              "properties": {
+                "path": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+                "sha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+                "sizeBytes": { "type": "integer", "minimum": 0 },
+                "status": { "enum": ["PASS", "FAIL"] }
+              }
+            }
+          },
+          "failures": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      }
+    }
+  }
+}

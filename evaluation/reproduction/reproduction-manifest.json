@@ -1,0 +1,83 @@
+{
+  "reproductionSchemaVersion": "1",
+  "packageId": "kit-reference-level1-v1",
+  "description": "Level-1 independent reproduction of three repository-controlled Evaluation Kit reference corpora at anomaly threshold 0.5.",
+  "softwareVersion": "0.4.0",
+  "referenceConfiguration": {
+    "aiSentinelVersion": "0.3.0",
+    "scorerVersion": "0.3.0",
+    "policyVersion": "0.3.0"
+  },
+  "anomalyThreshold": 0.5,
+  "targets": [
+    {
+      "targetId": "established-normal",
+      "inputType": "generated-corpus",
+      "corpusId": "corpus.kit.established-normal.v1.dffe70ac8547",
+      "corpusPath": "evaluation/kit-reference/corpora/kit.established-normal",
+      "eventsSha256": "45cfab5a5e24a5f1495638f1af183de6358356d69a520b10c379c76ccec68817",
+      "annotationsSha256": "9591b87ac765a246a9886fe561c195815eacdbfdd0fd16dbd43e0e4e0c320a80",
+      "expectedResultId": "result.corpus.kit.established-normal.v1.dffe70ac8547",
+      "expectedEvaluationRunId": "evalrun.ffe286cb8cb8e6b6dbdcf5f9",
+      "expectedDigestsRef": "expected/established-normal.digests.json",
+      "structuralExpectations": {
+        "eventCount": 10,
+        "warmupEvents": 4,
+        "labeledEvaluationEvents": 6,
+        "labeledBenignEvents": 6,
+        "labeledAnomalousEvents": 0,
+        "detectionLabeledAvailability": "available",
+        "truePositives": 0,
+        "trueNegatives": 6,
+        "falsePositives": 0,
+        "falseNegatives": 0
+      }
+    },
+    {
+      "targetId": "abrupt-burst",
+      "inputType": "generated-corpus",
+      "corpusId": "corpus.kit.abrupt-burst.v1.5afeb4a4b099",
+      "corpusPath": "evaluation/kit-reference/corpora/kit.abrupt-burst",
+      "eventsSha256": "47efcb142e571056e73d182aa25e2fd6e2a955112d990bc3079753f63cfd4643",
+      "annotationsSha256": "56c34d759d476e19c1bcc202cd137fde54bbcbe19c921e2d9b18ec9e66f25463",
+      "expectedResultId": "result.corpus.kit.abrupt-burst.v1.5afeb4a4b099",
+      "expectedEvaluationRunId": "evalrun.fd78da621b4eeb0991ebee88",
+      "expectedDigestsRef": "expected/abrupt-burst.digests.json",
+      "structuralExpectations": {
+        "eventCount": 10,
+        "warmupEvents": 4,
+        "labeledEvaluationEvents": 6,
+        "labeledBenignEvents": 2,
+        "labeledAnomalousEvents": 4,
+        "detectionLabeledAvailability": "available",
+        "truePositives": 4,
+        "trueNegatives": 2,
+        "falsePositives": 0,
+        "falseNegatives": 0
+      }
+    },
+    {
+      "targetId": "recovery",
+      "inputType": "generated-corpus",
+      "corpusId": "corpus.kit.recovery.v1.bb526d92cce4",
+      "corpusPath": "evaluation/kit-reference/corpora/kit.recovery",
+      "eventsSha256": "beae2c0f78b992a3137db4d304f9b7ed861ab1b12dd48100f436aa7446193262",
+      "annotationsSha256": "364f9c95f515d9fc9445f4a94adff78fa9f29c0a79f5e22602de756c75beb0c4",
+      "expectedResultId": "result.corpus.kit.recovery.v1.bb526d92cce4",
+      "expectedEvaluationRunId": "evalrun.148a7b4344ca036822ed6dcb",
+      "expectedDigestsRef": "expected/recovery.digests.json",
+      "structuralExpectations": {
+        "eventCount": 10,
+        "warmupEvents": 4,
+        "labeledEvaluationEvents": 6,
+        "labeledBenignEvents": 3,
+        "labeledAnomalousEvents": 3,
+        "detectionLabeledAvailability": "available",
+        "truePositives": 3,
+        "trueNegatives": 3,
+        "falsePositives": 0,
+        "falseNegatives": 0
+      }
+    }
+  ]
+}

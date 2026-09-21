@@ -231,6 +231,8 @@ The **Detection Evaluation Framework** is complete on the **0.4.0** release line
 
 These layers are offline engineering evidence machinery. The Official Detection Reference Baseline records current reference-corpus detector behavior under threshold `0.5`, verifies fresh deterministic evaluation against that tracked baseline, and provides explicit **baseline-candidate** approval/promotion with historical retention (not scorer/model-candidate integration). None of these approve production detection efficacy or create quality gates.
 
+Independent Level-1 reproduction of selected Evaluation Kit reference evidence (regenerate + verify digests/identities): [`docs/evaluation/INDEPENDENT_REPRODUCTION.md`](docs/evaluation/INDEPENDENT_REPRODUCTION.md).
+
 `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `BASELINE != QUALITY GATE` · `DRIFT != REGRESSION` · `DRIFT != APPROVAL` · `REFERENCE DATASET != DETECTION BASELINE`
 
 Candidate shadow scoring and lifecycle designation governance are packaged as engineering capabilities in **0.4.0**. Shadow remains observational (`SHADOW RESULT != PRODUCTION DECISION`); promotion remains designation-only (`PROMOTED != PRODUCTION DEPLOYED`). This packaging does **not** claim production efficacy, ENFORCE readiness, or production model activation.
