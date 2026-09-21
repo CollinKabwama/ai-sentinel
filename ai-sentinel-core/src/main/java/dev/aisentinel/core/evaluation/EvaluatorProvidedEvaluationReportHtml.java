@@ -21,6 +21,30 @@ final class EvaluatorProvidedEvaluationReportHtml {
         DetectionMetrics ratios = metrics.metrics();
         DetectionEvaluationEvidence.ReplayProvenance replay = safe.detectionRun().evidence().replay();
         String status = safe.limitations().isEmpty() ? "completed" : "completed_with_limitations";
+        String annotationsMaterial = provenance.labeled() ? provenance.annotationsSha256() : "";
+        String evaluationRunId = EvaluationRunIdentity.evaluationRunId(
+            "evaluator-provided",
+            provenance.datasetId(),
+            provenance.eventsSha256(),
+            annotationsMaterial,
+            provenance.featureSchemaVersion(),
+            provenance.evaluationEventSchemaVersion(),
+            replay.configurationFingerprint(),
+            replay.scorerId(),
+            replay.scorerVersion(),
+            replay.policyId(),
+            replay.policyVersion(),
+            metrics.classification().anomalyThreshold(),
+            "1"
+        );
+        String detectionAvailability = phases.labeledEvaluationEvents() == 0
+            ? "unavailable"
+            : "available";
+        String primaryLimitation = safe.limitations().isEmpty()
+            ? (provenance.labeled()
+                ? "Evaluator-provided dataset observations only; not production validation."
+                : "No binary ground truth supplied, therefore confusion-matrix metrics cannot be computed.")
+            : safe.limitations().get(0);
 
         StringBuilder html = new StringBuilder();
         html.append("<!DOCTYPE html>\n");
@@ -35,44 +59,56 @@ final class EvaluatorProvidedEvaluationReportHtml {
         html.append("<header>\n");
         html.append("<p class=\"eyebrow\">Evaluator-provided dataset evaluation report</p>\n");
         html.append("<h1>").append(escape(provenance.datasetId())).append("</h1>\n");
-        html.append("<p class=\"lede\">datasetSource evaluator-provided · status ")
-            .append(escape(status)).append("</p>\n");
+        html.append("<p class=\"lede\">What ran: Kit evaluation of an evaluator-provided dataset</p>\n");
         html.append("<p class=\"disclaimer\">Evaluator-provided dataset observations only; ")
-            .append("not production validation. Ground truth is evaluation-layer metadata and is not detector input.</p>\n");
+            .append("not production validation and not independent validation. ")
+            .append("Ground truth is evaluation-layer metadata and is not detector input.</p>\n");
         html.append("</header>\n");
 
         html.append("<nav class=\"toc\" aria-label=\"Report sections\">\n<ul>\n");
-        html.append("<li><a href=\"#provenance\">Dataset provenance</a></li>\n");
+        html.append("<li><a href=\"#summary\">Run summary</a></li>\n");
         html.append("<li><a href=\"#configuration\">Evaluation configuration</a></li>\n");
         html.append("<li><a href=\"#phases\">Phase counts</a></li>\n");
         html.append("<li><a href=\"#detection\">Detection metrics</a></li>\n");
         html.append("<li><a href=\"#temporal\">Scenario timeline</a></li>\n");
         html.append("<li><a href=\"#events\">Event inspection</a></li>\n");
+        html.append("<li><a href=\"#provenance\">Dataset provenance</a></li>\n");
         html.append("<li><a href=\"#artifacts\">Sibling artifacts</a></li>\n");
         html.append("<li><a href=\"#limitations\">Limitations</a></li>\n");
         html.append("</ul>\n</nav>\n");
 
-        html.append("<section id=\"provenance\">\n<h2>Dataset provenance</h2>\n");
+        html.append("<section id=\"summary\">\n<h2>Run summary</h2>\n");
         html.append("<table>\n<tbody>\n");
-        row(html, "datasetSource", "evaluator-provided");
+        row(html, "sourceType", "evaluator-provided");
         row(html, "datasetId", provenance.datasetId());
-        row(html, "datasetSchemaVersion", provenance.datasetSchemaVersion());
-        row(html, "featureSchemaVersion", provenance.featureSchemaVersion());
-        row(html, "evaluationEventSchemaVersion", provenance.evaluationEventSchemaVersion());
-        row(html, "representationMode", provenance.representationMode());
-        row(html, "eventsSha256", provenance.eventsSha256());
-        if (provenance.labeled() && !provenance.annotationsSha256().isEmpty()) {
-            row(html, "annotationsSha256", provenance.annotationsSha256());
+        row(html, "evaluationRunId", evaluationRunId);
+        row(html, "resultId (result family)", EvaluationRunIdentity.resultFamilyId(provenance.datasetId()));
+        row(html, "status", status);
+        row(html, "anomalyThreshold", formatDouble(metrics.classification().anomalyThreshold()));
+        row(html, "eventCount", Long.toString(phases.totalEvents()));
+        row(html, "warmupEvents (ground-truth participation)", Long.toString(phases.warmupEvents()));
+        row(html, "labeledEvaluationEvents", Long.toString(phases.labeledEvaluationEvents()));
+        row(html, "detectionLabeled availability", detectionAvailability);
+        if (phases.labeledEvaluationEvents() > 0) {
+            row(html, "precision", formatMetric(ratios.precision()));
+            row(html, "recall", formatMetric(ratios.recall()));
+            row(html, "f1", formatMetric(ratios.f1()));
+            row(html, "evaluated binary-labeled events", Long.toString(phases.labeledEvaluationEvents()));
         }
-        row(html, "aiSentinelVersion", replay.aiSentinelVersion());
-        row(html, "scorerId", replay.scorerId());
-        row(html, "scorerVersion", blank(replay.scorerVersion()));
-        html.append("</tbody>\n</table>\n</section>\n");
+        row(html, "primaryLimitation", primaryLimitation);
+        html.append("</tbody>\n</table>\n");
+        html.append("<p class=\"note\">Warmup in phase counts is ground-truth participation exclusion. ")
+            .append("Runtime status STATISTICAL_WARMUP is a separate axis and may appear on evaluated events.</p>\n");
+        html.append("</section>\n");
 
         html.append("<section id=\"configuration\">\n<h2>Evaluation configuration</h2>\n");
         html.append("<p>Values below apply to this evaluation run only and are not dataset provenance.</p>\n");
         html.append("<table>\n<tbody>\n");
         row(html, "anomalyThreshold", formatDouble(metrics.classification().anomalyThreshold()));
+        row(html, "scorerId", replay.scorerId());
+        row(html, "scorerVersion (reference configuration)", blank(replay.scorerVersion()));
+        row(html, "policyId", replay.policyId());
+        row(html, "policyVersion (reference configuration)", blank(replay.policyVersion()));
         html.append("</tbody>\n</table>\n</section>\n");
 
         html.append("<section id=\"phases\">\n<h2>Phase counts</h2>\n");
@@ -87,10 +123,22 @@ final class EvaluatorProvidedEvaluationReportHtml {
 
         html.append("<section id=\"detection\">\n<h2>Detection metrics</h2>\n");
         if (phases.labeledEvaluationEvents() == 0) {
-            html.append("<p class=\"unavailable\">Detection labeled metrics unavailable: ")
-                .append("no binary-labeled evaluation events were present.</p>\n");
+            if (!provenance.labeled()) {
+                html.append("<p class=\"unavailable\">Detection labeled metrics unavailable: ")
+                    .append("no binary ground truth supplied, therefore confusion-matrix metrics cannot be computed. ")
+                    .append("Unavailable is not zero performance and is not an evaluator failure.</p>\n");
+            } else {
+                html.append("<p class=\"unavailable\">Detection labeled metrics unavailable: ")
+                    .append("no binary-labeled evaluation events were present. ")
+                    .append("Unavailable is not zero performance and is not an evaluator failure.</p>\n");
+            }
         } else {
-            html.append("<p>Binary-labeled evaluation events only. Undefined ratios render as unavailable.</p>\n");
+            html.append("<p>Binary-labeled evaluation events only. Undefined ratios render as unavailable ")
+                .append("(for example positive-class metrics when no anomalous ground truth exists). ")
+                .append("Unavailable is not zero.</p>\n");
+            html.append("<p class=\"note\">Evaluated binary-labeled events: ")
+                .append(phases.labeledEvaluationEvents())
+                .append(". Evaluator-provided observations; not a production efficacy estimate.</p>\n");
             html.append("<table>\n<tbody>\n");
             row(html, "evaluablePredictions", Long.toString(metrics.evaluablePredictionCount()));
             row(html, "truePositives", Long.toString(confusion.truePositives()));
@@ -128,7 +176,8 @@ final class EvaluatorProvidedEvaluationReportHtml {
 
         html.append("<section id=\"events\">\n<h2>Event inspection</h2>\n");
         html.append("<p>Each row joins authored ground truth (when present) with runtime replay outcomes. ")
-            .append("Runtime scores and evaluation statuses come only from replay.</p>\n");
+            .append("Runtime scores and evaluation statuses come only from replay. ")
+            .append("expected is authored class; predicted is threshold classification of the anomaly score.</p>\n");
         html.append("<table class=\"events\">\n<thead><tr>")
             .append("<th>#</th><th>eventId</th><th>category</th><th>expected</th>")
             .append("<th>participation</th><th>score</th><th>predicted</th>")
@@ -150,6 +199,31 @@ final class EvaluatorProvidedEvaluationReportHtml {
         }
         html.append("</tbody>\n</table>\n</section>\n");
 
+        html.append("<section id=\"provenance\">\n<h2>Dataset provenance</h2>\n");
+        html.append("<p>Full digests and reference-configuration identity. ")
+            .append("aiSentinelVersion / scorerVersion / policyVersion are reference evaluation ")
+            .append("configuration identity (not packaging software version).</p>\n");
+        html.append("<table>\n<tbody>\n");
+        row(html, "datasetSource", "evaluator-provided");
+        row(html, "datasetId", provenance.datasetId());
+        row(html, "datasetSchemaVersion", provenance.datasetSchemaVersion());
+        row(html, "featureSchemaVersion", provenance.featureSchemaVersion());
+        row(html, "evaluationEventSchemaVersion", provenance.evaluationEventSchemaVersion());
+        row(html, "representationMode", provenance.representationMode());
+        row(html, "eventsSha256", provenance.eventsSha256());
+        if (provenance.labeled() && !provenance.annotationsSha256().isEmpty()) {
+            row(html, "annotationsSha256", provenance.annotationsSha256());
+        }
+        row(html, "aiSentinelVersion (reference configuration)", replay.aiSentinelVersion());
+        KitSoftwareIdentity.softwareVersion().ifPresent(version ->
+            row(html, "softwareVersion (packaging)", version));
+        row(html, "aiSentinelBuildId", "absent (exact build/commit identity not available)");
+        row(html, "scorerId", replay.scorerId());
+        row(html, "scorerVersion (reference configuration)", blank(replay.scorerVersion()));
+        row(html, "policyId", replay.policyId());
+        row(html, "policyVersion (reference configuration)", blank(replay.policyVersion()));
+        html.append("</tbody>\n</table>\n</section>\n");
+
         html.append("<section id=\"artifacts\">\n<h2>Sibling artifacts</h2>\n<ul>\n");
         html.append("<li><code>").append(escape(DetectionEvaluationEvidenceWriter.JSON_FILE_NAME))
             .append("</code> — specialized detection evaluation evidence (JSON)</li>\n");
@@ -167,6 +241,8 @@ final class EvaluatorProvidedEvaluationReportHtml {
         for (String limitation : safe.limitations()) {
             html.append("<li>").append(escape(limitation)).append("</li>\n");
         }
+        html.append("<li>BYO evaluation is not independent validation and not a deployment decision.</li>\n");
+        html.append("<li>Anomalous is not malicious.</li>\n");
         html.append("</ul>\n</section>\n");
 
         html.append("<footer><p>AI-Sentinel evaluator-provided dataset evaluation report</p></footer>\n");
@@ -185,14 +261,15 @@ final class EvaluatorProvidedEvaluationReportHtml {
             h1 { font:600 1.85rem/1.2 "IBM Plex Sans", sans-serif; margin:0 0 .4rem; }
             h2 { font:600 1.2rem/1.3 "IBM Plex Sans", sans-serif; margin:0 0 .75rem; }
             .lede { color:var(--muted); margin:0 0 .75rem; }
-            .disclaimer { background:var(--card); border:1px solid var(--line); padding:.75rem 1rem; border-radius:6px; }
+            .disclaimer, .note { background:var(--card); border:1px solid var(--line); padding:.75rem 1rem; border-radius:6px; }
+            .note { margin-top:.75rem; color:var(--muted); }
             .toc ul { display:flex; flex-wrap:wrap; gap:.5rem 1rem; list-style:none; padding:0; margin:0; }
             .toc a { color:var(--accent); text-decoration:none; }
             .toc a:hover { text-decoration:underline; }
             section { background:var(--card); border:1px solid var(--line); border-radius:8px; margin:1rem auto; }
             table { width:100%; border-collapse:collapse; }
-            th, td { text-align:left; vertical-align:top; padding:.45rem .55rem; border-bottom:1px solid var(--line); font-size:.92rem; }
-            th { color:var(--muted); font-weight:600; }
+            th, td { text-align:left; vertical-align:top; padding:.45rem .55rem; border-bottom:1px solid var(--line); font-size:.92rem; word-break:break-word; }
+            th { color:var(--muted); font-weight:600; width:38%; }
             .events { display:block; overflow-x:auto; }
             .unavailable { color:var(--muted); font-style:italic; }
             code { font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:.88em; }

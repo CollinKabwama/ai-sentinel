@@ -16,6 +16,11 @@
         "annotationsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
         "representationMode": { "enum": ["request-like", "feature-level", "both"] },
         "resultId": { "type": "string", "minLength": 1 },
+        "evaluationRunId": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Concrete evaluation-run identity when present on the source evidence. Absent on legacy evidence."
+        },
         "eventCount": { "type": "integer", "minimum": 0 },
         "anomalyThreshold": { "type": "number", "minimum": 0, "maximum": 1 }
       },

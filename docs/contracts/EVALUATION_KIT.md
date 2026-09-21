@@ -81,13 +81,16 @@ None of these axes are required to equal the Maven release version.
 | `corpusId` | Identity of a concrete generated corpus instance. |
 | `corpusSchemaVersion` | Generated Corpus Manifest document shape. |
 | `annotationSchemaVersion` | Ground-truth / annotation sidecar document shape. |
-| `resultId` | Identity of a concrete evaluation run/result. |
+| `resultId` | Input-bound **result-family** identity (`result.` + corpusId or datasetId). Distinct configured evaluations of the same input share one `resultId`. |
+| `evaluationRunId` | Deterministic **concrete evaluation-run** identity for one configured Kit evaluation (threshold + replay/reference configuration material). Additive; optional on legacy evidence. |
 | `resultSchemaVersion` | Generic Kit Evaluation Result document shape. |
 | `reproducibilitySchemaVersion` | Kit Reproducibility Manifest document shape. |
 | `artifactSchemaVersion` | Evidence-artifact reference document shape (archive identity/location). |
 | `featureSchemaVersion` | Existing FeatureSchema (currently `"1"`). |
 | `evaluationEventSchemaVersion` | Existing EvaluationEvent (currently `"1"`). |
-| `aiSentinelVersion` / `aiSentinelBuildId` | Engine under evaluation (version and optional build/commit). |
+| `aiSentinelVersion` | Reference evaluation / methodology configuration version used by Kit replay defaults (historical reference packaging; not Maven project version). |
+| `softwareVersion` | Packaging software version that produced Kit evidence (for example Maven `0.4.0`). Additive; omit when unknown. |
+| `aiSentinelBuildId` | Exact build/commit/package-build identity when truthfully available. Omit rather than fabricate or reuse software version. |
 
 Software SemVer, corpus/dataset/result identities, evidence checkpoint tags, and
 `artifactSchemaVersion` remain independent axes. Content identity for archived
@@ -294,6 +297,8 @@ Rules:
   independent third-party validation of production efficacy.
 - Comparison against other datasets or product ranking UX is out of scope for this path.
 
+**Authoring guide:** [`EVALUATOR_PROVIDED_DATASET.md`](EVALUATOR_PROVIDED_DATASET.md)
+
 **Machine schema:** [`schemas/evaluation-kit/evaluator-dataset-manifest.schema.json`](schemas/evaluation-kit/evaluator-dataset-manifest.schema.json)
 
 ---
@@ -350,12 +355,47 @@ Ground-truth sidecar           →  join by eventId at evaluation time only
 
 ### Required foundation
 
-- `resultId`, `resultSchemaVersion` (`"1"`; compatible evolution via `datasetSource` discriminator)
+- `resultId` (input-bound result-family identity), optional additive `evaluationRunId` (concrete configured run), `resultSchemaVersion` (`"1"`; compatible evolution via `datasetSource` discriminator)
 - Provenance bindings:
   - **Generated corpus** (absent `datasetSource` or `datasetSource: "generated-corpus"`): scenario / corpus / generator / seed / schemas / engine identity
   - **Evaluator-provided** (`datasetSource: "evaluator-provided"`): `datasetId`, `datasetSchemaVersion`, `eventsSha256`, schema versions, `representationMode`, engine identity — and must not include `seed`, `generatorBuildId`, `generatorContractVersion`, or `corpusId`
+- Optional `provenance.softwareVersion` for packaging software version; optional `provenance.aiSentinelBuildId` only when an exact build/commit identity is known
 - Artifact bindings and checksums where applicable
 - `status` and `limitations` where appropriate
+
+### Result family vs concrete evaluation run
+
+```text
+resultId          = result.<corpusId|datasetId>     # durable family for that input
+evaluationRunId   = evalrun.<12-byte SHA-256 hex>    # one configured evaluation
+```
+
+Canonical UTF-8 material for `evaluationRunId` (newline-joined, ordered):
+
+```text
+datasetSource=<generated-corpus|evaluator-provided>
+inputId=<corpusId|datasetId>
+eventsSha256=<corpusEventsSha256|eventsSha256>
+annotationsSha256=<sha or empty if unlabeled>
+featureSchemaVersion=<…>
+evaluationEventSchemaVersion=<…>
+replayConfigurationFingerprint=<…>
+scorerId=<…>
+scorerVersion=<…>
+policyId=<…>
+policyVersion=<…>
+anomalyThreshold=<Double.toString>
+resultSchemaVersion=1
+```
+
+Excluded from the material: output directory, absolute paths, timestamps, UUIDs, hostnames.
+
+### Specialized evidence `datasetId` naming
+
+Specialized Detection Evaluation Evidence (`evaluation.json` / `evaluation.md`) uses generic
+`reference.datasetId` / `replay.datasetId` fields. For generated Kit corpora those fields carry
+the **corpus identity string**. They are not a second, independent evaluator-provided dataset id.
+Kit result provenance continues to use `corpusId` for generated runs and `datasetId` for BYO runs.
 
 ### Metric families
 
@@ -598,6 +638,18 @@ The report preserves unavailable metrics as unavailable rather than zero, and re
 metric, count, event, and binary-correctness transitions. It does not identify a preferred run,
 recommend promotion, gate CI, or make a deployment decision. A comparison is offline engineering
 evidence, not production validation.
+
+### Comparison identity
+
+`comparisonId` is derived from the concrete runs being compared:
+
+- Prefer each side's `evaluationRunId` when present.
+- For legacy evidence lacking `evaluationRunId`, use a deterministic **legacy compatibility
+  surrogate** from persisted family identity plus available result-affecting fields
+  (`resultId`, event digests, annotations digest when present, anomaly threshold, schema
+  versions). That surrogate is **not** equivalent to a full concrete run identity.
+
+Direction matters: baseline vs candidate is not the same as the swapped pair.
 
 ---
 

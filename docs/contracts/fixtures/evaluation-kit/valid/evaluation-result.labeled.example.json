@@ -1,6 +1,7 @@
 {
   "resultSchemaVersion": "1",
   "resultId": "result.example.labeled.001",
+  "evaluationRunId": "evalrun.0123456789ab",
   "status": "completed",
   "limitations": [],
   "provenance": {
@@ -17,10 +18,10 @@
     "generatorBuildId": "aisentinel-corpus-generator@dev+example",
     "featureSchemaVersion": "1",
     "evaluationEventSchemaVersion": "1",
-    "aiSentinelVersion": "0.4.0",
-    "aiSentinelBuildId": "local-dev",
+    "aiSentinelVersion": "0.3.0",
+    "softwareVersion": "0.4.0",
     "scorerId": "statistical-baseline",
-    "scorerVersion": "1",
+    "scorerVersion": "0.3.0",
     "replayRunManifestRef": "replay-run-manifest.json",
     "reproducibilityManifestRef": "reproducibility-manifest.example.json"
   },

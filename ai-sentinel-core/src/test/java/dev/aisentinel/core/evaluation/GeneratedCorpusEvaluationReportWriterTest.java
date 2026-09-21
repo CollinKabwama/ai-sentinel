@@ -47,6 +47,10 @@ class GeneratedCorpusEvaluationReportWriterTest {
         String kit = Files.readString(kitPath, StandardCharsets.UTF_8);
         assertThat(kit).contains("\"resultSchemaVersion\":\"1\"");
         assertThat(kit).contains("\"resultId\":\"result." + result.provenance().corpusId() + "\"");
+        assertThat(kit).contains("\"evaluationRunId\":\"evalrun.");
+        assertThat(kit).contains("\"softwareVersion\":\"0.4.0\"");
+        assertThat(kit).contains("\"aiSentinelVersion\":\"0.3.0\"");
+        assertThat(kit).doesNotContain("\"aiSentinelBuildId\"");
         assertThat(kit).contains("\"status\":\"completed_with_limitations\"");
         assertThat(kit).contains("\"datasetSource\":\"generated-corpus\"");
         assertThat(kit).contains("\"corpusId\":\"" + result.provenance().corpusId() + "\"");
@@ -80,6 +84,8 @@ class GeneratedCorpusEvaluationReportWriterTest {
         String html = Files.readString(htmlPath, StandardCharsets.UTF_8);
         assertThat(html).contains("<!DOCTYPE html>");
         assertThat(html).contains(result.provenance().corpusId());
+        assertThat(html).contains("Run summary");
+        assertThat(html).contains("evaluationRunId");
         assertThat(html).contains("Corpus provenance");
         assertThat(html).contains("Evaluation configuration");
         assertThat(html).contains("Phase counts");
@@ -88,9 +94,16 @@ class GeneratedCorpusEvaluationReportWriterTest {
         assertThat(html).contains("Event inspection");
         assertThat(html).contains("Sibling artifacts");
         assertThat(html).contains("Limitations");
+        assertThat(html).contains("softwareVersion (packaging)");
+        assertThat(html).contains("aiSentinelVersion (reference configuration)");
         assertThat(html).contains("not production validation");
         assertThat(html).contains("Ground truth is evaluation-layer metadata");
+        assertThat(html).contains("Evaluated binary-labeled events");
         assertThat(html).doesNotContain("<script");
+        int summaryAt = html.indexOf("id=\"summary\"");
+        int provenanceAt = html.indexOf("id=\"provenance\"");
+        assertThat(summaryAt).isGreaterThanOrEqualTo(0);
+        assertThat(provenanceAt).isGreaterThan(summaryAt);
         assertNoInternalMetadata(html);
         assertNoInternalMetadata(kit);
         assertNoInternalMetadata(events);
@@ -122,6 +135,7 @@ class GeneratedCorpusEvaluationReportWriterTest {
         );
         assertThat(html).contains("precision");
         assertThat(html).contains("unavailable");
+        assertThat(html).contains("Unavailable is not zero");
         assertThat(result.eventInspections()).hasSize(result.phaseCounts().totalEvents());
     }
 

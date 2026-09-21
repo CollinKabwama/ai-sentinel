@@ -23,6 +23,7 @@ record EvaluationComparisonModel(
 record RunEvidence(
     String datasetSource,
     String resultId,
+    String evaluationRunId,
     String resultSchemaVersion,
     String featureSchemaVersion,
     String evaluationEventSchemaVersion,

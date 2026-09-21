@@ -24,10 +24,27 @@ final class GeneratedCorpusEvaluationReportJson {
         DetectionMetrics ratios = metrics.metrics();
         DetectionEvaluationEvidence.ReplayProvenance replay = safe.detectionRun().evidence().replay();
 
+        String evaluationRunId = EvaluationRunIdentity.evaluationRunId(
+            "generated-corpus",
+            provenance.corpusId(),
+            provenance.eventsSha256(),
+            provenance.annotationsSha256(),
+            provenance.featureSchemaVersion(),
+            provenance.evaluationEventSchemaVersion(),
+            replay.configurationFingerprint(),
+            replay.scorerId(),
+            replay.scorerVersion(),
+            replay.policyId(),
+            replay.policyVersion(),
+            metrics.classification().anomalyThreshold(),
+            "1"
+        );
+
         StringBuilder json = new StringBuilder();
         json.append('{');
         appendString(json, "resultSchemaVersion", "1", true);
-        appendString(json, "resultId", "result." + provenance.corpusId(), false);
+        appendString(json, "resultId", EvaluationRunIdentity.resultFamilyId(provenance.corpusId()), false);
+        appendString(json, "evaluationRunId", evaluationRunId, false);
         appendString(
             json,
             "status",
@@ -59,8 +76,12 @@ final class GeneratedCorpusEvaluationReportJson {
         appendString(json, "featureSchemaVersion", provenance.featureSchemaVersion(), false);
         appendString(json, "evaluationEventSchemaVersion", provenance.evaluationEventSchemaVersion(), false);
         appendString(json, "aiSentinelVersion", replay.aiSentinelVersion(), false);
+        KitSoftwareIdentity.softwareVersion().ifPresent(version ->
+            appendString(json, "softwareVersion", version, false));
         appendString(json, "scorerId", replay.scorerId(), false);
         appendString(json, "scorerVersion", replay.scorerVersion(), false);
+        appendString(json, "policyId", replay.policyId(), false);
+        appendString(json, "policyVersion", replay.policyVersion(), false);
         json.append('}');
 
         json.append(",\"metricFamilies\":{");

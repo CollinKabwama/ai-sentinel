@@ -9,6 +9,7 @@
     "corpusEventsSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "annotationsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "resultId": "result.baseline",
+    "evaluationRunId": "evalrun.aaaaaaaaaaaa",
     "eventCount": 1,
     "anomalyThreshold": 0.5
   },
@@ -18,6 +19,7 @@
     "corpusEventsSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
     "annotationsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
     "resultId": "result.candidate",
+    "evaluationRunId": "evalrun.bbbbbbbbbbbb",
     "eventCount": 1,
     "anomalyThreshold": 0.5
   },

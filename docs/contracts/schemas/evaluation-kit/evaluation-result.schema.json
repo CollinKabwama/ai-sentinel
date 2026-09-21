@@ -57,6 +57,10 @@
     "resultId": {
       "$ref": "common.schema.json#/$defs/nonEmptyString"
     },
+    "evaluationRunId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString",
+      "description": "Optional deterministic concrete evaluation-run identity. Distinct from resultId, which is an input-bound result-family identity."
+    },
     "status": {
       "type": "string",
       "enum": ["completed", "completed_with_limitations", "failed", "partial"]
@@ -95,7 +99,14 @@
         "featureSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
         "evaluationEventSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
         "aiSentinelVersion": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
-        "aiSentinelBuildId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "aiSentinelBuildId": {
+          "$ref": "common.schema.json#/$defs/nonEmptyString",
+          "description": "Actual build/commit/package-build identity when truthfully available. Do not reuse for Maven/project software version."
+        },
+        "softwareVersion": {
+          "$ref": "common.schema.json#/$defs/nonEmptyString",
+          "description": "Packaging software version that produced this Kit evidence (for example Maven project version). Distinct from aiSentinelVersion (reference evaluation configuration)."
+        },
         "scorerId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
         "scorerVersion": { "type": "string" },
         "policyId": { "type": "string" },
