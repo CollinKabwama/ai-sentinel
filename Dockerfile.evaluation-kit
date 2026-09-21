@@ -1,6 +1,6 @@
 # Local-only container packaging for the Evaluation Kit evaluator
-# (generated corpus via --corpus, evaluator-provided dataset via --dataset).
-# Builds ai-sentinel-core and runs GeneratedCorpusEvaluationMain.
+# (evaluation via --corpus/--dataset, or existing-run comparison via --baseline/--candidate).
+# Builds ai-sentinel-core and dispatches to the appropriate Evaluation Kit main class.
 # Does not publish an image registry artifact and is not a production deployment image.
 
 # syntax=docker/dockerfile:1.6
@@ -42,7 +42,7 @@ RUN --mount=type=cache,target=/root/.m2 \
 FROM ${RUNTIME_IMAGE} AS runtime
 
 LABEL org.opencontainers.image.title="AI-Sentinel Evaluation Kit" \
-      org.opencontainers.image.description="Local containerized runner for the Evaluation Kit evaluator in ai-sentinel-core (generated corpus and evaluator-provided datasets)." \
+      org.opencontainers.image.description="Local containerized runner for Evaluation Kit evaluation and existing-run comparison in ai-sentinel-core." \
       org.opencontainers.image.source="https://github.com/CollinKabwama/ai-sentinel" \
       org.opencontainers.image.licenses="Apache-2.0"
 
@@ -61,7 +61,7 @@ COPY --chown=aisentinel:aisentinel --chmod=755 \
 USER aisentinel
 WORKDIR /work
 
-# No default corpus/dataset is bundled. Callers mount an input directory and optional output directory.
+# No default corpus, dataset, or run evidence is bundled. Callers mount inputs and optional output.
 # No default CMD: an empty argument list reaches GeneratedCorpusEvaluationMain (usage exit 2),
 # matching the host CLI. Pass --help explicitly for usage on stdout.
 ENTRYPOINT ["/opt/ai-sentinel/docker-entrypoint.sh"]

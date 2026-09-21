@@ -24,6 +24,7 @@ SCHEMA_BY_PREFIX = {
     "ground-truth.": "ground-truth.schema.json",
     "evaluation-result.": "evaluation-result.schema.json",
     "event-inspection.": "event-inspection.schema.json",
+    "comparison.": "comparison-result.schema.json",
     "reproducibility-manifest.": "reproducibility-manifest.schema.json",
 }
 

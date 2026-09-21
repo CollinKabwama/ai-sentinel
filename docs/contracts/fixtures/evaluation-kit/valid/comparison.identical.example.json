@@ -1,0 +1,51 @@
+{
+  "comparisonSchemaVersion": "1",
+  "comparisonId": "comparison.identical.example",
+  "status": "completed",
+  "limitations": [],
+  "baseline": {
+    "datasetSource": "generated-corpus",
+    "corpusId": "corpus.example",
+    "corpusEventsSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "annotationsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "resultId": "result.baseline",
+    "eventCount": 1,
+    "anomalyThreshold": 0.5
+  },
+  "candidate": {
+    "datasetSource": "generated-corpus",
+    "corpusId": "corpus.example",
+    "corpusEventsSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "annotationsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "resultId": "result.candidate",
+    "eventCount": 1,
+    "anomalyThreshold": 0.5
+  },
+  "compatibility": {
+    "comparable": true,
+    "sameDataset": true,
+    "thresholdEqual": true,
+    "notes": []
+  },
+  "metricChanges": [],
+  "countChanges": [],
+  "correctnessTransitions": {
+    "TP_TO_FN": 0,
+    "FN_TO_TP": 0,
+    "TN_TO_FP": 0,
+    "FP_TO_TN": 0,
+    "TP_TO_TP": 1,
+    "TN_TO_TN": 0,
+    "FP_TO_FP": 0,
+    "FN_TO_FN": 0
+  },
+  "eventChanges": [],
+  "summary": {
+    "eventsCompared": 1,
+    "eventsWithChanges": 0,
+    "newFalsePositives": 0,
+    "newFalseNegatives": 0
+  },
+  "htmlReportRef": "comparison.html",
+  "notes": "Factual deltas only; not a winner or deployment decision."
+}

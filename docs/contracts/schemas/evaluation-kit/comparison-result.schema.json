@@ -1,0 +1,219 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aisentinel.dev/schemas/evaluation-kit/comparison-result.schema.json",
+  "title": "Evaluation Kit Comparison Result",
+  "$defs": {
+    "run": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["datasetSource", "resultId", "eventCount", "anomalyThreshold"],
+      "properties": {
+        "datasetSource": { "enum": ["generated-corpus", "evaluator-provided"] },
+        "corpusId": { "type": "string", "minLength": 1 },
+        "corpusEventsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+        "datasetId": { "type": "string", "minLength": 1 },
+        "eventsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+        "annotationsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+        "representationMode": { "enum": ["request-like", "feature-level", "both"] },
+        "resultId": { "type": "string", "minLength": 1 },
+        "eventCount": { "type": "integer", "minimum": 0 },
+        "anomalyThreshold": { "type": "number", "minimum": 0, "maximum": 1 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "datasetSource": { "const": "generated-corpus" } } },
+          "then": {
+            "required": ["corpusId", "corpusEventsSha256"],
+            "not": { "anyOf": [
+              { "required": ["datasetId"] },
+              { "required": ["eventsSha256"] },
+              { "required": ["representationMode"] }
+            ] }
+          }
+        },
+        {
+          "if": { "properties": { "datasetSource": { "const": "evaluator-provided" } } },
+          "then": {
+            "required": ["datasetId", "eventsSha256", "representationMode"],
+            "not": { "anyOf": [
+              { "required": ["corpusId"] },
+              { "required": ["corpusEventsSha256"] }
+            ] }
+          }
+        }
+      ]
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "anomalyScore", "predictedAnomalous", "action", "evaluationStatuses",
+        "outcome", "expectedClass", "participation", "binaryMetricParticipant"
+      ],
+      "properties": {
+        "anomalyScore": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "predictedAnomalous": { "type": ["boolean", "null"] },
+        "action": { "type": "string", "minLength": 1 },
+        "evaluationStatuses": { "type": "array", "items": { "type": "string" } },
+        "outcome": { "type": "string", "minLength": 1 },
+        "expectedClass": { "type": "string", "minLength": 1 },
+        "participation": { "enum": ["warmup", "binary-labeled", "unknown-unlabeled"] },
+        "binaryMetricParticipant": { "type": "boolean" }
+      }
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "comparisonSchemaVersion", "comparisonId", "status", "limitations", "baseline",
+    "candidate", "compatibility", "metricChanges", "countChanges",
+    "correctnessTransitions", "eventChanges", "summary", "htmlReportRef", "notes"
+  ],
+  "properties": {
+    "comparisonSchemaVersion": { "const": "1" },
+    "comparisonId": { "type": "string", "pattern": "^comparison\\.[A-Za-z0-9._-]+$" },
+    "status": { "enum": ["completed", "completed_with_limitations", "incompatible"] },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "baseline": { "$ref": "#/$defs/run" },
+    "candidate": { "$ref": "#/$defs/run" },
+    "compatibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["comparable", "sameDataset", "thresholdEqual", "notes"],
+      "properties": {
+        "comparable": { "type": "boolean" },
+        "sameDataset": { "type": "boolean" },
+        "thresholdEqual": { "type": "boolean" },
+        "notes": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "metricChanges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "family", "metric", "baselineAvailability", "candidateAvailability",
+          "availabilityChange", "baselineValue", "candidateValue", "delta"
+        ],
+        "properties": {
+          "family": { "enum": ["structural", "detectionLabeled", "temporal"] },
+          "metric": { "type": "string", "minLength": 1 },
+          "baselineAvailability": { "$ref": "common.schema.json#/$defs/metricAvailability" },
+          "candidateAvailability": { "$ref": "common.schema.json#/$defs/metricAvailability" },
+          "availabilityChange": {
+            "enum": ["unchanged", "became-available", "became-unavailable"]
+          },
+          "baselineValue": { "type": ["number", "null"] },
+          "candidateValue": { "type": ["number", "null"] },
+          "delta": { "type": ["number", "null"] }
+        }
+      }
+    },
+    "countChanges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "baseline", "candidate", "delta"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "baseline": { "type": "integer" },
+          "candidate": { "type": "integer" },
+          "delta": { "type": "integer" }
+        }
+      }
+    },
+    "correctnessTransitions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "TP_TO_FN", "FN_TO_TP", "TN_TO_FP", "FP_TO_TN",
+        "TP_TO_TP", "TN_TO_TN", "FP_TO_FP", "FN_TO_FN"
+      ],
+      "properties": {
+        "TP_TO_FN": { "type": "integer", "minimum": 0 },
+        "FN_TO_TP": { "type": "integer", "minimum": 0 },
+        "TN_TO_FP": { "type": "integer", "minimum": 0 },
+        "FP_TO_TN": { "type": "integer", "minimum": 0 },
+        "TP_TO_TP": { "type": "integer", "minimum": 0 },
+        "TN_TO_TN": { "type": "integer", "minimum": 0 },
+        "FP_TO_FP": { "type": "integer", "minimum": 0 },
+        "FN_TO_FN": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "eventChanges": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "eventId", "sequenceNumber", "changes", "baseline", "candidate",
+          "scoreDelta", "correctnessTransition"
+        ],
+        "properties": {
+          "eventId": { "type": "string", "minLength": 1 },
+          "sequenceNumber": { "type": "integer", "minimum": 1 },
+          "changes": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": {
+              "enum": [
+                "score-changed", "prediction-changed", "action-changed",
+                "status-changed", "outcome-changed", "correctness-transition"
+              ]
+            }
+          },
+          "baseline": { "$ref": "#/$defs/event" },
+          "candidate": { "$ref": "#/$defs/event" },
+          "scoreDelta": { "type": ["number", "null"] },
+          "correctnessTransition": {
+            "type": ["string", "null"],
+            "enum": [
+              "TP_TO_FN", "FN_TO_TP", "TN_TO_FP", "FP_TO_TN",
+              "TP_TO_TP", "TN_TO_TN", "FP_TO_FP", "FN_TO_FN", null
+            ]
+          }
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventsCompared", "eventsWithChanges", "newFalsePositives", "newFalseNegatives"
+      ],
+      "properties": {
+        "eventsCompared": { "type": "integer", "minimum": 0 },
+        "eventsWithChanges": { "type": "integer", "minimum": 0 },
+        "newFalsePositives": { "type": "integer", "minimum": 0 },
+        "newFalseNegatives": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "htmlReportRef": { "const": "comparison.html" },
+    "notes": { "const": "Factual deltas only; not a winner or deployment decision." }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "status": { "const": "incompatible" } } },
+      "then": {
+        "properties": {
+          "compatibility": {
+            "properties": { "comparable": { "const": false } }
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "compatibility": {
+            "properties": {
+              "comparable": { "const": true },
+              "sameDataset": { "const": true }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

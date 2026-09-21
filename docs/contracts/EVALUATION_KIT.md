@@ -5,7 +5,7 @@ Normative contract foundations for the AI-Sentinel Evaluation Kit.
 JSON is the **normative machine representation** for schemas and fixtures in this package.
 JSON does **not** permanently constrain human authoring UX: later CLI/tooling may accept YAML or other conveniences that normalize to the same logical contract.
 
-This document defines Evaluation Kit contracts. It does not claim production efficacy and does not change production runtime decision behavior. A deterministic corpus generator for feature-level scenario families lives in core; a versioned repository reference inventory is checked in under `evaluation/kit-reference/`. A repository one-command evaluation CLI is available via `scripts/evaluate-generated-corpus.sh` and accepts either a generated corpus (`--corpus`) or an evaluator-provided (BYO) dataset (`--dataset`). When `--output` is supplied, the CLI writes machine-readable Kit evaluation-result JSON, event-inspection JSON, a self-contained HTML evaluation report, and specialized detection evidence beside each other. An optional local container image (`Dockerfile.evaluation-kit`) packages the same evaluator without requiring a host JDK/Maven install at runtime. Comparison product surfaces are not currently supported.
+This document defines Evaluation Kit contracts. It does not claim production efficacy and does not change production runtime decision behavior. A deterministic corpus generator for feature-level scenario families lives in core; a versioned repository reference inventory is checked in under `evaluation/kit-reference/`. A repository one-command evaluation CLI is available via `scripts/evaluate-generated-corpus.sh` and accepts either a generated corpus (`--corpus`) or an evaluator-provided (BYO) dataset (`--dataset`). When `--output` is supplied, the CLI writes machine-readable Kit evaluation-result JSON, event-inspection JSON, a self-contained HTML evaluation report, and specialized detection evidence beside each other. An optional local container image (`Dockerfile.evaluation-kit`) packages the same evaluator without requiring a host JDK/Maven install at runtime. Before/after comparison of two existing evaluation runs is available via `scripts/compare-evaluations.sh` (factual deltas only; not a ranking or promotion decision).
 
 Current schema versions for Kit machine contracts in this package: `"1"`.
 
@@ -253,7 +253,7 @@ The CLI is a thin adapter over `GeneratedCorpusDetectionEvaluator` (`--corpus`) 
 `EvaluatorProvidedDatasetEvaluator` (`--dataset`). It prints a terminal summary of provenance,
 this run's evaluation configuration, phase counts, binary detection metrics (with undefined ratios
 shown as `unavailable`), limitations, and (when `--output` is supplied) paths to durable report
-artifacts. It does not provide comparison workflows.
+artifacts. Comparison of two existing runs uses a separate command (`scripts/compare-evaluations.sh`; see §14).
 
 ### Durable evaluation reports (with `--output`)
 
@@ -433,7 +433,7 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 | One-command evaluator-provided (BYO) dataset CLI | Available via the same script (`--dataset`) |
 | JSON + HTML evaluation reports / event inspection | Written under `--output` (`kit-evaluation-result.json`, `event-inspection.json`, `evaluation-report.html`) |
 | Container packaging | Local image build via `Dockerfile.evaluation-kit` (not published to a registry) |
-| Comparison UX | Not currently supported |
+| Before/after evaluation comparison | Available via `scripts/compare-evaluations.sh` (existing-run evidence only; factual deltas) |
 | Separate Evaluation Kit Maven module / Central artifact | Not created at this stage |
 
 ---
@@ -450,6 +450,7 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 | Ground truth | [`schemas/evaluation-kit/ground-truth.schema.json`](schemas/evaluation-kit/ground-truth.schema.json) |
 | Evaluation result | [`schemas/evaluation-kit/evaluation-result.schema.json`](schemas/evaluation-kit/evaluation-result.schema.json) |
 | Event inspection | [`schemas/evaluation-kit/event-inspection.schema.json`](schemas/evaluation-kit/event-inspection.schema.json) |
+| Evaluation comparison | [`schemas/evaluation-kit/comparison-result.schema.json`](schemas/evaluation-kit/comparison-result.schema.json) |
 | Reproducibility | [`schemas/evaluation-kit/reproducibility-manifest.schema.json`](schemas/evaluation-kit/reproducibility-manifest.schema.json) |
 | Valid fixtures | [`fixtures/evaluation-kit/valid/`](fixtures/evaluation-kit/valid/) |
 | Invalid fixtures | [`fixtures/evaluation-kit/invalid/`](fixtures/evaluation-kit/invalid/) |
@@ -465,8 +466,9 @@ scripts/validate-evaluation-kit-contracts.sh
 ## 13. Containerized evaluator (local packaging)
 
 The container is a packaging/distribution surface around the existing Evaluation Kit evaluator
-(`GeneratedCorpusEvaluationMain`). It does **not** redefine evaluation, report schemas, or detection
-semantics. The same entry accepts `--corpus` or `--dataset`.
+(`GeneratedCorpusEvaluationMain`) and existing-run comparator (`EvaluationComparisonMain`). It
+does **not** redefine evaluation, report schemas, or detection semantics. The entrypoint dispatches
+to comparison when `--baseline` is present; otherwise it accepts evaluation `--corpus` or `--dataset`.
 
 ### Build (local only)
 
@@ -547,7 +549,45 @@ Containerized evaluator ≠ production deployment image. Synthetic evaluation �
 
 ---
 
-## 14. Non-goals of this contract package
+## 14. Before/after evaluation comparison
+
+Comparison consumes two already-written evaluation run directories and does not rerun detectors.
+Each directory must contain `kit-evaluation-result.json` and `event-inspection.json`; HTML and
+Markdown reports are never treated as source evidence. Artifact references in result evidence must
+remain confined to the run directory (no absolute paths, URI references, or `..` traversal).
+
+Runs are comparable only when their dataset source, result/feature/event schema versions,
+representation mode (when present), dataset identity and event ID set agree. Generated runs bind
+the same corpus and event/annotation hashes. Evaluator-provided runs bind the same dataset and
+events hash, and annotation hashes must either both be absent or equal. Labeled and unlabeled runs
+cannot be mixed, and per-event expected classes must agree. Anomaly thresholds may differ; this is
+reported by `thresholdEqual` rather than treated as incompatibility.
+
+Host CLI:
+
+```bash
+scripts/compare-evaluations.sh \
+  --baseline path/to/baseline-run \
+  --candidate path/to/candidate-run \
+  --output path/to/new-comparison-directory
+```
+
+The output directory must not already exist. The command writes deterministic `comparison.json`
+and self-contained `comparison.html`. Omit `--output` for a terminal summary backed by temporary
+artifacts that are removed before exit. Exit codes are `0` for success/help, `2` for invalid usage,
+and `1` for incompatibility, integrity, I/O, or comparison failure.
+
+For the container, mount both run directories read-only and a writable output parent, then pass
+`--baseline`, `--candidate`, and `--output`; the entrypoint selects the comparison CLI.
+
+The report preserves unavailable metrics as unavailable rather than zero, and records factual
+metric, count, event, and binary-correctness transitions. It does not identify a preferred run,
+recommend promotion, gate CI, or make a deployment decision. A comparison is offline engineering
+evidence, not production validation.
+
+---
+
+## 15. Non-goals of this contract package
 
 - No new Maven module (Evaluation Kit remains in `ai-sentinel-core` at this stage)
 - No Evaluation Kit–specific Maven Central publication
