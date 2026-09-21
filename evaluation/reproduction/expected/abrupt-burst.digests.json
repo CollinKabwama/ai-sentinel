@@ -1,0 +1,31 @@
+{
+  "digestSchemaVersion": "1",
+  "targetId": "abrupt-burst",
+  "artifacts": [
+    {
+      "path": "kit-evaluation-result.json",
+      "sha256": "16bc5d7b3f0c0a4320bb3f5619ad0f24d836c0521c5e37e8eee833674d243a82",
+      "sizeBytes": 2327
+    },
+    {
+      "path": "event-inspection.json",
+      "sha256": "3a5889c98b587e0e404f91e916cae95d622f8b82ab249165d7819ed97243395e",
+      "sizeBytes": 3954
+    },
+    {
+      "path": "evaluation.json",
+      "sha256": "b4b269d2dee3441d8eb116452e22422f75f6408dab963ab511d599fc8ee2970e",
+      "sizeBytes": 4028
+    },
+    {
+      "path": "evaluation.md",
+      "sha256": "7d07d9cda32ba1dbd28d8002783bb70bb529476d3f3a0ee9617769220af7dab3",
+      "sizeBytes": 3925
+    },
+    {
+      "path": "evaluation-report.html",
+      "sha256": "b33b1301ef91e8f3362f969a5bacddc269c0824c4ad6e65901052a150032d10a",
+      "sizeBytes": 12608
+    }
+  ]
+}

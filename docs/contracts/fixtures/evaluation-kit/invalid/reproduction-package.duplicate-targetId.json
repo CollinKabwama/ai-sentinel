@@ -1,0 +1,60 @@
+{
+  "reproductionSchemaVersion": "1",
+  "packageId": "example.reproduction.duplicate-target",
+  "description": "Duplicate targetId values.",
+  "softwareVersion": "0.4.0",
+  "referenceConfiguration": {
+    "aiSentinelVersion": "0.3.0",
+    "scorerVersion": "0.3.0",
+    "policyVersion": "0.3.0"
+  },
+  "anomalyThreshold": 0.5,
+  "targets": [
+    {
+      "targetId": "same-id",
+      "inputType": "generated-corpus",
+      "corpusId": "corpus.example.a",
+      "corpusPath": "evaluation/kit-reference/corpora/kit.established-normal",
+      "eventsSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "annotationsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "expectedResultId": "result.a",
+      "expectedEvaluationRunId": "evalrun.aaaaaaaaaaaaaaaaaaaaaaaa",
+      "expectedDigestsRef": "expected/a.digests.json",
+      "structuralExpectations": {
+        "eventCount": 10,
+        "warmupEvents": 4,
+        "labeledEvaluationEvents": 6,
+        "labeledBenignEvents": 6,
+        "labeledAnomalousEvents": 0,
+        "detectionLabeledAvailability": "available",
+        "truePositives": 0,
+        "trueNegatives": 6,
+        "falsePositives": 0,
+        "falseNegatives": 0
+      }
+    },
+    {
+      "targetId": "same-id",
+      "inputType": "generated-corpus",
+      "corpusId": "corpus.example.b",
+      "corpusPath": "evaluation/kit-reference/corpora/kit.abrupt-burst",
+      "eventsSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "annotationsSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+      "expectedResultId": "result.b",
+      "expectedEvaluationRunId": "evalrun.bbbbbbbbbbbbbbbbbbbbbbbb",
+      "expectedDigestsRef": "expected/b.digests.json",
+      "structuralExpectations": {
+        "eventCount": 10,
+        "warmupEvents": 4,
+        "labeledEvaluationEvents": 6,
+        "labeledBenignEvents": 2,
+        "labeledAnomalousEvents": 4,
+        "detectionLabeledAvailability": "available",
+        "truePositives": 4,
+        "trueNegatives": 2,
+        "falsePositives": 0,
+        "falseNegatives": 0
+      }
+    }
+  ]
+}

@@ -1,0 +1,37 @@
+{
+  "reproductionSchemaVersion": "1",
+  "packageId": "example.reproduction.bad-sha",
+  "description": "Invalid eventsSha256.",
+  "softwareVersion": "0.4.0",
+  "referenceConfiguration": {
+    "aiSentinelVersion": "0.3.0",
+    "scorerVersion": "0.3.0",
+    "policyVersion": "0.3.0"
+  },
+  "anomalyThreshold": 0.5,
+  "targets": [
+    {
+      "targetId": "example-target",
+      "inputType": "generated-corpus",
+      "corpusId": "corpus.example",
+      "corpusPath": "evaluation/kit-reference/corpora/kit.established-normal",
+      "eventsSha256": "not-a-sha256",
+      "annotationsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+      "expectedResultId": "result.corpus.example",
+      "expectedEvaluationRunId": "evalrun.0123456789abcdef01234567",
+      "expectedDigestsRef": "expected/example.digests.json",
+      "structuralExpectations": {
+        "eventCount": 10,
+        "warmupEvents": 4,
+        "labeledEvaluationEvents": 6,
+        "labeledBenignEvents": 6,
+        "labeledAnomalousEvents": 0,
+        "detectionLabeledAvailability": "available",
+        "truePositives": 0,
+        "trueNegatives": 6,
+        "falsePositives": 0,
+        "falseNegatives": 0
+      }
+    }
+  ]
+}

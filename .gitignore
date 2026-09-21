@@ -8,6 +8,8 @@ docs/*
 !docs/README.md
 !docs/contracts/
 !docs/contracts/**
+!docs/evaluation/
+!docs/evaluation/**
 !docs/planning/
 docs/planning/*
 !docs/performance/

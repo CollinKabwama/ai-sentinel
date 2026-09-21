@@ -124,6 +124,15 @@ or the optional local container image built from [`Dockerfile.evaluation-kit`](.
 (see [`docs/contracts/EVALUATION_KIT.md`](../docs/contracts/EVALUATION_KIT.md) §13). The container reuses the
 same Java entry point and is not published to a registry by this packaging path.
 
+Level-1 independent reproduction of three kit-reference corpora (host path normative):
+
+```bash
+./scripts/reproduce-evaluation-evidence.sh --output /path/to/new-results-directory
+```
+
+Guide: [`docs/evaluation/INDEPENDENT_REPRODUCTION.md`](../docs/evaluation/INDEPENDENT_REPRODUCTION.md).
+Verify-only: [`scripts/verify-reproduced-evidence.sh`](verify-reproduced-evidence.sh).
+
 ### Regenerate / compare reference dataset (`generate-reference-dataset.sh`)
 
 ```bash

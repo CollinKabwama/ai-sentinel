@@ -235,8 +235,14 @@ An outsider reproducing public reference evidence needs, from the repository:
 3. discoverable public locators when bytes are not Git-resident
 4. verification before evaluation
 
-This storage strategy supplies (2)–(3) and a local verifier for (4). The
-independent reproduction package itself is a later capability.
+This storage strategy supplies (2)–(3) and a local verifier for (4).
+
+The Level-1 independent reproduction package lives under
+[`evaluation/reproduction/`](reproduction/) with the outsider guide
+[`docs/evaluation/INDEPENDENT_REPRODUCTION.md`](../docs/evaluation/INDEPENDENT_REPRODUCTION.md).
+It regenerates selected kit-reference evidence and verifies SHA-256 / sizeBytes
+locally. It does **not** upload remote Release assets and does not change this
+storage architecture.
 
 ---
 

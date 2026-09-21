@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCHEMA_DIR = ROOT / "docs" / "contracts" / "schemas" / "evaluation-kit"
 VALID_DIR = ROOT / "docs" / "contracts" / "fixtures" / "evaluation-kit" / "valid"
 INVALID_DIR = ROOT / "docs" / "contracts" / "fixtures" / "evaluation-kit" / "invalid"
+REPRODUCTION_MANIFEST = ROOT / "evaluation" / "reproduction" / "reproduction-manifest.json"
 
 SCHEMA_BY_PREFIX = {
     "scenario.": "scenario.schema.json",
@@ -27,6 +28,8 @@ SCHEMA_BY_PREFIX = {
     "comparison.": "comparison-result.schema.json",
     "reproducibility-manifest.": "reproducibility-manifest.schema.json",
     "evidence-artifact.": "evidence-artifact.schema.json",
+    "reproduction-package.": "reproduction-package.schema.json",
+    "reproduction-result.": "reproduction-result.schema.json",
 }
 
 MUTABLE_EVIDENCE_TAGS = {"latest", "main", "master", "head"}
@@ -137,6 +140,29 @@ def evidence_artifact_policy_errors(instance: dict) -> list[str]:
         path = location.get("path")
         if isinstance(path, str) and (path.startswith("/") or ".." in path.split("/")):
             errors.append("git-path must be a relative portable path without '..'")
+    return errors
+
+
+def reproduction_package_policy_errors(instance: dict) -> list[str]:
+    """Extra policy checks for reproduction package manifests."""
+    errors: list[str] = []
+    targets = instance.get("targets")
+    if not isinstance(targets, list):
+        return errors
+    seen: set[str] = set()
+    for target in targets:
+        if not isinstance(target, dict):
+            continue
+        target_id = target.get("targetId")
+        if isinstance(target_id, str):
+            if target_id in seen:
+                errors.append(f"duplicate targetId is not allowed: {target_id}")
+            seen.add(target_id)
+        corpus_path = target.get("corpusPath")
+        if isinstance(corpus_path, str) and (
+            corpus_path.startswith("/") or ".." in corpus_path.replace("\\", "/").split("/")
+        ):
+            errors.append(f"corpusPath must be a relative portable path without '..': {corpus_path}")
     return errors
 
 
@@ -264,6 +290,8 @@ def main() -> int:
         errors = schema_errors(validators[schema_name], instance)
         if schema_name == "evidence-artifact.schema.json":
             errors.extend(evidence_artifact_policy_errors(instance))
+        if schema_name == "reproduction-package.schema.json":
+            errors.extend(reproduction_package_policy_errors(instance))
         if errors:
             failures.append(f"VALID expected pass: {path.name}: {errors[0]}")
             print(f"FAIL {path.name}: {errors[0]}")
@@ -289,6 +317,8 @@ def main() -> int:
         errors = schema_errors(validators[schema_name], instance)
         if schema_name == "evidence-artifact.schema.json":
             errors.extend(evidence_artifact_policy_errors(instance))
+        if schema_name == "reproduction-package.schema.json":
+            errors.extend(reproduction_package_policy_errors(instance))
         if not errors:
             failures.append(f"INVALID expected fail: {path.name} unexpectedly valid")
             print(f"FAIL {path.name}: unexpectedly valid")
@@ -377,6 +407,33 @@ def main() -> int:
                                 print(
                                     f"FAIL {events_path.relative_to(ROOT)}:{line_no} forbidden field {field}"
                                 )
+
+    print("\n== live independent reproduction package ==")
+    if not REPRODUCTION_MANIFEST.is_file():
+        failures.append(f"missing live package: {REPRODUCTION_MANIFEST.relative_to(ROOT)}")
+        print(f"FAIL missing {REPRODUCTION_MANIFEST.relative_to(ROOT)}")
+    else:
+        instance = load_json(REPRODUCTION_MANIFEST)
+        errors = schema_errors(validators["reproduction-package.schema.json"], instance)
+        errors.extend(reproduction_package_policy_errors(instance))
+        if errors:
+            failures.append(f"{REPRODUCTION_MANIFEST.relative_to(ROOT)}: {errors[0]}")
+            print(f"FAIL {REPRODUCTION_MANIFEST.relative_to(ROOT)}: {errors[0]}")
+        else:
+            passed += 1
+            print(f"PASS {REPRODUCTION_MANIFEST.relative_to(ROOT)}")
+        expected_dir = REPRODUCTION_MANIFEST.parent / "expected"
+        for target in instance.get("targets", []):
+            if not isinstance(target, dict):
+                continue
+            tid = target.get("targetId")
+            digest_path = expected_dir / f"{tid}.digests.json"
+            if not digest_path.is_file():
+                failures.append(f"missing expected digests: {digest_path.relative_to(ROOT)}")
+                print(f"FAIL missing {digest_path.relative_to(ROOT)}")
+            else:
+                passed += 1
+                print(f"PASS {digest_path.relative_to(ROOT)}")
 
     print()
     if failures:

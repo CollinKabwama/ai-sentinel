@@ -1,0 +1,31 @@
+{
+  "digestSchemaVersion": "1",
+  "targetId": "recovery",
+  "artifacts": [
+    {
+      "path": "kit-evaluation-result.json",
+      "sha256": "d4cfa94defcb62677cc4f652c503c45dd1c16793a2b97a5e8083d572e6eb908e",
+      "sizeBytes": 2311
+    },
+    {
+      "path": "event-inspection.json",
+      "sha256": "5f3fada11b9fdb8cd28b1ef4d65cacde17029ed94fb4837653872a638797001b",
+      "sizeBytes": 3921
+    },
+    {
+      "path": "evaluation.json",
+      "sha256": "c53aa42edb4fe1b92beb86004bee85787a626597ad7f5b6e957a25cfca1feef8",
+      "sizeBytes": 4649
+    },
+    {
+      "path": "evaluation.md",
+      "sha256": "5414503358102f2736b1333148b2e9b68b69669f0356d08302f4155a2d0e247b",
+      "sizeBytes": 4474
+    },
+    {
+      "path": "evaluation-report.html",
+      "sha256": "2d82784636d57266e89ad9e81c033e4f654bf72f557a1b4d688de6566d6f8690",
+      "sizeBytes": 12648
+    }
+  ]
+}

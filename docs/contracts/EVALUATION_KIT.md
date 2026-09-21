@@ -498,6 +498,8 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 | Evaluation comparison | [`schemas/evaluation-kit/comparison-result.schema.json`](schemas/evaluation-kit/comparison-result.schema.json) |
 | Reproducibility | [`schemas/evaluation-kit/reproducibility-manifest.schema.json`](schemas/evaluation-kit/reproducibility-manifest.schema.json) |
 | Evidence artifact reference | [`schemas/evaluation-kit/evidence-artifact.schema.json`](schemas/evaluation-kit/evidence-artifact.schema.json) |
+| Independent reproduction package | [`schemas/evaluation-kit/reproduction-package.schema.json`](schemas/evaluation-kit/reproduction-package.schema.json) |
+| Independent reproduction result | [`schemas/evaluation-kit/reproduction-result.schema.json`](schemas/evaluation-kit/reproduction-result.schema.json) |
 | Valid fixtures | [`fixtures/evaluation-kit/valid/`](fixtures/evaluation-kit/valid/) |
 | Invalid fixtures | [`fixtures/evaluation-kit/invalid/`](fixtures/evaluation-kit/invalid/) |
 
@@ -514,6 +516,15 @@ scripts/verify-evidence-artifact.sh \
   --manifest docs/contracts/fixtures/evaluation-kit/valid/evidence-artifact.git-path.example.json \
   --artifact docs/contracts/fixtures/evaluation-kit/artifacts/sample-evidence.txt
 ```
+
+Independent Level-1 reproduction of selected kit-reference evidence (host JDK 21 + Maven):
+
+```bash
+scripts/reproduce-evaluation-evidence.sh --output /path/to/new-results-directory
+```
+
+Guide: [`docs/evaluation/INDEPENDENT_REPRODUCTION.md`](../evaluation/INDEPENDENT_REPRODUCTION.md).
+Package metadata: [`evaluation/reproduction/`](../../evaluation/reproduction/).
 
 ---
 
