@@ -1,0 +1,18 @@
+{
+  "inspectionSchemaVersion": "1",
+  "corpusId": "corpus.mini",
+  "eventCount": 1,
+  "anomalyThreshold": 0.5,
+  "events": [{
+    "eventId": "evt-1",
+    "sequenceNumber": 1,
+    "expectedClass": "anomalous",
+    "participation": "binary-labeled",
+    "binaryMetricParticipant": true,
+    "anomalyScore": 0.9,
+    "predictedAnomalous": true,
+    "action": "MONITOR",
+    "evaluationStatuses": ["ANOMALOUS"],
+    "outcome": "true-positive"
+  }]
+}
