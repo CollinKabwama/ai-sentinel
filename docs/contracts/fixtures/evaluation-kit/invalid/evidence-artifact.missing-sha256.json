@@ -1,0 +1,8 @@
+{
+  "artifactSchemaVersion": "1",
+  "artifactId": "evidence.invalid.missing-sha",
+  "artifactKind": "other-evidence-archive",
+  "sizeBytes": 10,
+  "disclosure": "public",
+  "recoveryMode": "retrieve-only"
+}

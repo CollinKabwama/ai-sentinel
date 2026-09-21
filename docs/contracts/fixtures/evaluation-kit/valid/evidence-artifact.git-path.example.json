@@ -1,0 +1,15 @@
+{
+  "artifactSchemaVersion": "1",
+  "artifactId": "evidence.sample.local-verification.v1",
+  "artifactKind": "other-evidence-archive",
+  "sha256": "c8e591f47bd48821910b2b6e422df3da61497a62eec669cce5393c38329da123",
+  "sizeBytes": 57,
+  "mediaType": "text/plain",
+  "disclosure": "public",
+  "recoveryMode": "retrieve-only",
+  "location": {
+    "scheme": "git-path",
+    "path": "docs/contracts/fixtures/evaluation-kit/artifacts/sample-evidence.txt"
+  },
+  "notes": "Compact public fixture used to exercise local evidence-artifact verification. Not a remote archive deployment."
+}

@@ -26,7 +26,10 @@ SCHEMA_BY_PREFIX = {
     "event-inspection.": "event-inspection.schema.json",
     "comparison.": "comparison-result.schema.json",
     "reproducibility-manifest.": "reproducibility-manifest.schema.json",
+    "evidence-artifact.": "evidence-artifact.schema.json",
 }
+
+MUTABLE_EVIDENCE_TAGS = {"latest", "main", "master", "head"}
 
 # Fixture name prefixes that intentionally have no JSON Schema (validated only by the
 # invariant checks below, e.g. because they illustrate an existing, separately-governed
@@ -108,6 +111,33 @@ def build_validator():
 
 def schema_errors(validator, instance) -> list[str]:
     return [e.message for e in sorted(validator.iter_errors(instance), key=lambda e: e.path)]
+
+
+def evidence_artifact_policy_errors(instance: dict) -> list[str]:
+    """Extra policy checks beyond JSON Schema for evidence-artifact references."""
+    errors: list[str] = []
+    location = instance.get("location")
+    if not isinstance(location, dict):
+        return errors
+    scheme = location.get("scheme")
+    if scheme == "github-release-asset":
+        tag = location.get("tag")
+        if isinstance(tag, str) and tag.lower() in MUTABLE_EVIDENCE_TAGS:
+            errors.append(f"mutable github-release-asset tag is not allowed: {tag}")
+    if scheme == "https-object":
+        url = location.get("url")
+        if isinstance(url, str):
+            if not url.startswith("https://"):
+                errors.append("https-object url must use https://")
+            else:
+                authority = url.split("://", 1)[-1].split("/", 1)[0]
+                if "@" in authority:
+                    errors.append("https-object url must not embed credentials")
+    if scheme == "git-path":
+        path = location.get("path")
+        if isinstance(path, str) and (path.startswith("/") or ".." in path.split("/")):
+            errors.append("git-path must be a relative portable path without '..'")
+    return errors
 
 
 def check_forbidden_fields(obj, forbidden: set[str], path: str = "$") -> list[str]:
@@ -232,6 +262,8 @@ def main() -> int:
             continue
         instance = load_json(path)
         errors = schema_errors(validators[schema_name], instance)
+        if schema_name == "evidence-artifact.schema.json":
+            errors.extend(evidence_artifact_policy_errors(instance))
         if errors:
             failures.append(f"VALID expected pass: {path.name}: {errors[0]}")
             print(f"FAIL {path.name}: {errors[0]}")
@@ -255,6 +287,8 @@ def main() -> int:
             continue
         instance = load_json(path)
         errors = schema_errors(validators[schema_name], instance)
+        if schema_name == "evidence-artifact.schema.json":
+            errors.extend(evidence_artifact_policy_errors(instance))
         if not errors:
             failures.append(f"INVALID expected fail: {path.name} unexpectedly valid")
             print(f"FAIL {path.name}: unexpectedly valid")

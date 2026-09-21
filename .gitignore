@@ -70,3 +70,9 @@ logs/
 
 # Local contract-validation venv (Evaluation Kit schema checks; not a runtime dependency)
 .venv-eval-kit-validate/
+
+# Local evidence archive staging (bytes verified against tracked manifests; not committed by default)
+evaluation/archives/
+evaluation/**/*.tar.gz
+evaluation/**/*.zip
+*.evidence.tar.gz

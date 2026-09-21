@@ -1,0 +1,9 @@
+{
+  "artifactSchemaVersion": "1",
+  "artifactId": "evidence.invalid.negative-size",
+  "artifactKind": "other-evidence-archive",
+  "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+  "sizeBytes": -1,
+  "disclosure": "public",
+  "recoveryMode": "retrieve-only"
+}

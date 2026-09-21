@@ -1,0 +1,16 @@
+{
+  "artifactSchemaVersion": "1",
+  "artifactId": "evidence.invalid.mutable-tag",
+  "artifactKind": "generated-corpus-archive",
+  "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "sizeBytes": 100,
+  "disclosure": "public",
+  "recoveryMode": "retrieve-only",
+  "location": {
+    "scheme": "github-release-asset",
+    "owner": "example-org",
+    "repository": "ai-sentinel",
+    "tag": "latest",
+    "assetName": "corpus.tar.gz"
+  }
+}

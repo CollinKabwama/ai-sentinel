@@ -5,7 +5,7 @@ Normative contract foundations for the AI-Sentinel Evaluation Kit.
 JSON is the **normative machine representation** for schemas and fixtures in this package.
 JSON does **not** permanently constrain human authoring UX: later CLI/tooling may accept YAML or other conveniences that normalize to the same logical contract.
 
-This document defines Evaluation Kit contracts. It does not claim production efficacy and does not change production runtime decision behavior. A deterministic corpus generator for feature-level scenario families lives in core; a versioned repository reference inventory is checked in under `evaluation/kit-reference/`. A repository one-command evaluation CLI is available via `scripts/evaluate-generated-corpus.sh` and accepts either a generated corpus (`--corpus`) or an evaluator-provided (BYO) dataset (`--dataset`). When `--output` is supplied, the CLI writes machine-readable Kit evaluation-result JSON, event-inspection JSON, a self-contained HTML evaluation report, and specialized detection evidence beside each other. An optional local container image (`Dockerfile.evaluation-kit`) packages the same evaluator without requiring a host JDK/Maven install at runtime. Before/after comparison of two existing evaluation runs is available via `scripts/compare-evaluations.sh` (factual deltas only; not a ranking or promotion decision).
+This document defines Evaluation Kit contracts. It does not claim production efficacy and does not change production runtime decision behavior. A deterministic corpus generator for feature-level scenario families lives in core; a versioned repository reference inventory is checked in under `evaluation/kit-reference/`. A repository one-command evaluation CLI is available via `scripts/evaluate-generated-corpus.sh` and accepts either a generated corpus (`--corpus`) or an evaluator-provided (BYO) dataset (`--dataset`). When `--output` is supplied, the CLI writes machine-readable Kit evaluation-result JSON, event-inspection JSON, a self-contained HTML evaluation report, and specialized detection evidence beside each other. An optional local container image (`Dockerfile.evaluation-kit`) packages the same evaluator without requiring a host JDK/Maven install at runtime. Before/after comparison of two existing evaluation runs is available via `scripts/compare-evaluations.sh` (factual deltas only; not a ranking or promotion decision). Large-artifact storage strategy (Git vs archive residency, content identity, local verification) is documented in [`evaluation/EVIDENCE_ARTIFACT_STORAGE.md`](../../evaluation/EVIDENCE_ARTIFACT_STORAGE.md).
 
 Current schema versions for Kit machine contracts in this package: `"1"`.
 
@@ -84,9 +84,14 @@ None of these axes are required to equal the Maven release version.
 | `resultId` | Identity of a concrete evaluation run/result. |
 | `resultSchemaVersion` | Generic Kit Evaluation Result document shape. |
 | `reproducibilitySchemaVersion` | Kit Reproducibility Manifest document shape. |
+| `artifactSchemaVersion` | Evidence-artifact reference document shape (archive identity/location). |
 | `featureSchemaVersion` | Existing FeatureSchema (currently `"1"`). |
 | `evaluationEventSchemaVersion` | Existing EvaluationEvent (currently `"1"`). |
 | `aiSentinelVersion` / `aiSentinelBuildId` | Engine under evaluation (version and optional build/commit). |
+
+Software SemVer, corpus/dataset/result identities, evidence checkpoint tags, and
+`artifactSchemaVersion` remain independent axes. Content identity for archived
+bytes is lowercase hex SHA-256 (`sha256`) plus `sizeBytes` — not the storage URL.
 
 ### Generator determinism rule
 
@@ -426,7 +431,7 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 | Topic | Status |
 |-------|--------|
 | Module / distribution boundary vs `ai-sentinel-benchmark` | **Decided (current stage):** Kit remains in `ai-sentinel-core`; benchmark stays separate JMH tooling; no Kit-specific published artifact; distribution = repository script (see §2) |
-| Large artifact storage | Deferred |
+| Large artifact storage | **Decided (strategy):** Git retains definitions/manifests/checksums/compact fixtures; public large evidence uses GitHub Release assets as locators with Git-tracked `sha256`+`sizeBytes` identity; private/licensed artifacts may omit public locators (`external-reference-only`). Compact kit-reference and historical baselines stay in Git. No live remote archive deployment required while artifacts remain compact. See [`evaluation/EVIDENCE_ARTIFACT_STORAGE.md`](../../evaluation/EVIDENCE_ARTIFACT_STORAGE.md). |
 | Deterministic corpus generator implementation | Implemented (`feature-level`, multi-family) |
 | Versioned reference corpus inventory | Checked in under `evaluation/kit-reference/` |
 | One-command generated-corpus evaluation CLI | Available via `scripts/evaluate-generated-corpus.sh` (`--corpus`) |
@@ -452,6 +457,7 @@ An Evaluation Result and the Reproducibility Manifest it binds to must agree on 
 | Event inspection | [`schemas/evaluation-kit/event-inspection.schema.json`](schemas/evaluation-kit/event-inspection.schema.json) |
 | Evaluation comparison | [`schemas/evaluation-kit/comparison-result.schema.json`](schemas/evaluation-kit/comparison-result.schema.json) |
 | Reproducibility | [`schemas/evaluation-kit/reproducibility-manifest.schema.json`](schemas/evaluation-kit/reproducibility-manifest.schema.json) |
+| Evidence artifact reference | [`schemas/evaluation-kit/evidence-artifact.schema.json`](schemas/evaluation-kit/evidence-artifact.schema.json) |
 | Valid fixtures | [`fixtures/evaluation-kit/valid/`](fixtures/evaluation-kit/valid/) |
 | Invalid fixtures | [`fixtures/evaluation-kit/invalid/`](fixtures/evaluation-kit/invalid/) |
 
@@ -459,6 +465,14 @@ Validate with:
 
 ```bash
 scripts/validate-evaluation-kit-contracts.sh
+```
+
+Local archive verification (no remote fetch/upload):
+
+```bash
+scripts/verify-evidence-artifact.sh \
+  --manifest docs/contracts/fixtures/evaluation-kit/valid/evidence-artifact.git-path.example.json \
+  --artifact docs/contracts/fixtures/evaluation-kit/artifacts/sample-evidence.txt
 ```
 
 ---

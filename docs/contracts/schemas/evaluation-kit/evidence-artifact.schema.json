@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aisentinel.dev/schemas/evaluation-kit/evidence-artifact.schema.json",
+  "title": "Evaluation Kit Evidence Artifact Reference",
+  "description": "Identity and optional storage location for an Evaluation Kit evidence archive. Artifact identity is the content digest; location is transport metadata only and must never replace checksum verification.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "artifactSchemaVersion",
+    "artifactId",
+    "artifactKind",
+    "sha256",
+    "sizeBytes",
+    "disclosure",
+    "recoveryMode"
+  ],
+  "properties": {
+    "artifactSchemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion",
+      "description": "Evidence-artifact reference document shape. Independent of Maven software version and of corpus/result schema versions."
+    },
+    "artifactId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString",
+      "description": "Stable logical identity for this evidence package. Not a filesystem path and not a mutable URL."
+    },
+    "artifactKind": {
+      "type": "string",
+      "enum": [
+        "generated-corpus-archive",
+        "evaluation-result-archive",
+        "comparison-result-archive",
+        "historical-baseline-archive",
+        "external-dataset-archive",
+        "other-evidence-archive"
+      ]
+    },
+    "sha256": {
+      "$ref": "common.schema.json#/$defs/sha256Hex",
+      "description": "SHA-256 of the exact archived bytes (for example the .tar.gz payload). Canonical content identity."
+    },
+    "sizeBytes": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Exact byte length of the archived payload identified by sha256."
+    },
+    "mediaType": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Optional IANA media type of the archived payload (for example application/gzip)."
+    },
+    "disclosure": {
+      "type": "string",
+      "enum": ["public", "private", "external-reference-only"],
+      "description": "public = project may redistribute; private = organization-controlled; external-reference-only = project does not rehost bytes (licensing or ownership)."
+    },
+    "recoveryMode": {
+      "type": "string",
+      "enum": ["retrieve-only", "regenerate-and-verify", "retrieve-or-regenerate"],
+      "description": "retrieve-only for historical/external bytes; regenerate-and-verify when deterministic generation can recreate bytes; retrieve-or-regenerate when either path is acceptable."
+    },
+    "location": {
+      "description": "Optional storage locator. Absent when bytes are Git-resident, supplied out-of-band, or must remain private. Location is not artifact identity.",
+      "oneOf": [
+        { "$ref": "#/$defs/gitPathLocation" },
+        { "$ref": "#/$defs/githubReleaseAssetLocation" },
+        { "$ref": "#/$defs/httpsObjectLocation" }
+      ]
+    },
+    "relatedIdentities": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Optional bindings to Evaluation Kit identities. Transport metadata must not become detector provenance.",
+      "properties": {
+        "corpusId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "datasetId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "resultId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "inventoryId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "scenarioId": { "$ref": "common.schema.json#/$defs/nonEmptyString" }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "$defs": {
+    "relativePortablePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!\\.\\./)(?!.*\\/\\.\\./)(?!\\/)(?!.*\\\\)[A-Za-z0-9._\\-]+(?:/[A-Za-z0-9._\\-]+)*$",
+      "description": "Relative portable path: no absolute roots, no '..' segments, no backslashes."
+    },
+    "gitPathLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme", "path"],
+      "properties": {
+        "scheme": { "const": "git-path" },
+        "path": { "$ref": "#/$defs/relativePortablePath" }
+      }
+    },
+    "githubReleaseAssetLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme", "owner", "repository", "tag", "assetName"],
+      "properties": {
+        "scheme": { "const": "github-release-asset" },
+        "owner": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9](?:[A-Za-z0-9.-]*[A-Za-z0-9])?$"
+        },
+        "repository": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._-]+$"
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]*$",
+          "description": "Evidence checkpoint tag. Must not be a mutable alias such as latest/main/master (enforced by contract invariants). Distinct from software SemVer release tags unless intentionally aligned."
+        },
+        "assetName": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^[A-Za-z0-9._@+-]+$"
+        }
+      }
+    },
+    "httpsObjectLocation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scheme", "url"],
+      "properties": {
+        "scheme": { "const": "https-object" },
+        "url": {
+          "type": "string",
+          "minLength": 12,
+          "pattern": "^https://[^/@]+/.*$",
+          "description": "HTTPS object URL without embedded credentials (no userinfo). URL is a locator only; sha256 remains the identity."
+        }
+      }
+    }
+  }
+}

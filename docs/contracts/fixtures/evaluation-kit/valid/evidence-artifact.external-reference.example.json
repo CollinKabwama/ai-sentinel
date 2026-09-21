@@ -1,0 +1,13 @@
+{
+  "artifactSchemaVersion": "1",
+  "artifactId": "evidence.example.external-dataset.ref-only.v1",
+  "artifactKind": "external-dataset-archive",
+  "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+  "sizeBytes": 4096,
+  "disclosure": "external-reference-only",
+  "recoveryMode": "retrieve-only",
+  "relatedIdentities": {
+    "datasetId": "byo.external.licensed.001"
+  },
+  "notes": "Project does not rehost the dataset bytes. Evaluators supply local bytes matching sha256 when licensing permits evaluation."
+}
