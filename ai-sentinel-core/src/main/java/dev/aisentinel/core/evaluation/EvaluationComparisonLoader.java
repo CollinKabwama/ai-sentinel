@@ -64,6 +64,7 @@ final class EvaluationComparisonLoader {
             return new RunEvidence(
                 source,
                 DeterministicJson.requireString(result, "resultId"),
+                emptyToNull(optional(result, "evaluationRunId")),
                 resultSchema,
                 DeterministicJson.requireString(provenance, "featureSchemaVersion"),
                 DeterministicJson.requireString(provenance, "evaluationEventSchemaVersion"),

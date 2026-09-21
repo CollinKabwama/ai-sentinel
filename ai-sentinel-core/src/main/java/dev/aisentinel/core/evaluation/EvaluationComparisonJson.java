@@ -86,6 +86,9 @@ final class EvaluationComparisonJson {
             string(json, "representationMode", run.representationMode(), false);
         }
         string(json, "resultId", run.resultId(), false);
+        if (run.evaluationRunId() != null && !run.evaluationRunId().isBlank()) {
+            string(json, "evaluationRunId", run.evaluationRunId(), false);
+        }
         integer(json, "eventCount", run.events().size(), false);
         number(json, "anomalyThreshold", run.anomalyThreshold(), false);
         json.append('}');

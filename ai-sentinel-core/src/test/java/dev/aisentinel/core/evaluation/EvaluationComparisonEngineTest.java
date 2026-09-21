@@ -127,14 +127,32 @@ class EvaluationComparisonEngineTest {
     }
 
     @Test
-    void differingThresholdRemainsComparable() throws Exception {
-        Runs runs = runs();
-        replace(runs.candidate().resolve("event-inspection.json"),
+    void differingThresholdRemainsComparableAndChangesComparisonId() throws Exception {
+        Runs runsA = runs();
+        replace(runsA.candidate().resolve("event-inspection.json"),
             "\"anomalyThreshold\": 0.5", "\"anomalyThreshold\": 0.6");
-        EvaluationComparisonResult result = compare(runs, "threshold");
-        assertThat(result.compatible()).isTrue();
-        assertThat(result.thresholdEqual()).isFalse();
-        assertThat(Files.readString(result.comparisonJson())).contains("\"thresholdEqual\":false");
+        EvaluationComparisonResult first = compare(runsA, "threshold-a");
+
+        Runs runsB = runs();
+        replace(runsB.baseline().resolve("event-inspection.json"),
+            "\"anomalyThreshold\": 0.5", "\"anomalyThreshold\": 0.05");
+        replace(runsB.candidate().resolve("event-inspection.json"),
+            "\"anomalyThreshold\": 0.5", "\"anomalyThreshold\": 0.95");
+        EvaluationComparisonResult second = compare(runsB, "threshold-b");
+
+        String firstId = extractComparisonId(Files.readString(first.comparisonJson()));
+        String secondId = extractComparisonId(Files.readString(second.comparisonJson()));
+        assertThat(first.compatible()).isTrue();
+        assertThat(first.thresholdEqual()).isFalse();
+        assertThat(firstId).isNotEqualTo(secondId);
+        assertThat(Files.readString(first.comparisonJson())).contains("\"thresholdEqual\":false");
+        assertThat(Files.readString(first.comparisonHtml())).contains("legacy compatibility surrogate");
+    }
+
+    private static String extractComparisonId(String json) {
+        int start = json.indexOf("\"comparisonId\":\"") + "\"comparisonId\":\"".length();
+        int end = json.indexOf('"', start);
+        return json.substring(start, end);
     }
 
     @Test

@@ -40,6 +40,10 @@ class EvaluatorProvidedDatasetEvaluatorTest {
         String kit = Files.readString(out.resolve("kit-evaluation-result.json"));
         assertThat(kit).contains("\"datasetSource\":\"evaluator-provided\"");
         assertThat(kit).contains("\"datasetId\":\"byo.minimal.labeled.001\"");
+        assertThat(kit).contains("\"evaluationRunId\":\"evalrun.");
+        assertThat(kit).contains("\"softwareVersion\":\"0.4.0\"");
+        assertThat(kit).contains("\"aiSentinelVersion\":\"0.3.0\"");
+        assertThat(kit).doesNotContain("\"aiSentinelBuildId\"");
         assertThat(kit).doesNotContain("\"seed\"");
         assertThat(kit).doesNotContain("generatorBuildId");
         assertThat(kit).doesNotContain("generatorContractVersion");
@@ -49,6 +53,14 @@ class EvaluatorProvidedDatasetEvaluatorTest {
         assertThat(inspection).contains("\"datasetSource\":\"evaluator-provided\"");
         assertThat(inspection).contains("\"datasetId\":\"byo.minimal.labeled.001\"");
         assertThat(inspection).doesNotContain("\"corpusId\"");
+
+        String html = Files.readString(out.resolve("evaluation-report.html"));
+        assertThat(html).contains("Run summary");
+        assertThat(html).contains("evaluationRunId");
+        int summaryAt = html.indexOf("id=\"summary\"");
+        int provenanceAt = html.indexOf("id=\"provenance\"");
+        assertThat(summaryAt).isGreaterThanOrEqualTo(0);
+        assertThat(provenanceAt).isGreaterThan(summaryAt);
 
         assertThat(Files.isRegularFile(out.resolve("evaluation-report.html"))).isTrue();
         assertThat(Files.isRegularFile(out.resolve("evaluation.json"))).isTrue();

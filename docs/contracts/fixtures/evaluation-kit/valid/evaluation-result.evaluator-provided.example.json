@@ -1,6 +1,7 @@
 {
   "resultSchemaVersion": "1",
   "resultId": "result.byo.example.minimal.001",
+  "evaluationRunId": "evalrun.fedcba987654",
   "status": "completed_with_limitations",
   "limitations": [
     "Evaluator-provided dataset evaluation is not production validation."
@@ -14,9 +15,10 @@
     "featureSchemaVersion": "1",
     "evaluationEventSchemaVersion": "1",
     "representationMode": "feature-level",
-    "aiSentinelVersion": "0.4.0",
+    "aiSentinelVersion": "0.3.0",
+    "softwareVersion": "0.4.0",
     "scorerId": "statistical-baseline",
-    "scorerVersion": "1"
+    "scorerVersion": "0.3.0"
   },
   "artifactBindings": [
     {

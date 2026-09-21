@@ -1,10 +1,7 @@
 package dev.aisentinel.core.evaluation;
 
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
@@ -169,7 +166,7 @@ public final class EvaluationComparisonEngine {
             limitations.add("Labeled detection metrics and correctness transitions are unavailable.");
         }
         return new EvaluationComparisonModel(
-            comparisonId(baseline.resultId(), candidate.resultId()),
+            EvaluationRunIdentity.comparisonId(baseline, candidate),
             limitations.isEmpty() ? "completed" : "completed_with_limitations",
             List.copyOf(limitations),
             baseline,
@@ -271,20 +268,6 @@ public final class EvaluationComparisonEngine {
             transitions.put(name, 0);
         }
         return transitions;
-    }
-
-    private static String comparisonId(String baselineId, String candidateId) {
-        try {
-            byte[] digest = MessageDigest.getInstance("SHA-256").digest(
-                (baselineId + "\n" + candidateId).getBytes(StandardCharsets.UTF_8));
-            StringBuilder value = new StringBuilder("comparison.");
-            for (int i = 0; i < 12; i++) {
-                value.append(String.format(java.util.Locale.ROOT, "%02x", digest[i]));
-            }
-            return value.toString();
-        } catch (NoSuchAlgorithmException impossible) {
-            throw new IllegalStateException("SHA-256 unavailable", impossible);
-        }
     }
 
     private static void requirePresent(String field, String... values) {
