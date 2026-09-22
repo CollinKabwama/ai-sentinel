@@ -526,6 +526,15 @@ scripts/reproduce-evaluation-evidence.sh --output /path/to/new-results-directory
 Guide: [`docs/evaluation/INDEPENDENT_REPRODUCTION.md`](../evaluation/INDEPENDENT_REPRODUCTION.md).
 Package metadata: [`evaluation/reproduction/`](../../evaluation/reproduction/).
 
+Same-framework Level-3 detector comparison (statistical vs offline Isolation Forest reference;
+same-origin; factual deltas only):
+
+```bash
+scripts/compare-reference-detectors.sh --output /path/to/new-results-directory
+```
+
+Guide: [`docs/evaluation/SAME_FRAMEWORK_DETECTOR_COMPARISON.md`](../evaluation/SAME_FRAMEWORK_DETECTOR_COMPARISON.md).
+
 ---
 
 ## 13. Containerized evaluator (local packaging)
