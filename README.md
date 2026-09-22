@@ -233,6 +233,8 @@ These layers are offline engineering evidence machinery. The Official Detection 
 
 Independent Level-1 reproduction of selected Evaluation Kit reference evidence (regenerate + verify digests/identities): [`docs/evaluation/INDEPENDENT_REPRODUCTION.md`](docs/evaluation/INDEPENDENT_REPRODUCTION.md).
 
+Same-framework Level-3 detector comparison on controlled corpora (statistical vs offline Isolation Forest; same-origin; factual deltas only): [`docs/evaluation/SAME_FRAMEWORK_DETECTOR_COMPARISON.md`](docs/evaluation/SAME_FRAMEWORK_DETECTOR_COMPARISON.md).
+
 `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `BASELINE != QUALITY GATE` · `DRIFT != REGRESSION` · `DRIFT != APPROVAL` · `REFERENCE DATASET != DETECTION BASELINE`
 
 Candidate shadow scoring and lifecycle designation governance are packaged as engineering capabilities in **0.4.0**. Shadow remains observational (`SHADOW RESULT != PRODUCTION DECISION`); promotion remains designation-only (`PROMOTED != PRODUCTION DEPLOYED`). This packaging does **not** claim production efficacy, ENFORCE readiness, or production model activation.
