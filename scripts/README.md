@@ -142,6 +142,10 @@ factual deltas only — not a winner ranking):
 
 Guide: [`docs/evaluation/SAME_FRAMEWORK_DETECTOR_COMPARISON.md`](../docs/evaluation/SAME_FRAMEWORK_DETECTOR_COMPARISON.md).
 
+Fictional organization-profile synthetic corpora (Northgate; evaluate via
+`evaluate-generated-corpus.sh --corpus evaluation/organization-profile/northgate/corpora/...`):
+[`docs/evaluation/ORGANIZATION_PROFILE_SYNTHETIC_EVALUATION.md`](../docs/evaluation/ORGANIZATION_PROFILE_SYNTHETIC_EVALUATION.md).
+
 ### Regenerate / compare reference dataset (`generate-reference-dataset.sh`)
 
 ```bash

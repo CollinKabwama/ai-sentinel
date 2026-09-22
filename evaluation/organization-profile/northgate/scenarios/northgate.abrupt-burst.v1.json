@@ -1,0 +1,64 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "northgate.abrupt-burst.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Northgate abrupt burst",
+  "description": "Fictional Northgate organization-profile synthetic scenario: anomalous sharp request-rate increase against a narrow endpoint after baseline. Not a real organization. Synthetic evaluation only.",
+  "population": {
+    "identityCount": 4,
+    "identityKeyPrefix": "northgate-ab-",
+    "notes": "Fictional pseudonymous identities only: northgate-ab-001 = stable integration (primary burst identity); northgate-ab-002..004 = interactive. Not real users."
+  },
+  "normalBehavior": {
+    "summary": "Steady multi-endpoint SaaS/API traffic during warmup and early evaluation before an abrupt single-identity burst onto export.",
+    "endpointKeys": [
+      "/api/v1/export",
+      "/api/v1/records",
+      "/api/v1/records/{id}",
+      "/api/v1/search",
+      "/api/v1/account",
+      "/api/v1/auth/refresh"
+    ]
+  },
+  "timing": {
+    "warmup": {
+      "durationSeconds": 48,
+      "notes": "Baseline/state-building: 48 ticks with 4 rotating identities → 12 observations per identity before evaluation."
+    },
+    "evaluation": {
+      "durationSeconds": 32,
+      "notes": "Early evaluation-normal then anomalous abrupt burst."
+    }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-northgate-pre-burst-normal",
+      "intent": "legitimate",
+      "summary": "Continue normal Northgate behavior after warmup.",
+      "startsAfterWarmupSeconds": 0
+    },
+    {
+      "transitionId": "t-northgate-abrupt-burst",
+      "intent": "anomalous",
+      "summary": "Primary integration identity bursts onto a narrow export endpoint.",
+      "startsAfterWarmupSeconds": 12
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only.",
+    "assertions": [
+      {
+        "assertionId": "a-northgate-burst-present",
+        "kind": "structural",
+        "statement": "Evaluation window includes anomalous burst events for the primary identity after the authored boundary."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "abrupt-burst",
+    "profileId": "northgate",
+    "profileClassification": "fictional-organization-profile-synthetic",
+    "authoringNote": "Fictional Northgate profile scenario. Not based on proprietary employer/customer data."
+  }
+}

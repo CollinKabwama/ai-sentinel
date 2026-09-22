@@ -1,0 +1,42 @@
+{
+  "generationSpecVersion": "1",
+  "inventoryId": "northgate-organization-profile",
+  "inventoryVersion": "1.0.0",
+  "generatorContractVersion": "1",
+  "generatorBuildId": "aisentinel-northgate-corpus@1",
+  "representationMode": "feature-level",
+  "profileClassification": "fictional-organization-profile-synthetic",
+  "notes": "Fictional Northgate SaaS/API profile. Not a real organization. Seeds and generatorBuildId are fixed determinism inputs.",
+  "entries": [
+    {
+      "scenarioFile": "scenarios/northgate.established-normal.v1.json",
+      "corpusDirectory": "corpora/northgate.established-normal",
+      "seed": "northgate-established-normal-1",
+      "scenarioId": "northgate.established-normal.v1"
+    },
+    {
+      "scenarioFile": "scenarios/northgate.legitimate-burst.v1.json",
+      "corpusDirectory": "corpora/northgate.legitimate-burst",
+      "seed": "northgate-legitimate-burst-1",
+      "scenarioId": "northgate.legitimate-burst.v1"
+    },
+    {
+      "scenarioFile": "scenarios/northgate.abrupt-burst.v1.json",
+      "corpusDirectory": "corpora/northgate.abrupt-burst",
+      "seed": "northgate-abrupt-burst-1",
+      "scenarioId": "northgate.abrupt-burst.v1"
+    },
+    {
+      "scenarioFile": "scenarios/northgate.endpoint-shift.v1.json",
+      "corpusDirectory": "corpora/northgate.endpoint-shift",
+      "seed": "northgate-endpoint-shift-1",
+      "scenarioId": "northgate.endpoint-shift.v1"
+    },
+    {
+      "scenarioFile": "scenarios/northgate.session-recovery.v1.json",
+      "corpusDirectory": "corpora/northgate.session-recovery",
+      "seed": "northgate-session-recovery-1",
+      "scenarioId": "northgate.session-recovery.v1"
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "northgate.established-normal.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Northgate established normal",
+  "description": "Fictional Northgate organization-profile synthetic scenario: stable multi-identity SaaS/API behavior after a meaningful per-identity baseline. Not a real organization. Synthetic evaluation only.",
+  "population": {
+    "identityCount": 4,
+    "identityKeyPrefix": "northgate-en-",
+    "notes": "Fictional pseudonymous identities only: northgate-en-001 = stable integration; northgate-en-002..004 = interactive. Not real users."
+  },
+  "normalBehavior": {
+    "summary": "Steady per-identity request cadence across Northgate SaaS/API endpoint families after baseline formation.",
+    "endpointKeys": [
+      "/api/v1/records",
+      "/api/v1/records/{id}",
+      "/api/v1/search",
+      "/api/v1/export",
+      "/api/v1/account",
+      "/api/v1/auth/refresh"
+    ]
+  },
+  "timing": {
+    "warmup": {
+      "durationSeconds": 48,
+      "notes": "Baseline/state-building: 48 ticks with 4 rotating identities → 12 observations per identity before evaluation."
+    },
+    "evaluation": {
+      "durationSeconds": 32,
+      "notes": "Continued established-normal evaluation window."
+    }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-northgate-continue-normal",
+      "intent": "legitimate",
+      "summary": "Continue established normal Northgate SaaS/API behavior.",
+      "startsAfterWarmupSeconds": 0
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only. Must not configure scorer/thresholds/policy for the subject under test.",
+    "assertions": [
+      {
+        "assertionId": "a-northgate-all-benign",
+        "kind": "structural",
+        "statement": "All events are authored as benign established-normal conditions."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "established-normal",
+    "profileId": "northgate",
+    "profileClassification": "fictional-organization-profile-synthetic",
+    "authoringNote": "Fictional Northgate profile scenario. Not based on proprietary employer/customer data."
+  }
+}
