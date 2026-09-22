@@ -30,6 +30,8 @@ import dev.aisentinel.core.policy.PolicyEngine;
 import dev.aisentinel.core.policy.TrustPolicyAdjuster;
 import dev.aisentinel.core.metrics.FailOpenReason;
 import dev.aisentinel.core.metrics.SentinelMetrics;
+import dev.aisentinel.core.pilot.NoopPilotObservationRecorder;
+import dev.aisentinel.core.pilot.PilotObservationRecorder;
 import dev.aisentinel.core.runtime.StartupGrace;
 import dev.aisentinel.core.scoring.AnomalyScorer;
 import dev.aisentinel.core.scoring.CompositeScoreSnapshotSource;
@@ -70,6 +72,7 @@ public final class SentinelPipeline {
     private final IdentityContextResolver identityContextResolver;
     private final IdentityResponseHook identityResponseHook;
     private final LastDecisionExplanation lastDecisionExplanation;
+    private final PilotObservationRecorder pilotObservationRecorder;
 
     public SentinelPipeline(FeatureExtractor featureExtractor, AnomalyScorer scorer, PolicyEngine policyEngine,
                             EnforcementHandler enforcementHandler, TelemetryEmitter telemetry, StartupGrace startupGrace,
@@ -209,7 +212,62 @@ public final class SentinelPipeline {
             metrics, trainingCandidatePublisher, enforcementScope, trainingTenantId, trainingNodeId, sentinelModeName,
             identityContextResolver, trustEvaluator, trustPolicyAdjuster, identityResponseHook, riskFusion,
             statisticalWarmupAction, baselineUpdatePolicy, baselineLifecycle, lastDecisionExplanation,
-            ShadowScoringExecutor.disabled());
+            ShadowScoringExecutor.disabled(), NoopPilotObservationRecorder.INSTANCE);
+    }
+
+    /**
+     * @param shadowScoring observational candidate scoring; default disabled.
+     *                      {@code SHADOW RESULT != PRODUCTION DECISION}
+     * @param pilotObservationRecorder optional MONITOR pilot evidence recorder; default noop.
+     *                                 Recording failures must never deny application traffic.
+     */
+    public SentinelPipeline(FeatureExtractor featureExtractor,
+                            AnomalyScorer scorer,
+                            CompositeScorer compositeScorerOrNull,
+                            PolicyEngine policyEngine,
+                            EnforcementHandler enforcementHandler,
+                            TelemetryEmitter telemetry,
+                            StartupGrace startupGrace,
+                            SentinelMetrics metrics,
+                            TrainingCandidatePublisher trainingCandidatePublisher,
+                            EnforcementScope enforcementScope,
+                            String trainingTenantId,
+                            String trainingNodeId,
+                            String sentinelModeName,
+                            IdentityContextResolver identityContextResolver,
+                            TrustEvaluator trustEvaluator,
+                            TrustPolicyAdjuster trustPolicyAdjuster,
+                            IdentityResponseHook identityResponseHook,
+                            RequestRiskFusion riskFusion,
+                            EnforcementAction statisticalWarmupAction,
+                            BaselineUpdatePolicy baselineUpdatePolicy,
+                            BaselineLifecycle baselineLifecycle,
+                            LastDecisionExplanation lastDecisionExplanation,
+                            ShadowScoringExecutor shadowScoring,
+                            PilotObservationRecorder pilotObservationRecorder) {
+        this.featureExtractor = featureExtractor;
+        this.compositeScoreSnapshotSourceOrNull = compositeScorerOrNull;
+        this.enforcementHandler = enforcementHandler;
+        this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
+        this.decisionEngine = new SentinelDecisionEngine(scorer, policyEngine, enforcementHandler, telemetry,
+            startupGrace, this.metrics, trustEvaluator, trustPolicyAdjuster, riskFusion, statisticalWarmupAction,
+            baselineUpdatePolicy, baselineLifecycle,
+            shadowScoring != null ? shadowScoring : ShadowScoringExecutor.disabled());
+        this.trainingCandidatePublisher = trainingCandidatePublisher != null
+            ? trainingCandidatePublisher
+            : NoopTrainingCandidatePublisher.INSTANCE;
+        this.enforcementScope = enforcementScope != null ? enforcementScope : EnforcementScope.IDENTITY_ENDPOINT;
+        this.trainingTenantId = trainingTenantId != null && !trainingTenantId.isBlank() ? trainingTenantId : "default";
+        this.trainingNodeId = trainingNodeId != null ? trainingNodeId : "";
+        this.sentinelModeName = sentinelModeName != null ? sentinelModeName : "ENFORCE";
+        this.identityContextResolver = identityContextResolver != null ? identityContextResolver : NoopIdentityContextResolver.INSTANCE;
+        this.identityResponseHook = identityResponseHook != null ? identityResponseHook : NoopIdentityResponseHook.INSTANCE;
+        this.lastDecisionExplanation = lastDecisionExplanation != null
+            ? lastDecisionExplanation
+            : LastDecisionExplanation.NOOP;
+        this.pilotObservationRecorder = pilotObservationRecorder != null
+            ? pilotObservationRecorder
+            : NoopPilotObservationRecorder.INSTANCE;
     }
 
     /**
@@ -239,26 +297,11 @@ public final class SentinelPipeline {
                             BaselineLifecycle baselineLifecycle,
                             LastDecisionExplanation lastDecisionExplanation,
                             ShadowScoringExecutor shadowScoring) {
-        this.featureExtractor = featureExtractor;
-        this.compositeScoreSnapshotSourceOrNull = compositeScorerOrNull;
-        this.enforcementHandler = enforcementHandler;
-        this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
-        this.decisionEngine = new SentinelDecisionEngine(scorer, policyEngine, enforcementHandler, telemetry,
-            startupGrace, this.metrics, trustEvaluator, trustPolicyAdjuster, riskFusion, statisticalWarmupAction,
-            baselineUpdatePolicy, baselineLifecycle,
-            shadowScoring != null ? shadowScoring : ShadowScoringExecutor.disabled());
-        this.trainingCandidatePublisher = trainingCandidatePublisher != null
-            ? trainingCandidatePublisher
-            : NoopTrainingCandidatePublisher.INSTANCE;
-        this.enforcementScope = enforcementScope != null ? enforcementScope : EnforcementScope.IDENTITY_ENDPOINT;
-        this.trainingTenantId = trainingTenantId != null && !trainingTenantId.isBlank() ? trainingTenantId : "default";
-        this.trainingNodeId = trainingNodeId != null ? trainingNodeId : "";
-        this.sentinelModeName = sentinelModeName != null ? sentinelModeName : "ENFORCE";
-        this.identityContextResolver = identityContextResolver != null ? identityContextResolver : NoopIdentityContextResolver.INSTANCE;
-        this.identityResponseHook = identityResponseHook != null ? identityResponseHook : NoopIdentityResponseHook.INSTANCE;
-        this.lastDecisionExplanation = lastDecisionExplanation != null
-            ? lastDecisionExplanation
-            : LastDecisionExplanation.NOOP;
+        this(featureExtractor, scorer, compositeScorerOrNull, policyEngine, enforcementHandler, telemetry, startupGrace,
+            metrics, trainingCandidatePublisher, enforcementScope, trainingTenantId, trainingNodeId, sentinelModeName,
+            identityContextResolver, trustEvaluator, trustPolicyAdjuster, identityResponseHook, riskFusion,
+            statisticalWarmupAction, baselineUpdatePolicy, baselineLifecycle, lastDecisionExplanation, shadowScoring,
+            NoopPilotObservationRecorder.INSTANCE);
     }
 
     /** Feature extractor shared with local evaluation bridge / remote evaluation service. */
@@ -326,6 +369,13 @@ public final class SentinelPipeline {
             }
 
             returnValue = proceed;
+            try {
+                long elapsed = System.nanoTime() - pipelineStart;
+                pilotObservationRecorder.record(identityHash, decision, elapsed, proceed);
+            } catch (Exception e) {
+                log.debug("Pilot observation recorder failed (request continues): {}: {}",
+                    e.getClass().getSimpleName(), e.getMessage());
+            }
             return returnValue;
         } finally {
             metrics.recordPipelineLatencyNanos(System.nanoTime() - pipelineStart);

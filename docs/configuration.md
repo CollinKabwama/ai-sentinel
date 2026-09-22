@@ -112,6 +112,15 @@ Legend: **Required?** = needed for a working filter once `enabled=true`. **Advan
 | `ai.sentinel.trusted-proxies` | empty | HTTP adapter | No | Yes |
 | `ai.sentinel.startup-grace-period` | `0` | core | No | Yes |
 
+### MONITOR pilot evidence (optional)
+
+| Property | Default | Category | Required? | Advanced? |
+|----------|---------|----------|-----------|-----------|
+| `ai.sentinel.pilot.enabled` | `false` | pilot | No | Yes — see [`evaluation/MONITOR_MODE_PILOT.md`](evaluation/MONITOR_MODE_PILOT.md) |
+| `ai.sentinel.pilot.output-directory` | _(empty)_ | pilot | Yes when enabled | Yes |
+| `ai.sentinel.pilot.session-id` | _(generated)_ | pilot | No | Yes |
+| `ai.sentinel.pilot.pseudonymization-secret` | _(empty)_ | pilot | Yes when enabled | Yes — inject via env/secret store |
+
 ### Enforcement
 
 | Property | Default | Category | Required? | Advanced? |
@@ -198,6 +207,10 @@ Remote transport failures are **fail-open** with status `REMOTE_EVALUATION_FAILU
 |----------|---------|--------|
 | `ai.sentinel.enabled` | `true` | Master switch |
 | `ai.sentinel.mode` | `MONITOR` | `OFF` (full filter bypass), `MONITOR` (score/learn/observe; **no client denial** — **default**), `ENFORCE` (client denial enabled; requires explicit configuration). See [`deployment.md`](deployment.md). |
+| `ai.sentinel.pilot.enabled` | `false` | When true, collect bounded MONITOR pilot observations to a local directory. Requires `mode=MONITOR`, HMAC secret, empty output directory, training publish OFF, and default MonitorOnly enforcement wiring. See [`evaluation/MONITOR_MODE_PILOT.md`](evaluation/MONITOR_MODE_PILOT.md). |
+| `ai.sentinel.pilot.output-directory` | _(empty)_ | Local session directory (must be empty or non-existent; refuse overwrite). |
+| `ai.sentinel.pilot.session-id` | _(empty)_ | Optional operator session id; UUID generated when blank. |
+| `ai.sentinel.pilot.pseudonymization-secret` | _(empty)_ | HMAC-SHA256 secret (≥16 UTF-8 bytes). Inject via env/secret store; never commit; never written to evidence. |
 | `ai.sentinel.exclude-paths` | actuator, health, static, favicon | Comma-separated Ant-style patterns |
 | `ai.sentinel.block-status-code` | `429` | HTTP status written on BLOCK / throttle-exhaust / quarantine responses |
 | `ai.sentinel.quarantine-duration-ms` | `300000` | Local quarantine TTL in milliseconds |
