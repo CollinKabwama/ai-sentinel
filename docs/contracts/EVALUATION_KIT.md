@@ -535,6 +535,11 @@ scripts/compare-reference-detectors.sh --output /path/to/new-results-directory
 
 Guide: [`docs/evaluation/SAME_FRAMEWORK_DETECTOR_COMPARISON.md`](../evaluation/SAME_FRAMEWORK_DETECTOR_COMPARISON.md).
 
+Fictional organization-profile synthetic evaluation (Northgate; not a real organization):
+
+Guide: [`docs/evaluation/ORGANIZATION_PROFILE_SYNTHETIC_EVALUATION.md`](../evaluation/ORGANIZATION_PROFILE_SYNTHETIC_EVALUATION.md).
+Inventory: [`evaluation/organization-profile/northgate/`](../../evaluation/organization-profile/northgate/).
+
 ---
 
 ## 13. Containerized evaluator (local packaging)

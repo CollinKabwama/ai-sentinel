@@ -235,6 +235,8 @@ Independent Level-1 reproduction of selected Evaluation Kit reference evidence (
 
 Same-framework Level-3 detector comparison on controlled corpora (statistical vs offline Isolation Forest; same-origin; factual deltas only): [`docs/evaluation/SAME_FRAMEWORK_DETECTOR_COMPARISON.md`](docs/evaluation/SAME_FRAMEWORK_DETECTOR_COMPARISON.md).
 
+Fictional organization-profile synthetic evaluation (Northgate SaaS/API workload; not a real organization): [`docs/evaluation/ORGANIZATION_PROFILE_SYNTHETIC_EVALUATION.md`](docs/evaluation/ORGANIZATION_PROFILE_SYNTHETIC_EVALUATION.md).
+
 `FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE` · `BASELINE != QUALITY GATE` · `DRIFT != REGRESSION` · `DRIFT != APPROVAL` · `REFERENCE DATASET != DETECTION BASELINE`
 
 Candidate shadow scoring and lifecycle designation governance are packaged as engineering capabilities in **0.4.0**. Shadow remains observational (`SHADOW RESULT != PRODUCTION DECISION`); promotion remains designation-only (`PROMOTED != PRODUCTION DEPLOYED`). This packaging does **not** claim production efficacy, ENFORCE readiness, or production model activation.
