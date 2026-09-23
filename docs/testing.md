@@ -52,6 +52,20 @@ The reactor also compiles **`ai-sentinel-benchmark`**. Its **support-code** unit
 
 Run **twice** before cutting a release tag so flakes are visible.
 
+### Artifact reproducibility (published JARs)
+
+Clean builds of the same source should produce byte-identical JARs for
+`ai-sentinel-core` and `ai-sentinel-spring-boot-starter` (parent `ai-sentinel` is
+POM-only). Verify with:
+
+```bash
+./scripts/verify-reproducible-build.sh
+```
+
+This checks **JAR packaging identity**, not Evaluation Kit / corpus determinism.
+See [`../RELEASING.md`](../RELEASING.md) (“Artifact reproducibility”) for toolchain
+assumptions and the historical `v0.4.0` Central limitation.
+
 ---
 
 ## Characterization release gate
