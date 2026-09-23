@@ -186,6 +186,46 @@ After the tag, set versions to the next development line (for example `0.4.1-SNA
 
 ---
 
+## Artifact reproducibility
+
+AI-Sentinel configures Maven Archiver via `project.build.outputTimestamp` in the
+parent `pom.xml` so that **clean builds of the same source commit produce
+byte-identical JARs** for the published library modules under a supported JDK 21
+toolchain.
+
+**Definition (this repository):** given the same source commit, the same
+documented JDK/toolchain constraints, and the same build configuration, two
+independent clean builds must produce byte-identical JARs for:
+
+- `dev.aisentinel:ai-sentinel-core`
+- `dev.aisentinel:ai-sentinel-spring-boot-starter`
+
+(`dev.aisentinel:ai-sentinel` is a parent POM only — no JAR.)
+
+Verify:
+
+```bash
+./scripts/verify-reproducible-build.sh
+```
+
+**Release note:** keep `project.build.outputTimestamp` in the parent `pom.xml`
+as a fixed ISO-8601 timestamp. Do not replace it with wall-clock time. Change it
+only when intentionally changing packaging provenance for a release line.
+
+**Not the same as Evaluation Kit / corpus determinism.** Artifact reproducibility
+is about JAR bytes. Kit corpus, detection baseline, and Level-1 reproduction
+gates verify evaluation evidence — they are separate.
+
+**Historical Maven Central `v0.4.0`:** that release was published **without** a
+fixed `project.build.outputTimestamp`. Local rebuilds from tag `v0.4.0` /
+commit `4830a69…` match published **entry contents** (classes, Manifest, Maven
+metadata) but differ in **ZIP entry timestamps**, so JAR SHA-256 values do not
+match Central. `v0.4.0` remains immutable historical evidence; do not rewrite or
+re-upload it. Future builds from the remediated configuration are verified
+byte-reproducible under the documented toolchain constraints.
+
+---
+
 ## SNAPSHOT publishing (optional)
 
 SNAPSHOT uploads go to `https://central.sonatype.com/repository/maven-snapshots/` and return **403** unless SNAPSHOTs are enabled for the namespace:
@@ -224,6 +264,7 @@ curl -sS --request POST \
 - [`docs/README.md`](docs/README.md) — docs layout and operator reading order
 - [`docs/migration.md`](docs/migration.md) — upgrade from the previous published line
 - [`docs/testing.md`](docs/testing.md) — characterization and release gates
+- [`scripts/verify-reproducible-build.sh`](scripts/verify-reproducible-build.sh) — clean-build JAR byte identity
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — runtime design
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — branching and local builds
 - [`SECURITY.md`](SECURITY.md) — vulnerability reporting

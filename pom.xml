@@ -53,6 +53,13 @@
         <java.version>21</java.version>
         <lombok.version>1.18.38</lombok.version>
         <aisentinel.api.compatibility.oldVersion>0.3.0</aisentinel.api.compatibility.oldVersion>
+        <!--
+          Reproducible JAR packaging (Maven Archiver): fixed archive entry timestamps.
+          Keep this ISO-8601 value stable unless intentionally changing packaging provenance.
+          Does not rewrite historical Maven Central artifacts (including v0.4.0).
+          See RELEASING.md "Artifact reproducibility".
+        -->
+        <project.build.outputTimestamp>2026-09-22T00:00:00Z</project.build.outputTimestamp>
     </properties>
 
     <dependencyManagement>
