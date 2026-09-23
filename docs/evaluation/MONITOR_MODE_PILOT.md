@@ -8,6 +8,9 @@ This document describes **repository-level pilot readiness**. It is not a
 deployment guide, not customer onboarding, and not evidence that an external
 pilot has occurred.
 
+For an independent authorized evaluator handoff (workflow, attestation,
+submission checklist), see [`EXTERNAL_MONITOR_EVALUATION.md`](EXTERNAL_MONITOR_EVALUATION.md).
+
 ## Purpose
 
 Allow a future authorized external evaluator to collect bounded observational
@@ -98,6 +101,10 @@ Prefer no Redis / Kafka / cluster-quarantine / training-publish integrations for
 reference pilot v1. Distributed features remain available for other deployments;
 pilot readiness does not require them and rejects training publish when pilot
 collection is enabled.
+
+External evaluators should follow
+[`EXTERNAL_MONITOR_EVALUATION.md`](EXTERNAL_MONITOR_EVALUATION.md) rather than
+treating this document alone as the handoff package.
 
 ## Pseudonymization
 

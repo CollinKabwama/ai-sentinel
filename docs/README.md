@@ -9,7 +9,7 @@
 | [`contracts/`](contracts/FEATURE_SCHEMA.md) | Versioned feature-schema, evaluation-event, dataset-export, [Evaluation Kit foundations](contracts/EVALUATION_KIT.md), [scorer/model artifact](contracts/SCORER_ARTIFACT.md), [candidate loading/health](contracts/SCORER_CANDIDATE_LOADING.md), [candidate replay/evaluation](contracts/SCORER_CANDIDATE_EVALUATION.md), [candidate shadow scoring](contracts/SCORER_CANDIDATE_SHADOW.md), and [model lifecycle governance](contracts/SCORER_MODEL_LIFECYCLE.md) contract documentation |
 | [`performance/`](performance/BENCHMARKING.md) | Tracked JMH benchmark foundation + [0.3.0 reference baseline](performance/REFERENCE_BASELINE.md) (not an SLA) |
 | [`../evaluation/`](../evaluation/DETECTION_EVALUATION.md) | Offline Detection Evaluation Framework plus completed [Official Detection Reference Baseline](../evaluation/DETECTION_REFERENCE_BASELINE.md) (capture, verification/drift, lifecycle/governance; not production efficacy / not a quality gate). |
-| [`evaluation/`](evaluation/MONITOR_MODE_PILOT.md) | Allowlisted evaluation addenda in this tree: MONITOR-mode pilot readiness, same-framework detector comparison, organization-profile synthetic evaluation, independent reproduction. |
+| [`evaluation/`](evaluation/MONITOR_MODE_PILOT.md) | Allowlisted evaluation addenda in this tree: MONITOR-mode pilot readiness, [external MONITOR evaluation handoff](evaluation/EXTERNAL_MONITOR_EVALUATION.md), same-framework detector comparison, organization-profile synthetic evaluation, independent reproduction. |
 | [`../dotnet/README.md`](../dotnet/README.md) | ASP.NET Core reference adapter (remote client; not gitignored) |
 | `planning/` | Local planning notes remain gitignored unless separately allowlisted |
 | `detection/` | Local characterization evidence (gitignored) |
@@ -22,6 +22,8 @@ Most of this tree is gitignored (`docs/*`). Allowlisted root files plus **`docs/
 **Offline evaluation docs:** [`../evaluation/REFERENCE_DATASET.md`](../evaluation/REFERENCE_DATASET.md) · [`../evaluation/DETERMINISTIC_REPLAY.md`](../evaluation/DETERMINISTIC_REPLAY.md) · [`../evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md) · [`../evaluation/DETECTION_REFERENCE_BASELINE.md`](../evaluation/DETECTION_REFERENCE_BASELINE.md)
 
 **MONITOR-mode pilot readiness (Spring/Servlet observational evidence; not a deployment):** [`evaluation/MONITOR_MODE_PILOT.md`](evaluation/MONITOR_MODE_PILOT.md)
+
+**External MONITOR evaluation handoff (authorized independent evaluator):** [`evaluation/EXTERNAL_MONITOR_EVALUATION.md`](evaluation/EXTERNAL_MONITOR_EVALUATION.md) · attestation template [`evaluation/external-evaluator-attestation.template.md`](evaluation/external-evaluator-attestation.template.md)
 
 **Candidate scorer lifecycle contracts** (engineering capability packaged in **0.4.0**; not production activation):
 
