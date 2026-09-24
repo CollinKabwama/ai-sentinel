@@ -8,6 +8,14 @@ for the published library line.
 
 ## [Unreleased]
 
+### Added
+
+- Tracked historical reference-performance **selection-analysis** artifact ([`docs/performance/reference-baseline-selection-analysis.json`](docs/performance/reference-baseline-selection-analysis.json)) and integrity verifier (`scripts/verify-reference-performance-baseline-evidence.sh`). Capture still does not regenerate selection analysis; `analysisSha256` is unchanged.
+
+### Changed
+
+- Clarified reference-performance baseline selection-analysis contract in [`docs/performance/REFERENCE_BASELINE.md`](docs/performance/REFERENCE_BASELINE.md): historical immutable evidence vs capture-recreatable raw JMH artifacts.
+
 ## [0.4.0] — 2026-09-19
 
 Engineering capability packaging of post-`0.3.0` candidate-scorer integration,
@@ -57,7 +65,7 @@ See also: [`docs/migration.md`](docs/migration.md) · [`docs/deployment.md`](doc
 
 ### Fixed
 
-- Clarified reference-performance baseline audit wording for FIND-002: `capture-reference-baseline.sh` does not generate `analysis.json`; the tracked `analysisSha256` remains a historical selection-analysis hash (not baseline regeneration). See [`docs/performance/REFERENCE_BASELINE.md`](docs/performance/REFERENCE_BASELINE.md).
+- Clarified that `capture-reference-baseline.sh` does not generate the historical selection-analysis artifact; the tracked `analysisSha256` remains a historical selection-analysis hash (not baseline regeneration). See [`docs/performance/REFERENCE_BASELINE.md`](docs/performance/REFERENCE_BASELINE.md).
 
 ### Compatibility / Migration
 
@@ -77,7 +85,7 @@ See also: [`docs/migration.md`](docs/migration.md) · [`docs/deployment.md`](doc
 - Isolation Forest per-feature attribution / SHAP is not included
 - Formal JMH / SLA certification is not included
 - Kafka trainer real-broker E2E is not included
-- FIND-002 (historical performance-baseline `analysis.json` consistency) remains an open MEDIUM evidence note; not a packaging blocker
+- Historical reference-performance selection-analysis consistency was an open MEDIUM evidence note at release time (capture does not regenerate selection analysis); not a packaging blocker
 - Shadow scoring, when enabled, is synchronous/in-process (not an async shadow platform)
 - Evaluation-first architecture and tooling are **out of scope** for this release
 

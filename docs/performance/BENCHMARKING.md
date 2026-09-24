@@ -121,7 +121,7 @@ Official JMH args: `-f 2 -wi 5 -i 5 -w 1s -r 1s`.
 
 Populated baseline: [`REFERENCE_BASELINE.md`](REFERENCE_BASELINE.md) and [`reference-baseline.json`](reference-baseline.json).
 
-The capture script writes `capture-notes.txt` and stable per-run `jmh.json` / `manifest.json` copies. It does **not** regenerate the historical selection `analysis.json` retained by hash in the tracked summary (see FIND-002 note in [`REFERENCE_BASELINE.md`](REFERENCE_BASELINE.md)).
+The capture script writes `capture-notes.txt` and stable per-run `jmh.json` / `manifest.json` copies. It does **not** regenerate the historical selection-analysis artifact tracked at [`reference-baseline-selection-analysis.json`](reference-baseline-selection-analysis.json) and identified by `analysisSha256` in [`reference-baseline.json`](reference-baseline.json). See the selection-analysis contract in [`REFERENCE_BASELINE.md`](REFERENCE_BASELINE.md). Verify with `./scripts/verify-reference-performance-baseline-evidence.sh`.
 
 ### Categories
 
@@ -404,5 +404,6 @@ Still out of scope for the current benchmark suite:
 
 - [`REFERENCE_BASELINE.md`](REFERENCE_BASELINE.md) — official 0.3.0 reference baseline (measured)
 - [`reference-baseline.json`](reference-baseline.json) — machine-readable baseline summary
+- [`reference-baseline-selection-analysis.json`](reference-baseline-selection-analysis.json) — historical selection-analysis evidence (`analysisSha256`)
 - [`docs/testing.md`](../testing.md) — correctness gates (distinct from JMH)
 - [`ARCHITECTURE.md`](../../ARCHITECTURE.md) — runtime design

@@ -133,6 +133,6 @@ Results land under `ai-sentinel-benchmark/results/` (gitignored):
 - `resources/<timestamp>/allocation-jmh.json` — opt-in JMH GC-profiler output for selected in-process workloads
 - `comparisons/*.json` — machine-readable comparison reports
 
-Official measured baseline (tracked docs): [`docs/performance/REFERENCE_BASELINE.md`](../docs/performance/REFERENCE_BASELINE.md) and [`docs/performance/reference-baseline.json`](../docs/performance/reference-baseline.json).
+Official measured baseline (tracked docs): [`docs/performance/REFERENCE_BASELINE.md`](../docs/performance/REFERENCE_BASELINE.md), [`docs/performance/reference-baseline.json`](../docs/performance/reference-baseline.json), and historical selection analysis [`docs/performance/reference-baseline-selection-analysis.json`](../docs/performance/reference-baseline-selection-analysis.json). Verify selection-analysis integrity with `./scripts/verify-reference-performance-baseline-evidence.sh`.
 
 See [`docs/performance/BENCHMARKING.md`](../docs/performance/BENCHMARKING.md).
