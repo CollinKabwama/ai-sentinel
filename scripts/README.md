@@ -106,9 +106,13 @@ Builds `ai-sentinel-benchmark` and runs the shaded JMH jar. **Not** part of norm
 ./scripts/run-benchmarks.sh full        # intermediate suite
 ./scripts/run-benchmarks.sh reference   # official controlled JMH profile
 ./scripts/capture-reference-baseline.sh # three reference runs → results/reference-capture/
+./scripts/verify-reference-performance-baseline-evidence.sh
+# optional: --self-test (deliberate semantic drift must fail)
+# optional: --require-local-raw (also require gitignored capture artifacts)
 ```
 
 Official measured baseline: [`docs/performance/REFERENCE_BASELINE.md`](../docs/performance/REFERENCE_BASELINE.md).
+Tracked selection analysis: [`docs/performance/reference-baseline-selection-analysis.json`](../docs/performance/reference-baseline-selection-analysis.json).
 
 Details: [`docs/performance/BENCHMARKING.md`](../docs/performance/BENCHMARKING.md).
 

@@ -66,6 +66,18 @@ This checks **JAR packaging identity**, not Evaluation Kit / corpus determinism.
 See [`../RELEASING.md`](../RELEASING.md) (“Artifact reproducibility”) for toolchain
 assumptions and the historical `v0.4.0` Central limitation.
 
+### Reference-performance selection-analysis evidence
+
+The accepted 0.3.0 reference-performance baseline retains a historical
+selection-analysis artifact (identity = `analysisSha256` in
+[`docs/performance/reference-baseline.json`](performance/reference-baseline.json)).
+Capture recreates JMH raw artifacts only; it does not regenerate selection analysis.
+
+```bash
+./scripts/verify-reference-performance-baseline-evidence.sh
+./scripts/verify-reference-performance-baseline-evidence.sh --self-test
+```
+
 ---
 
 ## Characterization release gate
