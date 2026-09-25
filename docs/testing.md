@@ -22,8 +22,10 @@ validation.
 `mvn test` alone is useful for fast local iteration, but it is **not** a substitute for the release
 gate: packaging and some module checks only run under `verify`.
 
-When Docker is unavailable, Testcontainers-backed distributed checks are **skipped** (typically five
-tests in the starter module). Skips are expected in that environment; failures and errors are not.
+When Docker is unavailable, Docker-backed distributed checks are **skipped** (Testcontainers
+quarantine suite, and multi-client Redis consistency suite that starts ephemeral
+`redis:7-alpine` via the Docker CLI). Skips are expected in that environment; failures and
+errors are not.
 
 ### Public API compatibility
 
@@ -43,7 +45,7 @@ Expected shape (may grow if tests are added):
 | Module | Typical tests | Notes |
 |--------|---------------|--------|
 | `ai-sentinel-core` | ~725 | Includes characterization, architecture, and offline evaluation |
-| `ai-sentinel-spring-boot-starter` | ~264 | Includes 5 Docker/Testcontainers skips when Docker is unavailable |
+| `ai-sentinel-spring-boot-starter` | ~272 | Includes Docker-backed distributed skips when Docker is unavailable (Testcontainers quarantine suite + multi-client Redis consistency suite) |
 | `ai-sentinel-trainer` | 16 | |
 | `ai-sentinel-demo` | 4 | |
 | **Total** | **~1000+** | 0 failures / 0 errors; infra skips may apply; grows as suites expand |
