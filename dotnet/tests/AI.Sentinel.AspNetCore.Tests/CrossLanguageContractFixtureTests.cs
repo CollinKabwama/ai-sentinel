@@ -7,6 +7,8 @@ public class CrossLanguageContractFixtureTests
 {
     [Theory]
     [InlineData("allow.json")]
+    [InlineData("allow-minimal.json")]
+    [InlineData("allow-additive-unknown.json")]
     [InlineData("monitor.json")]
     [InlineData("throttle.json")]
     [InlineData("block.json")]

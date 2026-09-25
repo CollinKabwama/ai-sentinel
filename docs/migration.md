@@ -112,7 +112,9 @@ This is a **behavioral / configuration default** change (not a Java method signa
 
 ### 3. Remote response forward compatibility
 
-Java `RemoteEvaluationClient` ignores unknown additive `EvaluationResponse` JSON fields without mutating a caller-supplied `ObjectMapper`. Malformed known fields still fail open (`ALLOW`, `proceed=true`, no fabricated scores/factors/advice).
+Java `RemoteEvaluationClient` ignores unknown additive `EvaluationResponse` JSON fields without mutating a caller-supplied `ObjectMapper`. The ASP.NET Core reference client does the same via default `System.Text.Json` unmapped-member skipping. Malformed known fields, unsupported `contractVersion`, unknown `action` values, and HTTP auth rejection still fail open (`REMOTE_EVALUATION_FAILURE` with `ALLOW` / `proceed=true`, no fabricated scores/factors/advice). Auth-rejected responses do not trust a success-shaped body.
+
+Repository-controlled cross-runtime reliability fixtures live under [`dotnet/fixtures/`](../dotnet/fixtures/) and are exercised by both Java and .NET tests. That evidence is **not** production interoperability certification.
 
 ### 4. Suggested upgrade checklist
 

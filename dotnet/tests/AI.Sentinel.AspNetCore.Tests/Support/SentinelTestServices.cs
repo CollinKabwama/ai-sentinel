@@ -12,6 +12,14 @@ internal static class SentinelTestServices
         StubHttpMessageHandler handler,
         Action<AiSentinelOptions>? configure = null)
     {
+        return CreateClientServices(handler, out _, configure);
+    }
+
+    public static (IServiceProvider Services, StubHttpMessageHandler Handler) CreateClientServices(
+        StubHttpMessageHandler handler,
+        out RecordingSentinelTelemetry telemetry,
+        Action<AiSentinelOptions>? configure = null)
+    {
         var options = new AiSentinelOptions
         {
             Enabled = true,
@@ -23,10 +31,11 @@ internal static class SentinelTestServices
         };
         configure?.Invoke(options);
 
+        telemetry = new RecordingSentinelTelemetry();
         var services = new ServiceCollection();
         services.AddLogging();
         services.AddSingleton(Microsoft.Extensions.Options.Options.Create(options));
-        services.AddSingleton<Observability.ISentinelTelemetry, Observability.SentinelTelemetry>();
+        services.AddSingleton<Observability.ISentinelTelemetry>(telemetry);
         services.AddSingleton<HttpMessageHandler>(handler);
         services.AddHttpClient<IRemoteEvaluationClient, RemoteEvaluationClient>()
             .ConfigurePrimaryHttpMessageHandler(sp => sp.GetRequiredService<HttpMessageHandler>())
