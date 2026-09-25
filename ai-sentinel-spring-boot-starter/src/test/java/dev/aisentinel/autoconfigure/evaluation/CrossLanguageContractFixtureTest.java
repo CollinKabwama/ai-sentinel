@@ -16,11 +16,15 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class CrossLanguageContractFixtureTest {
 
-    private static final ObjectMapper MAPPER = new ObjectMapper().findAndRegisterModules();
+    private static final ObjectMapper MAPPER = new ObjectMapper()
+        .findAndRegisterModules()
+        .configure(com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     @ParameterizedTest
     @ValueSource(strings = {
         "allow.json",
+        "allow-minimal.json",
+        "allow-additive-unknown.json",
         "monitor.json",
         "throttle.json",
         "block.json",

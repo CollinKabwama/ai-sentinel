@@ -148,6 +148,27 @@ Transport/client failures produce a single synthetic `REMOTE_EVALUATION_FAILURE`
 - No fabricated BLOCK/QUARANTINE/THROTTLE or maximum risk scores
 - One HTTP attempt per evaluation (no automatic retry)
 
+This is an **evaluation-client failure** result for the host to observe — it is **not** a trusted ALLOW risk decision from the remote engine. Middleware treats `REMOTE_EVALUATION_FAILURE` as fail-open continue.
+
+Auth rejection (HTTP 401/403) ignores any response body and still yields `REMOTE_EVALUATION_FAILURE` (outcome `AUTH_REJECTED`). Unknown `action` values and unsupported `contractVersion` do **not** silently become successful ALLOW decisions.
+
+## Cross-runtime reliability evidence
+
+Shared wire fixtures under [`fixtures/`](fixtures/) (`requests/`, `responses/`) are validated by both Java and .NET tests. Covered cases include:
+
+| Case | Expected client behavior |
+|------|--------------------------|
+| Known-good ALLOW/MONITOR/BLOCK/… fixtures | Validated success |
+| Minimal older-compatible ALLOW fixture | Validated success |
+| Additive unknown JSON fields | Ignored; success when known fields valid |
+| Unsupported `contractVersion` | `REMOTE_EVALUATION_FAILURE` / `VERSION_MISMATCH` |
+| Unknown `action` enum | `REMOTE_EVALUATION_FAILURE` / malformed (not trusted ALLOW) |
+| HTTP 401/403 (even with success-shaped body) | `REMOTE_EVALUATION_FAILURE` / `AUTH_REJECTED` |
+| Malformed 2xx JSON / invalid numeric fields | `REMOTE_EVALUATION_FAILURE` / malformed |
+| HTTP 5xx / connection / cancel | `REMOTE_EVALUATION_FAILURE` (transport/HTTP outcomes) |
+
+**Claim boundary:** repository-controlled interoperability tests ≠ production cross-runtime validation. The reference ASP.NET adapter ≠ a universal supported .NET SDK ecosystem.
+
 ## Action handling
 
 | Action | Adapter behavior |

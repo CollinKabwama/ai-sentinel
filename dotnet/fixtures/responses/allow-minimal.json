@@ -1,0 +1,8 @@
+{
+  "contractVersion": 1,
+  "correlationId": "fixture-allow-minimal",
+  "action": "ALLOW",
+  "evaluationStatuses": ["COMPLETE"],
+  "proceed": true,
+  "endpoint": "/api/hello"
+}
