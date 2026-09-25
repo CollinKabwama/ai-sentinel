@@ -241,6 +241,42 @@ class GeneratedCorpusEvaluationCliTest {
     }
 
     @Test
+    void refusesProtectedAcceptedEvidenceDestinations() {
+        Path corpus = corpus("kit.established-normal");
+        Path protectedOut = repoRoot().resolve("evaluation/detection-reference-baseline/generated-run");
+        Capture capture = run("--corpus", corpus.toString(), "--output", protectedOut.toString());
+        assertThat(capture.exitCode()).isEqualTo(GeneratedCorpusEvaluationCli.EXIT_FAILURE);
+        assertThat(capture.stderr()).contains("protected accepted/reference evidence");
+    }
+
+    @Test
+    void protectedEvidenceDestinationGuardHandlesNormalizationAndNearPrefixes() {
+        Path root = repoRoot();
+        assertThat(CandidateDetectionEvaluationRunner.isProtectedEvidenceDestination(root.resolve("evaluation/reference")))
+            .isTrue();
+        assertThat(CandidateDetectionEvaluationRunner.isProtectedEvidenceDestination(
+            root.resolve("evaluation/reference/generated-run"))).isTrue();
+        assertThat(CandidateDetectionEvaluationRunner.isProtectedEvidenceDestination(
+            root.resolve("evaluation/reference/../reference/generated-run")))
+            .isTrue();
+        assertThat(CandidateDetectionEvaluationRunner.isProtectedEvidenceDestination(
+            root.resolve("evaluation/reference-copy/generated-run")))
+            .isFalse();
+    }
+
+    @Test
+    void protectedEvidenceDestinationGuardFollowsExistingSymlinkParent() throws Exception {
+        Path link = tempDir.resolve("reference-link");
+        try {
+            Files.createSymbolicLink(link, repoRoot().resolve("evaluation/reference"));
+        } catch (UnsupportedOperationException | java.io.IOException e) {
+            org.junit.jupiter.api.Assumptions.assumeTrue(false, "symbolic links unavailable: " + e.getMessage());
+        }
+        assertThat(CandidateDetectionEvaluationRunner.isProtectedEvidenceDestination(link.resolve("generated-run")))
+            .isTrue();
+    }
+
+    @Test
     void anomalyThresholdIsShownAsRunConfigurationNotCorpusProvenance() {
         Path output = tempDir.resolve("provenance-vs-config");
         Capture capture = run(

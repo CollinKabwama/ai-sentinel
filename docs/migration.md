@@ -116,6 +116,13 @@ Java `RemoteEvaluationClient` ignores unknown additive `EvaluationResponse` JSON
 
 Repository-controlled cross-runtime reliability fixtures live under [`dotnet/fixtures/`](../dotnet/fixtures/) and are exercised by both Java and .NET tests. That evidence is **not** production interoperability certification.
 
+Fail-open proceed on the client remains observably distinct from a trusted engine `ALLOW` decision (`REMOTE_EVALUATION_FAILURE ≠ trusted engine ALLOW`).
+
+### 3b. Remote evaluation credential and header hardening
+
+- Server authentication accepts only a single non-blank `X-AI-Sentinel-Api-Key` header value. Missing, blank, duplicate/ambiguous, or incorrect credentials return **401** with a small `{"error":...}` code and never echo the secret.
+- `EvaluationRequest.headers` must not include credential-bearing keys (`cookie`, `set-cookie`, `proxy-authorization`, `x-ai-sentinel-api-key`, `x-api-key`). If `authorization` is present, its value must be the presence sentinel `present` (adapters already map this way).
+
 ### 4. Suggested upgrade checklist
 
 1. Bump the starter dependency to `0.3.0`.

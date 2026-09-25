@@ -18,6 +18,13 @@ for the published library line.
 - Clarified reference-performance baseline selection-analysis contract in [`docs/performance/REFERENCE_BASELINE.md`](docs/performance/REFERENCE_BASELINE.md): historical immutable evidence vs capture-recreatable raw JMH artifacts.
 - Documented ASP.NET / Java remote-response forward-compatibility and failure semantics in [`dotnet/README.md`](dotnet/README.md) and [`docs/migration.md`](docs/migration.md).
 
+### Security
+
+- Remote evaluation rejects missing, blank, duplicate/ambiguous, and incorrect `X-AI-Sentinel-Api-Key` values without echoing secrets; duplicate header values are not silently accepted.
+- `EvaluationRequest` rejects credential-bearing header keys and non-presence `authorization` values on the wire contract.
+- Evaluation Kit / candidate evaluation tooling refuses writing into protected accepted/reference evidence locations (`evaluation/detection-reference-baseline`, `evaluation/reference`, `docs/performance`).
+- Clarified remote API-key trust boundary, fail-open vs trusted ALLOW, and artifact governance limits in [`SECURITY.md`](SECURITY.md).
+
 ## [0.4.0] — 2026-09-19
 
 Engineering capability packaging of post-`0.3.0` candidate-scorer integration,

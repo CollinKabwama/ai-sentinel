@@ -9,6 +9,10 @@ import java.util.Set;
 /**
  * Deterministic validation for {@link EvaluationRequest}. Failures are contract errors,
  * not security-attack classifications.
+ * <p>
+ * Sensitive credential-bearing header keys are rejected on the wire contract so remote
+ * callers cannot smuggle raw secrets into evaluation/feature paths. Local adapters must
+ * continue to map {@code Authorization} to the presence sentinel only.
  */
 public final class EvaluationRequestValidator {
 
@@ -18,6 +22,15 @@ public final class EvaluationRequestValidator {
         IdentityRiskSignalKeys.IP_DRIFT,
         IdentityRiskSignalKeys.USER_AGENT_DRIFT,
         IdentityRiskSignalKeys.REQUEST_BURST
+    );
+
+    /** Header keys that must never appear with raw values on EvaluationRequest. */
+    private static final Set<String> FORBIDDEN_HEADER_KEYS = Set.of(
+        "cookie",
+        "set-cookie",
+        "proxy-authorization",
+        "x-ai-sentinel-api-key",
+        "x-api-key"
     );
 
     private EvaluationRequestValidator() {
@@ -86,10 +99,26 @@ public final class EvaluationRequestValidator {
         optionalRejectControlCharacters("sessionId", sessionId);
         optionalRejectControlCharacters("remoteAddress", remoteAddress);
 
-        validateStringMap("headers", headers, EvaluationContract.MAX_HEADERS, true);
+        validateHeaders(headers);
         validateStringMap("parameters", parameters, EvaluationContract.MAX_PARAMETERS, false);
         validateStringMap("attributes", attributes, EvaluationContract.MAX_ATTRIBUTES, false);
         validateTrust(trustSignals);
+    }
+
+    private static void validateHeaders(Map<String, String> headers) {
+        validateStringMap("headers", headers, EvaluationContract.MAX_HEADERS, true);
+        for (Map.Entry<String, String> e : headers.entrySet()) {
+            String key = e.getKey();
+            if (FORBIDDEN_HEADER_KEYS.contains(key)) {
+                throw new EvaluationContractException(
+                    "headers must not contain credential-bearing key: " + key);
+            }
+            if ("authorization".equals(key)
+                && !EvaluationContractMapper.AUTHORIZATION_PRESENT_SENTINEL.equals(e.getValue())) {
+                throw new EvaluationContractException(
+                    "authorization header value must be presence-only sentinel");
+            }
+        }
     }
 
     private static void validateStringMap(String label, Map<String, String> map, int maxEntries,

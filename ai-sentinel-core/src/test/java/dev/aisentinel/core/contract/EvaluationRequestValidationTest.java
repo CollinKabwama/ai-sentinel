@@ -86,6 +86,32 @@ class EvaluationRequestValidationTest {
     }
 
     @Test
+    void credentialBearingHeaderKeysRejected() {
+        assertThatThrownBy(() -> base().headers(Map.of("cookie", "session=secret")).build())
+            .isInstanceOf(EvaluationContractException.class)
+            .hasMessageContaining("cookie")
+            .hasMessageNotContaining("session=secret");
+
+        assertThatThrownBy(() -> base().headers(Map.of("x-ai-sentinel-api-key", "inbound-secret")).build())
+            .isInstanceOf(EvaluationContractException.class)
+            .hasMessageContaining("x-ai-sentinel-api-key")
+            .hasMessageNotContaining("inbound-secret");
+    }
+
+    @Test
+    void authorizationMustBePresenceSentinel() {
+        assertThatThrownBy(() -> base().headers(Map.of("authorization", "Bearer secret-token")).build())
+            .isInstanceOf(EvaluationContractException.class)
+            .hasMessageContaining("presence-only")
+            .hasMessageNotContaining("Bearer secret-token");
+
+        EvaluationRequest ok = base()
+            .headers(Map.of("authorization", EvaluationContractMapper.AUTHORIZATION_PRESENT_SENTINEL))
+            .build();
+        assertThat(ok.headers()).containsEntry("authorization", "present");
+    }
+
+    @Test
     void attributesMapDefensivelyCopied() {
         Map<String, String> attrs = new HashMap<>();
         attrs.put("a", "1");

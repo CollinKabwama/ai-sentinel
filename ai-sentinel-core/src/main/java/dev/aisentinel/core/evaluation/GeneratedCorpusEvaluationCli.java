@@ -81,6 +81,7 @@ final class GeneratedCorpusEvaluationCli {
             temporaryOutput = true;
         } else {
             outputDirectory = outputDirectory.toAbsolutePath().normalize();
+            rejectProtectedEvidenceDestination(outputDirectory);
             if (Files.exists(outputDirectory)) {
                 throw new GeneratedCorpusEvaluationException(
                     GeneratedCorpusEvaluationFailureKind.EVALUATION_FAILURE,
@@ -118,6 +119,15 @@ final class GeneratedCorpusEvaluationCli {
             if (temporaryOutput) {
                 deleteRecursively(outputDirectory);
             }
+        }
+    }
+
+    private static void rejectProtectedEvidenceDestination(Path outputDirectory) {
+        if (CandidateDetectionEvaluationRunner.isProtectedEvidenceDestination(outputDirectory)) {
+            throw new GeneratedCorpusEvaluationException(
+                GeneratedCorpusEvaluationFailureKind.EVALUATION_FAILURE,
+                "Evidence output must not target protected accepted/reference evidence locations: "
+                    + outputDirectory);
         }
     }
 
