@@ -32,9 +32,12 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+import dev.aisentinel.core.contract.EvaluationContractException;
 
 class RemoteEvaluationControllerTest {
 
@@ -70,21 +73,124 @@ class RemoteEvaluationControllerTest {
 
     @Test
     void missingAuthRejected() throws Exception {
-        mockMvc.perform(post(RemoteEvaluationController.PATH)
+        String body = mockMvc.perform(post(RemoteEvaluationController.PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(mapper.writeValueAsBytes(request("c1"))))
-            .andExpect(status().isUnauthorized());
+            .andExpect(status().isUnauthorized())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        assertThat(body).contains("missing_credential");
+        assertThat(body).doesNotContain(API_KEY);
+        assertThat(evaluations.get()).isZero();
+    }
+
+    @Test
+    void blankAuthRejected() throws Exception {
+        String body = mockMvc.perform(post(RemoteEvaluationController.PATH)
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(RemoteEvaluationConstants.API_KEY_HEADER, "   ")
+                .content(mapper.writeValueAsBytes(request("c-blank"))))
+            .andExpect(status().isUnauthorized())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        assertThat(body).contains("missing_credential");
+        assertThat(body).doesNotContain(API_KEY);
         assertThat(evaluations.get()).isZero();
     }
 
     @Test
     void badAuthRejected() throws Exception {
-        mockMvc.perform(post(RemoteEvaluationController.PATH)
+        String body = mockMvc.perform(post(RemoteEvaluationController.PATH)
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(RemoteEvaluationConstants.API_KEY_HEADER, "wrong")
                 .content(mapper.writeValueAsBytes(request("c2"))))
-            .andExpect(status().isUnauthorized());
+            .andExpect(status().isUnauthorized())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        assertThat(body).contains("auth_rejected");
+        assertThat(body).doesNotContain(API_KEY);
+        assertThat(body).doesNotContain("wrong");
         assertThat(evaluations.get()).isZero();
+    }
+
+    @Test
+    void duplicateAuthHeaderRejected() throws Exception {
+        String body = mockMvc.perform(post(RemoteEvaluationController.PATH)
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(RemoteEvaluationConstants.API_KEY_HEADER, "wrong")
+                .header(RemoteEvaluationConstants.API_KEY_HEADER, API_KEY)
+                .content(mapper.writeValueAsBytes(request("c-dup"))))
+            .andExpect(status().isUnauthorized())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        assertThat(body).contains("ambiguous_credential");
+        assertThat(body).doesNotContain(API_KEY);
+        assertThat(body).doesNotContain("wrong");
+        assertThat(evaluations.get()).isZero();
+    }
+
+    @Test
+    void duplicateSameAuthHeaderRejected() throws Exception {
+        String body = mockMvc.perform(post(RemoteEvaluationController.PATH)
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(RemoteEvaluationConstants.API_KEY_HEADER, API_KEY)
+                .header(RemoteEvaluationConstants.API_KEY_HEADER, API_KEY)
+                .content(mapper.writeValueAsBytes(request("c-dup-same"))))
+            .andExpect(status().isUnauthorized())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        assertThat(body).contains("ambiguous_credential");
+        assertThat(body).doesNotContain(API_KEY);
+        assertThat(evaluations.get()).isZero();
+    }
+
+    @Test
+    void moreThanTwoAuthHeadersRejected() throws Exception {
+        String body = mockMvc.perform(post(RemoteEvaluationController.PATH)
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(RemoteEvaluationConstants.API_KEY_HEADER, "wrong")
+                .header(RemoteEvaluationConstants.API_KEY_HEADER, API_KEY)
+                .header(RemoteEvaluationConstants.API_KEY_HEADER, "other")
+                .content(mapper.writeValueAsBytes(request("c-dup-three"))))
+            .andExpect(status().isUnauthorized())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        assertThat(body).contains("ambiguous_credential");
+        assertThat(body).doesNotContain(API_KEY);
+        assertThat(body).doesNotContain("wrong");
+        assertThat(body).doesNotContain("other");
+        assertThat(evaluations.get()).isZero();
+    }
+
+
+    @Test
+    void apiKeyHeaderResolutionRejectsDuplicatesAndBlanks() {
+        org.springframework.mock.web.MockHttpServletRequest missing = new org.springframework.mock.web.MockHttpServletRequest();
+        assertThat(RemoteEvaluationController.ApiKeyHeader.resolve(missing).status())
+            .isEqualTo(RemoteEvaluationController.ApiKeyHeader.Status.MISSING);
+
+        org.springframework.mock.web.MockHttpServletRequest blank = new org.springframework.mock.web.MockHttpServletRequest();
+        blank.addHeader(RemoteEvaluationConstants.API_KEY_HEADER, "   ");
+        assertThat(RemoteEvaluationController.ApiKeyHeader.resolve(blank).status())
+            .isEqualTo(RemoteEvaluationController.ApiKeyHeader.Status.MISSING);
+
+        org.springframework.mock.web.MockHttpServletRequest present = new org.springframework.mock.web.MockHttpServletRequest();
+        present.addHeader(RemoteEvaluationConstants.API_KEY_HEADER, API_KEY);
+        var resolution = RemoteEvaluationController.ApiKeyHeader.resolve(present);
+        assertThat(resolution.status()).isEqualTo(RemoteEvaluationController.ApiKeyHeader.Status.PRESENT);
+        assertThat(resolution.value()).isEqualTo(API_KEY);
+
+        org.springframework.mock.web.MockHttpServletRequest ambiguous = new org.springframework.mock.web.MockHttpServletRequest();
+        ambiguous.addHeader(RemoteEvaluationConstants.API_KEY_HEADER, "wrong");
+        ambiguous.addHeader(RemoteEvaluationConstants.API_KEY_HEADER, API_KEY);
+        assertThat(RemoteEvaluationController.ApiKeyHeader.resolve(ambiguous).status())
+            .isEqualTo(RemoteEvaluationController.ApiKeyHeader.Status.AMBIGUOUS);
     }
 
     @Test
@@ -98,6 +204,36 @@ class RemoteEvaluationControllerTest {
             .andExpect(jsonPath("$.correlationId").value("c3"))
             .andExpect(jsonPath("$.anomalyScore").value(0.05));
         assertThat(evaluations.get()).isEqualTo(1);
+    }
+
+    @Test
+    void credentialBearingHeadersInBodyRejectedWithoutEchoingSecrets() throws Exception {
+        assertThatThrownBy(() -> EvaluationRequest.builder()
+            .correlationId("secret-body")
+            .identityKey("id")
+            .path("/api")
+            .headers(java.util.Map.of("cookie", "session=super-secret"))
+            .build())
+            .isInstanceOf(EvaluationContractException.class)
+            .hasMessageContaining("cookie")
+            .hasMessageNotContaining("super-secret");
+
+        String raw = """
+            {"contractVersion":1,"correlationId":"raw-cookie","timestampEpochMillis":1,"method":"GET","path":"/api",
+            "identityKey":"id","sessionPresent":false,"sessionNew":false,
+            "headers":{"cookie":"session=super-secret"},"parameters":{},"attributes":{},"trustSignals":{}}
+            """;
+        String body = mockMvc.perform(post(RemoteEvaluationController.PATH)
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(RemoteEvaluationConstants.API_KEY_HEADER, API_KEY)
+                .content(raw))
+            .andExpect(status().isBadRequest())
+            .andReturn()
+            .getResponse()
+            .getContentAsString();
+        assertThat(body).doesNotContain("super-secret");
+        assertThat(body).doesNotContain(API_KEY);
+        assertThat(evaluations.get()).isZero();
     }
 
     @Test
