@@ -8,6 +8,8 @@ This document describes **repository-level pilot readiness**. It is not a
 deployment guide, not customer onboarding, and not evidence that an external
 pilot has occurred.
 
+`MONITOR readiness ≠ completed pilot` · `Evaluation ≠ Deployment` · `Handoff docs ≠ external run`
+
 For an independent authorized evaluator handoff (workflow, attestation,
 submission checklist), see [`EXTERNAL_MONITOR_EVALUATION.md`](EXTERNAL_MONITOR_EVALUATION.md).
 

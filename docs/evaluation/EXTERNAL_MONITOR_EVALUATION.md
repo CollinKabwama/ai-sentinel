@@ -7,6 +7,8 @@ return verifier-valid observational evidence.
 This is **not** a detection-accuracy study, customer onboarding kit, or
 deployment approval process.
 
+`Handoff docs ≠ external run` · `MONITOR readiness ≠ completed pilot` · `Evaluation ≠ Deployment`
+
 Full technical detail for the pilot workflow:
 [`MONITOR_MODE_PILOT.md`](MONITOR_MODE_PILOT.md).
 
