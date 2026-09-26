@@ -1,8 +1,8 @@
 # AI-Sentinel Benchmark Module
 
-Opt-in benchmark module for measuring the current AI-Sentinel execution paths.
+Opt-in benchmark module for measuring AI-Sentinel execution paths under controlled local conditions.
 
-This module does **not** claim production SLAs, partner guarantees, or detection effectiveness.
+This module does **not** claim production SLAs, partner guarantees, detection effectiveness, or current production performance. The accepted in-process latency reference remains the historical **0.3.0-era** baseline in [`docs/performance/REFERENCE_BASELINE.md`](../docs/performance/REFERENCE_BASELINE.md).
 
 ## What it measures
 

@@ -12,18 +12,20 @@ for the published library line.
 
 - Tracked historical reference-performance **selection-analysis** artifact ([`docs/performance/reference-baseline-selection-analysis.json`](docs/performance/reference-baseline-selection-analysis.json)) and integrity verifier (`scripts/verify-reference-performance-baseline-evidence.sh`). Capture still does not regenerate selection analysis; `analysisSha256` is unchanged.
 - Cross-runtime remote-evaluation **reliability evidence** fixtures and tests (shared `dotnet/fixtures/` additive/minimal responses; Java + ASP.NET client cases for version skew, auth-body ignore, unknown action, malformed numerics). Repository-controlled only — not production interoperability certification.
+- Same-version **multi-client Redis consistency** validation against ephemeral `redis:7-alpine` (quarantine / trust baseline / throttle shared-state scenarios). Repository-controlled only — not Redis Cluster, multi-host, rolling-deploy, or mixed-version proof.
 
 ### Changed
 
 - Clarified reference-performance baseline selection-analysis contract in [`docs/performance/REFERENCE_BASELINE.md`](docs/performance/REFERENCE_BASELINE.md): historical immutable evidence vs capture-recreatable raw JMH artifacts.
 - Documented ASP.NET / Java remote-response forward-compatibility and failure semantics in [`dotnet/README.md`](dotnet/README.md) and [`docs/migration.md`](docs/migration.md).
+- Clarified distributed Redis coverage / claim boundaries and trust-fallback divergence limits in [`docs/deployment.md`](docs/deployment.md) and operator entry docs.
 
 ### Security
 
 - Remote evaluation rejects missing, blank, duplicate/ambiguous, and incorrect `X-AI-Sentinel-Api-Key` values without echoing secrets; duplicate header values are not silently accepted.
 - `EvaluationRequest` rejects credential-bearing header keys and non-presence `authorization` values on the wire contract.
-- Evaluation Kit / candidate evaluation tooling refuses writing into protected accepted/reference evidence locations (`evaluation/detection-reference-baseline`, `evaluation/reference`, `docs/performance`).
-- Clarified remote API-key trust boundary, fail-open vs trusted ALLOW, and artifact governance limits in [`SECURITY.md`](SECURITY.md).
+- Evaluation Kit / candidate evaluation tooling refuses writing into protected accepted/reference evidence locations (`evaluation/detection-reference-baseline`, `evaluation/reference`, `docs/performance`), with real-path checks for existing path prefixes.
+- Clarified remote API-key trust boundary, fail-open proceed vs trusted engine ALLOW, and artifact governance limits in [`SECURITY.md`](SECURITY.md).
 
 ## [0.4.0] — 2026-09-19
 

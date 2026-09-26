@@ -111,7 +111,7 @@ Builds `ai-sentinel-benchmark` and runs the shaded JMH jar. **Not** part of norm
 # optional: --require-local-raw (also require gitignored capture artifacts)
 ```
 
-Official measured baseline: [`docs/performance/REFERENCE_BASELINE.md`](../docs/performance/REFERENCE_BASELINE.md).
+Official measured baseline (historical 0.3.0-era; not current production performance): [`docs/performance/REFERENCE_BASELINE.md`](../docs/performance/REFERENCE_BASELINE.md).
 Tracked selection analysis: [`docs/performance/reference-baseline-selection-analysis.json`](../docs/performance/reference-baseline-selection-analysis.json).
 
 Details: [`docs/performance/BENCHMARKING.md`](../docs/performance/BENCHMARKING.md).
