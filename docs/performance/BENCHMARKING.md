@@ -1,15 +1,17 @@
 # AI-Sentinel benchmarking
 
-This document describes the **reproducible benchmark foundation** for the published **0.3.0** in-process runtime.
+This document describes the **reproducible benchmark foundation** used to capture the historical **0.3.0-era** in-process reference performance baseline.
+
+Official rounded reference values and selection-analysis contract: [`REFERENCE_BASELINE.md`](REFERENCE_BASELINE.md) (`Historical performance evidence ≠ current production performance`).
 
 ## Purpose
 
 Answer, for a measured host and configuration:
 
-1. What does the current evaluation path cost?
+1. What does the evaluated path cost on that host/config?
 2. Where is time spent (features vs scorers vs decision engine vs pipeline)?
 3. How does cost change with concurrency and local identity cardinality?
-4. Can future architectural changes be compared against a recorded baseline?
+4. Can future architectural changes be compared against a recorded historical baseline?
 
 ## What these numbers are not
 

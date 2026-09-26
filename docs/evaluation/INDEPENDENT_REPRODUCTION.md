@@ -16,6 +16,8 @@ This package lets a technically competent outsider:
 PASS means: the declared controlled corpora were regenerated with the declared
 configuration and matched the declared digests and run identities.
 
+`Level-1 repository reproduction ≠ external production validation`
+
 ## What this is not
 
 - external / third-party dataset validation

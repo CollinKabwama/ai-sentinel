@@ -8,6 +8,8 @@ SaaS/API profile. It is **not** based on proprietary employer or customer data
 and does **not** claim to represent a real deployment, customer, partner, or
 production traffic.
 
+`Northgate synthetic ≠ company-private validation` · `Synthetic ≠ Production validation`
+
 ## Allowed claim
 
 > AI-Sentinel's Evaluation Kit can reproducibly evaluate a documented fictional

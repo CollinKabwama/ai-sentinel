@@ -256,7 +256,8 @@ These are different controls:
 ## Failure mode profile (availability-first)
 
 **Canonical reference** for how AI-Sentinel behaves when optional or request-path components fail.
-Behavior is **availability-first (fail-open)**: optional and many request-path errors **allow** the client request rather than deny it.
+Behavior is **availability-first (fail-open)**: optional and many request-path errors **fail-open proceed** (application execution continues) rather than deny the client.
+That is **not** the same as a trusted engine `ALLOW` risk decision — especially for remote-client `REMOTE_EVALUATION_FAILURE` results.
 This document describes **current** behavior only — it does **not** invent fail-closed modes.
 
 ### How to read outcomes
@@ -265,10 +266,10 @@ This document describes **current** behavior only — it does **not** invent fai
 |---------------|---------|
 | **Scored ALLOW / policy action** | Complete `RiskDecision`; client outcome follows mode (`MONITOR` never denies; `ENFORCE` may deny). |
 | **Degraded decision** | Complete `RiskDecision` with `EvaluationStatus.DEGRADED`; request continues with partial context. |
-| **Whole-request fail-open** | No complete decision (or filter catch-all); request **allowed**; `FailOpenReason` metrics incremented. |
+| **Whole-request fail-open** | No complete decision (or filter catch-all); request **fail-open proceeds**; `FailOpenReason` metrics incremented. |
 | **Side-path fail-open** | Request outcome unchanged; a side effect (training publish, Redis write, lifecycle hook) was dropped. |
 
-An allowed request is **not** proof of low risk.
+Fail-open proceed is **not** proof of low risk and is **not** a trusted engine `ALLOW` decision.
 
 ### Visibility: metrics vs structured `FailOpen` telemetry
 
@@ -324,7 +325,7 @@ Redis quarantine / throttle / trust fail-open uses **dedicated** meters
 
 * Prefer **`MONITOR`** until fail-open rates, `DEGRADED`, and Redis degradation gauges are understood for your traffic.
 * Alert on sustained `aisentinel.failopen.reason` and distributed degraded gauges — not only on denial counts.
-* Do **not** treat “request allowed” as “scored low risk.”
+* Do **not** treat fail-open proceed as “scored low risk” or as a trusted engine `ALLOW`.
 * There is **no** library fail-closed profile today; changing that would be a future product decision, not current behavior.
 
 Related property detail: [`configuration.md`](configuration.md) (fail-open reporting, Redis matrix). Architecture overview: [`../ARCHITECTURE.md`](../ARCHITECTURE.md).

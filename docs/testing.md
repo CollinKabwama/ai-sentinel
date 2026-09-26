@@ -40,17 +40,19 @@ CI runs this after the reactor verify. The baseline version is
 `aisentinel.api.compatibility.oldVersion` (currently **0.3.0** for the **0.4.0** release line).
 Prior 0.2.0-era japicmp excludes were removed when the baseline was retargeted.
 
-Expected shape (may grow if tests are added):
+Expected shape (approximate; confirm with the current reactor output of `mvn clean verify`):
 
-| Module | Typical tests | Notes |
-|--------|---------------|--------|
-| `ai-sentinel-core` | ~725 | Includes characterization, architecture, and offline evaluation |
-| `ai-sentinel-spring-boot-starter` | ~272 | Includes Docker-backed distributed skips when Docker is unavailable (Testcontainers quarantine suite + multi-client Redis consistency suite) |
-| `ai-sentinel-trainer` | 16 | |
-| `ai-sentinel-demo` | 4 | |
-| **Total** | **~1000+** | 0 failures / 0 errors; infra skips may apply; grows as suites expand |
+| Module | Notes |
+|--------|--------|
+| `ai-sentinel-core` | Characterization, architecture, and offline evaluation |
+| `ai-sentinel-spring-boot-starter` | Includes Docker-backed distributed suites (Testcontainers quarantine and/or Docker CLI multi-client Redis consistency); skipped when Docker cannot start Redis |
+| `ai-sentinel-trainer` | Trainer unit/integration |
+| `ai-sentinel-demo` | Demo smoke |
+| Full reactor | Primary release gate |
 
-The reactor also compiles **`ai-sentinel-benchmark`**. Its **support-code** unit tests are included in the total above; the JMH suite does **not** run on `verify`. See [`performance/BENCHMARKING.md`](performance/BENCHMARKING.md). Official measured 0.3.0 reference values (not CI gates / not SLAs): [`performance/REFERENCE_BASELINE.md`](performance/REFERENCE_BASELINE.md).
+**What these gates do not prove:** production ENFORCE readiness, production efficacy, Redis Cluster / multi-host / mixed-version / rolling-deploy correctness, or that same-version Redis consistency evidence equals production distributed correctness. See [`docs/deployment.md`](deployment.md#distributed-deployment-notes).
+
+The reactor also compiles **`ai-sentinel-benchmark`**. Its **support-code** unit tests run with the reactor; the JMH suite does **not** run on `verify`. See [`performance/BENCHMARKING.md`](performance/BENCHMARKING.md). Official measured **0.3.0-era** reference values (not CI gates / not SLAs; historical performance evidence ≠ current production performance): [`performance/REFERENCE_BASELINE.md`](performance/REFERENCE_BASELINE.md).
 
 Run **twice** before cutting a release tag so flakes are visible.
 
@@ -153,4 +155,6 @@ Included in `ai-sentinel-core` / starter Surefire:
 
 Preserve MONITOR-first adoption: [`deployment.md`](deployment.md).
 
-Offline detection-evaluation machinery (reference corpus, deterministic replay, complete-run evidence, and the Official Detection Reference Baseline) is documented under [`../evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md) and [`../evaluation/DETECTION_REFERENCE_BASELINE.md`](../evaluation/DETECTION_REFERENCE_BASELINE.md). The Detection Evaluation Framework and Official Detection Reference Baseline are complete as offline engineering evidence; neither is detector-quality acceptance for production (`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`, `BASELINE != QUALITY GATE`). A READY candidate may be evaluated through that same framework ([`../docs/contracts/SCORER_CANDIDATE_EVALUATION.md`](../docs/contracts/SCORER_CANDIDATE_EVALUATION.md)); evaluated is not accepted, and accepted is not approved, shadowed, or production-selected. Observational shadow scoring is a separate explicit opt-in ([`../docs/contracts/SCORER_CANDIDATE_SHADOW.md`](../docs/contracts/SCORER_CANDIDATE_SHADOW.md)); `SHADOW RESULT != PRODUCTION DECISION`. Champion/challenger lifecycle governance is a separate explicit capability ([`../docs/contracts/SCORER_MODEL_LIFECYCLE.md`](../docs/contracts/SCORER_MODEL_LIFECYCLE.md)); `PROMOTED != PRODUCTION DEPLOYED`.
+Offline detection-evaluation machinery (reference corpus, deterministic replay, complete-run evidence, and the Official Detection Reference Baseline) is documented under [`../evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md) and [`../evaluation/DETECTION_REFERENCE_BASELINE.md`](../evaluation/DETECTION_REFERENCE_BASELINE.md). The Detection Evaluation Framework and Official Detection Reference Baseline are complete as offline engineering evidence; neither is detector-quality acceptance for production (`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`, `BASELINE != QUALITY GATE`). A READY candidate may be evaluated through that same framework ([`contracts/SCORER_CANDIDATE_EVALUATION.md`](contracts/SCORER_CANDIDATE_EVALUATION.md)); evaluated is not accepted, and accepted is not approved, shadowed, or production-selected. Observational shadow scoring is a separate explicit opt-in ([`contracts/SCORER_CANDIDATE_SHADOW.md`](contracts/SCORER_CANDIDATE_SHADOW.md)); `SHADOW RESULT != PRODUCTION DECISION`. Champion/challenger lifecycle governance is a separate explicit capability ([`contracts/SCORER_MODEL_LIFECYCLE.md`](contracts/SCORER_MODEL_LIFECYCLE.md)); `PROMOTED != PRODUCTION DEPLOYED`.
+
+Repository Redis same-version multi-client consistency evidence ≠ production distributed correctness — see [`deployment.md`](deployment.md#distributed-deployment-notes).

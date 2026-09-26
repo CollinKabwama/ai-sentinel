@@ -4,17 +4,19 @@
 
 This document records the **official reference engineering baseline** for the approved **AI-Sentinel 0.3.0** in-process implementation under a documented controlled environment.
 
-These measurements are a reference engineering baseline for the documented environment.
+These measurements are a **historical** reference engineering baseline for the documented **0.3.0-era** environment (`Historical performance evidence ≠ current production performance`).
 
 They are **NOT**:
 
+- current production performance numbers;
 - production SLA guarantees;
 - minimum performance guarantees;
 - hardware-independent results;
 - security efficacy claims;
 - partner workload benchmarks;
 - a Detection Evaluation Framework result;
-- an Official Detection Reference Baseline.
+- an Official Detection Reference Baseline;
+- a refreshed post-0.3.0 benchmark recapture.
 
 `REFERENCE PERFORMANCE BASELINE != DETECTION REFERENCE BASELINE`
 

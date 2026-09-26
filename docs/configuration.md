@@ -191,7 +191,7 @@ Default remains **local** evaluation with no network calls. Remote mode is addit
 | `ai.sentinel.evaluation.client.read-timeout` | `2s` | Read timeout |
 | `ai.sentinel.evaluation.client.require-https` | `true` | Non-HTTPS rejected except loopback HTTP for local tests |
 
-Remote transport failures are **fail-open** with status `REMOTE_EVALUATION_FAILURE` (not high risk). There is **no automatic retry** of evaluation POSTs.
+Remote transport/client failures yield status `REMOTE_EVALUATION_FAILURE` and **fail-open proceed** (not high risk; **not** a trusted engine `ALLOW`). There is **no automatic retry** of evaluation POSTs. Details: [`../SECURITY.md`](../SECURITY.md), [`../dotnet/README.md`](../dotnet/README.md).
 
 **ASP.NET Core clients:** the reference adapter in [`dotnet/README.md`](../dotnet/README.md) maps `AiSentinel:*` settings to the same endpoint and `X-AI-Sentinel-Api-Key` header. Server-side properties above apply to the Java host exposing the evaluation API.
 
