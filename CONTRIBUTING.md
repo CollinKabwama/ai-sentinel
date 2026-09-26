@@ -157,7 +157,7 @@ Docker is optional; Testcontainers-based distributed quarantine tests are skippe
 
 Regression scenarios for the decision path (enforcement actions, fail-open, adapter boundary) live in
 `ai-sentinel-core` / starter test packages (`…regression…`, `ServletAdapterEndToEndRegressionTest`, ArchUnit).
-See also [`ARCHITECTURE.md`](ARCHITECTURE.md) § testing / validation notes.
+See also [`ARCHITECTURE.md`](ARCHITECTURE.md) §14 Testing strategy.
 
 ---
 

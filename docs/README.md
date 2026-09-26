@@ -1,5 +1,20 @@
 # Docs layout
 
+Canonical homes (prefer these over duplicated explanations elsewhere):
+
+| Topic | Canonical doc |
+|-------|---------------|
+| Overview / quick start / positioning | [`../README.md`](../README.md) |
+| Architecture / adapters / boundaries | [`../ARCHITECTURE.md`](../ARCHITECTURE.md) |
+| Security assumptions / hardening limits | [`../SECURITY.md`](../SECURITY.md) |
+| Deployment modes / fail-open / Redis ops | [`deployment.md`](deployment.md) |
+| Property reference | [`configuration.md`](configuration.md) |
+| Migration / cross-runtime contract notes | [`migration.md`](migration.md) |
+| Validation strategy / release gates | [`testing.md`](testing.md) |
+| Historical performance evidence | [`performance/REFERENCE_BASELINE.md`](performance/REFERENCE_BASELINE.md) |
+| .NET reference client | [`../dotnet/README.md`](../dotnet/README.md) |
+| Script catalog | [`../scripts/README.md`](../scripts/README.md) |
+
 | Folder / file | Purpose |
 |---------------|---------|
 | `configuration.md` | Tracked property reference |
@@ -7,15 +22,15 @@
 | `migration.md` | Tracked upgrade guide (0.3.0 → 0.4.0; earlier 0.2.x → 0.3.0 retained) |
 | `testing.md` | Tracked characterization and release-gate testing |
 | [`contracts/`](contracts/FEATURE_SCHEMA.md) | Versioned feature-schema, evaluation-event, dataset-export, [Evaluation Kit foundations](contracts/EVALUATION_KIT.md), [scorer/model artifact](contracts/SCORER_ARTIFACT.md), [candidate loading/health](contracts/SCORER_CANDIDATE_LOADING.md), [candidate replay/evaluation](contracts/SCORER_CANDIDATE_EVALUATION.md), [candidate shadow scoring](contracts/SCORER_CANDIDATE_SHADOW.md), and [model lifecycle governance](contracts/SCORER_MODEL_LIFECYCLE.md) contract documentation |
-| [`performance/`](performance/BENCHMARKING.md) | Tracked JMH benchmark foundation + [0.3.0 reference baseline](performance/REFERENCE_BASELINE.md) (not an SLA) |
+| [`performance/`](performance/BENCHMARKING.md) | Tracked JMH benchmark foundation + [0.3.0-era reference baseline](performance/REFERENCE_BASELINE.md) (historical; not an SLA; not current production performance) |
 | [`../evaluation/`](../evaluation/DETECTION_EVALUATION.md) | Offline Detection Evaluation Framework plus completed [Official Detection Reference Baseline](../evaluation/DETECTION_REFERENCE_BASELINE.md) (capture, verification/drift, lifecycle/governance; not production efficacy / not a quality gate). |
-| [`evaluation/`](evaluation/MONITOR_MODE_PILOT.md) | Allowlisted evaluation addenda in this tree: MONITOR-mode pilot readiness, [external MONITOR evaluation handoff](evaluation/EXTERNAL_MONITOR_EVALUATION.md), same-framework detector comparison, organization-profile synthetic evaluation, independent reproduction. |
+| [`evaluation/`](evaluation/MONITOR_MODE_PILOT.md) | Allowlisted evaluation addenda: MONITOR-mode pilot readiness, [external MONITOR evaluation handoff](evaluation/EXTERNAL_MONITOR_EVALUATION.md), same-framework detector comparison, organization-profile synthetic evaluation, independent reproduction. |
 | [`../dotnet/README.md`](../dotnet/README.md) | ASP.NET Core reference adapter (remote client; not gitignored) |
 | `planning/` | Local planning notes remain gitignored unless separately allowlisted |
 | `detection/` | Local characterization evidence (gitignored) |
 | `archive/` | Local historical notes (gitignored) |
 
-Most of this tree is gitignored (`docs/*`). Allowlisted root files plus **`docs/performance/`** and **`docs/contracts/`** are published.
+Most of this tree is gitignored (`docs/*`). Allowlisted root files plus **`docs/performance/`**, **`docs/contracts/`**, and **`docs/evaluation/`** are published.
 
 **Also at the repository root:** [`CHANGELOG.md`](../CHANGELOG.md) · [`ARCHITECTURE.md`](../ARCHITECTURE.md) · [`SECURITY.md`](../SECURITY.md) · [`RELEASING.md`](../RELEASING.md) · [`CONTRIBUTING.md`](../CONTRIBUTING.md)
 
