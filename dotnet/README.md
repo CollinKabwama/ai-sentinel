@@ -142,15 +142,15 @@ The sample app (`samples/AI.Sentinel.AspNetCore.Sample`) demonstrates MONITOR-fi
 
 ## Failure behavior
 
-Transport/client failures produce a single synthetic `REMOTE_EVALUATION_FAILURE` response:
+Transport/client failures produce a single synthetic `REMOTE_EVALUATION_FAILURE` response used for **fail-open proceed**:
 
-- `action=ALLOW`, `proceed=true`
+- Host-visible fields may include `action=ALLOW` and `proceed=true` so the pipeline can continue
 - No fabricated BLOCK/QUARANTINE/THROTTLE or maximum risk scores
 - One HTTP attempt per evaluation (no automatic retry)
 
-This is an **evaluation-client failure** result for the host to observe — it is **not** a trusted ALLOW risk decision from the remote engine. Middleware treats `REMOTE_EVALUATION_FAILURE` as fail-open continue.
+This is an **evaluation-client failure** result for the host to observe — it is **not** a trusted engine `ALLOW` risk decision (`REMOTE_EVALUATION_FAILURE ≠ trusted engine ALLOW`). Middleware treats `REMOTE_EVALUATION_FAILURE` as fail-open proceed (continue).
 
-Auth rejection (HTTP 401/403) ignores any response body and still yields `REMOTE_EVALUATION_FAILURE` (outcome `AUTH_REJECTED`). Unknown `action` values and unsupported `contractVersion` do **not** silently become successful ALLOW decisions.
+Auth rejection (HTTP 401/403) ignores any response body and still yields `REMOTE_EVALUATION_FAILURE` (outcome `AUTH_REJECTED`). Unknown `action` values and unsupported `contractVersion` do **not** silently become successful trusted ALLOW decisions.
 
 ## Cross-runtime reliability evidence
 
@@ -175,7 +175,7 @@ Shared wire fixtures under [`fixtures/`](fixtures/) (`requests/`, `responses/`) 
 |--------|------------------|
 | ALLOW / MONITOR | Continue pipeline when `proceed=true` |
 | THROTTLE / BLOCK / QUARANTINE | Deny with configured status when `proceed=false` |
-| REMOTE_EVALUATION_FAILURE | Fail-open continue |
+| REMOTE_EVALUATION_FAILURE | Fail-open proceed (continue; ≠ trusted ALLOW) |
 
 `proceed` from the server is authoritative; the adapter validates action/proceed consistency.
 
