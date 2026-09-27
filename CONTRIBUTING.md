@@ -43,6 +43,7 @@ When your PR **deprecates** functionality (but keeps it working for a transition
 | **ai-sentinel-spring-boot-starter** | **Current** Spring Boot / Servlet adapter: auto-configuration, servlet filter, `SentinelProperties`, actuator, Micrometer, optional distributed and model-registry beans. |
 | **ai-sentinel-trainer** | Optional standalone Spring Boot app: consumes training candidates (Kafka when enabled), trains IF, publishes to a filesystem model registry. See [`ai-sentinel-trainer/README.md`](ai-sentinel-trainer/README.md). |
 | **ai-sentinel-demo** | Reference Spring Boot app for local runs and smoke tests. |
+| **ai-sentinel-benchmark** | Opt-in JMH, deployment, and resource benchmarks. Not published; JMH suites do not run on `mvn verify`. See [`docs/performance/BENCHMARKING.md`](docs/performance/BENCHMARKING.md). |
 | **dotnet/** | Reference ASP.NET Core remote adapter (`AI.Sentinel.AspNetCore`) — consumes remote evaluation HTTP API; no C# scoring engine. See [`dotnet/README.md`](dotnet/README.md). |
 | **evaluation/** | Offline Detection Evaluation Framework docs, tracked synthetic corpus, and Official Detection Reference Baseline (capture/verify/lifecycle). Engineering evidence only — not production efficacy or a quality gate. Start at [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md) and [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). |
 
@@ -111,11 +112,9 @@ java -version   # expect 21
 mvn clean install
 ```
 
-To consume a **local install** in another project, install to your local repository (`~/.m2/repository`) with the command above, then depend on `dev.aisentinel:ai-sentinel-spring-boot-starter` at the version in the parent `pom.xml` (currently **0.4.0**). The current published Central coordinate is **0.4.0** (tag [`v0.4.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.4.0)); previous published line **0.3.0** (tag `v0.3.0`). There is no separate public snapshot hosting documented in this repo; releases are via tags on `main` when published.
+To consume a local build in another project, run the command above and depend on `dev.aisentinel:ai-sentinel-spring-boot-starter` at the version in the parent `pom.xml`. Maintainers publish releases from tags on `main` ([`RELEASING.md`](RELEASING.md)).
 
-Characterization and release-gate testing: [`docs/testing.md`](docs/testing.md). Upgrading from the previous published line: [`docs/migration.md`](docs/migration.md). Docs index and reading order: [`docs/README.md`](docs/README.md). Offline evaluation corpus helpers: [`scripts/README.md`](scripts/README.md) and [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md).
-
-**Publishing to Maven Central:** see **[`RELEASING.md`](RELEASING.md)** for the full release checklist (Central Portal, GPG, `-Prelease` deploy).
+Related: [`docs/testing.md`](docs/testing.md) (release gates) · [`docs/README.md`](docs/README.md) (docs index) · [`scripts/README.md`](scripts/README.md) (script catalog).
 
 ---
 
@@ -192,8 +191,31 @@ Python helpers (stdlib only): [`scripts/README.md`](scripts/README.md).
 - Target **`dev`** unless your change is a maintainer-approved hotfix (see **Branching strategy**).
 - Describe **what** changed and **why**; link issues.
 - Ensure **`mvn test`** passes.
-- Update **README**, **ARCHITECTURE.md**, **`docs/configuration.md`**, and module READMEs when behavior or configuration changes.
+- Update the canonical document for what changed (see [`docs/README.md`](docs/README.md)) — for example `docs/configuration.md` for properties or `ARCHITECTURE.md` for component boundaries — and link to it rather than copying explanations into several files.
 - For breaking or deprecated behavior, follow the sections above.
+
+---
+
+## Public metadata and data restrictions
+
+Everything committed to this repository is public. Do not commit or paste into issues, PRs, commit messages, or docs:
+
+- secrets (API keys, pseudonymization secrets, tokens, credentials, private keys);
+- real customer, user, or production traffic data, raw identities, IP addresses, or request bodies;
+- internal tracking identifiers or private planning notes.
+
+Evaluation and test data must be synthetic or privacy-safe. Do not modify accepted reference evidence (`evaluation/reference/`, `evaluation/detection-reference-baseline/`, `evaluation/kit-reference/`, `docs/performance/`) except through the documented regeneration or lifecycle scripts.
+
+Public docs describe current, implemented behavior. Do not present unimplemented ideas as product capability.
+
+---
+
+## Safe Git practices
+
+- Review `git status` and `git diff` before committing, and stage specific files rather than everything in the tree.
+- Keep generated outputs (evaluation results, benchmark results, local notes) out of commits unless a document says they are tracked.
+- Do not force-push or rewrite history on `main` or `dev`.
+- Keep one logical change per PR so reviews stay focused.
 
 ---
 
