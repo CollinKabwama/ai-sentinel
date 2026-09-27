@@ -176,6 +176,18 @@ Legend: **Required?** = needed for a working filter once `enabled=true`. **Advan
 |----------|---------|----------|-----------|-----------|
 | `ai.sentinel.telemetry.*` | `ANOMALY_ONLY` | observability | No | Yes |
 
+To expose the Sentinel actuator endpoint alongside Prometheus:
+
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,sentinel
+```
+
+`/actuator/sentinel` omits identity and request identifiers. Meter and field reference: [`../ARCHITECTURE.md`](../ARCHITECTURE.md#11-observability).
+
 ### Remote evaluation (optional)
 
 Default remains **local** evaluation with no network calls. Remote mode is additive.
@@ -463,7 +475,7 @@ Guidance:
 * Idle TTL eviction still runs under maxKeys; capacity eviction removes oldest-access keys when over cap.
 * Prefer authenticating clients so identity is stable (reduces IP churn).
 * Monitor actuator / metrics for map sizes where exposed; watch GC and RSS under load.
-* Defaults were **not** lowered in this release — changing them is an operator decision.
+* Changing the defaults is an operator decision; the library does not tune them automatically.
 
 ### Isolation Forest (demo)
 
