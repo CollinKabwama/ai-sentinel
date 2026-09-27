@@ -50,8 +50,6 @@ Expected shape (approximate; confirm with the current reactor output of `mvn cle
 | `ai-sentinel-demo` | Demo smoke |
 | Full reactor | Primary release gate |
 
-**What these gates do not prove:** production ENFORCE readiness, production efficacy, Redis Cluster / multi-host / mixed-version / rolling-deploy correctness, or that same-version Redis consistency evidence equals production distributed correctness. See [`docs/deployment.md`](deployment.md#distributed-deployment-notes).
-
 The reactor also compiles **`ai-sentinel-benchmark`**. Its **support-code** unit tests run with the reactor; the JMH suite does **not** run on `verify`. See [`performance/BENCHMARKING.md`](performance/BENCHMARKING.md). Official measured **0.3.0-era** reference values (not CI gates / not SLAs; historical performance evidence ≠ current production performance): [`performance/REFERENCE_BASELINE.md`](performance/REFERENCE_BASELINE.md).
 
 Run **twice** before cutting a release tag so flakes are visible.
@@ -148,13 +146,11 @@ Included in `ai-sentinel-core` / starter Surefire:
 ## What these gates do not prove
 
 - Production-ready ENFORCE under real traffic
-- Multi-host distributed end-to-end behavior beyond documented Testcontainers coverage
+- Multi-host, Redis Cluster, mixed-version, or rolling-deploy distributed correctness (Redis suites prove same-version multi-client consistency against one Redis)
 - Isolation Forest per-feature attribution
 - Fail-closed availability
 - Official detection baseline quality or production detection efficacy
 
 Preserve MONITOR-first adoption: [`deployment.md`](deployment.md).
 
-Offline detection-evaluation machinery (reference corpus, deterministic replay, complete-run evidence, and the Official Detection Reference Baseline) is documented under [`../evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md) and [`../evaluation/DETECTION_REFERENCE_BASELINE.md`](../evaluation/DETECTION_REFERENCE_BASELINE.md). The Detection Evaluation Framework and Official Detection Reference Baseline are complete as offline engineering evidence; neither is detector-quality acceptance for production (`FRAMEWORK ACCEPTANCE != DETECTION QUALITY ACCEPTANCE`, `BASELINE != QUALITY GATE`). A READY candidate may be evaluated through that same framework ([`contracts/SCORER_CANDIDATE_EVALUATION.md`](contracts/SCORER_CANDIDATE_EVALUATION.md)); evaluated is not accepted, and accepted is not approved, shadowed, or production-selected. Observational shadow scoring is a separate explicit opt-in ([`contracts/SCORER_CANDIDATE_SHADOW.md`](contracts/SCORER_CANDIDATE_SHADOW.md)); `SHADOW RESULT != PRODUCTION DECISION`. Champion/challenger lifecycle governance is a separate explicit capability ([`contracts/SCORER_MODEL_LIFECYCLE.md`](contracts/SCORER_MODEL_LIFECYCLE.md)); `PROMOTED != PRODUCTION DEPLOYED`.
-
-Repository Redis same-version multi-client consistency evidence ≠ production distributed correctness — see [`deployment.md`](deployment.md#distributed-deployment-notes).
+Offline evaluation evidence and its boundaries: [`../evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md) and the [evaluation index](README.md#evaluation). Candidate-scorer evaluation, shadow, and lifecycle boundaries: [candidate scorer lifecycle](README.md#candidate-scorer-lifecycle). Distributed test coverage: [`deployment.md`](deployment.md#distributed-deployment-notes).

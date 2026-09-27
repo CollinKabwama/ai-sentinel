@@ -9,7 +9,7 @@ Implementation lives in `dev.aisentinel.core.evaluation`
 (`CandidateDetectionEvaluationRunner`, `CandidateEvaluationAcceptancePolicy`)
 and reuses:
 
-- `CandidateScorerLoader` (PR #122 loading/health/runtime isolation)
+- `CandidateScorerLoader` (loading/health/runtime isolation; see [`SCORER_CANDIDATE_LOADING.md`](SCORER_CANDIDATE_LOADING.md))
 - `ReplayEngine` with an explicit evaluation scorer
 - `DetectionEvaluationRunner`
 - `ReferenceEvaluationAligner`

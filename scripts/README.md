@@ -1,6 +1,27 @@
 # Developer scripts
 
-Helpers for local development. Python scripts assume the demo app is running and **`/actuator/sentinel`** is exposed. Shell scripts under this directory also cover offline evaluation corpus work and opt-in JMH benchmarks.
+Helpers for local development, offline evaluation, and opt-in benchmarks. Run shell scripts from the repository root with JDK 21. The Python traffic helpers assume the demo app is running with **`/actuator/sentinel`** exposed.
+
+## Catalog
+
+| Script | Purpose | Canonical doc |
+|--------|---------|---------------|
+| `train_monitor.py`, `traffic_simulator.py` | Drive demo traffic; watch Isolation Forest training | Below |
+| `evaluate-generated-corpus.sh` | Evaluate a generated corpus (`--corpus`) or evaluator-provided dataset (`--dataset`) | [`EVALUATION_KIT.md`](../docs/contracts/EVALUATION_KIT.md) |
+| `compare-evaluations.sh` | Factual before/after comparison of two existing evaluation runs | [`EVALUATION_KIT.md`](../docs/contracts/EVALUATION_KIT.md) §14 |
+| `verify-kit-reference-corpus.sh` | Verify (or, for maintainers, regenerate) the kit reference corpus | [`evaluation/kit-reference/README.md`](../evaluation/kit-reference/README.md) |
+| `validate-evaluation-kit-contracts.sh` | Validate Evaluation Kit JSON Schemas and fixtures | [`EVALUATION_KIT.md`](../docs/contracts/EVALUATION_KIT.md) §12 |
+| `reproduce-evaluation-evidence.sh`, `verify-reproduced-evidence.sh` | Level-1 independent reproduction | [`INDEPENDENT_REPRODUCTION.md`](../docs/evaluation/INDEPENDENT_REPRODUCTION.md) |
+| `compare-reference-detectors.sh` | Level-3 same-framework detector comparison | [`SAME_FRAMEWORK_DETECTOR_COMPARISON.md`](../docs/evaluation/SAME_FRAMEWORK_DETECTOR_COMPARISON.md) |
+| `verify-monitor-pilot-evidence.sh` | Verify a finalized MONITOR pilot evidence directory | [`MONITOR_MODE_PILOT.md`](../docs/evaluation/MONITOR_MODE_PILOT.md) |
+| `verify-evidence-artifact.sh` | Verify local evidence-artifact bytes against a tracked manifest | [`EVIDENCE_ARTIFACT_STORAGE.md`](../evaluation/EVIDENCE_ARTIFACT_STORAGE.md) |
+| `generate-reference-dataset.sh`, `replay-reference-dataset.sh` | Regenerate / replay the historical seed reference corpus | Below |
+| `capture-`, `verify-`, `lifecycle-detection-reference-baseline.sh` | Official Detection Reference Baseline | Below |
+| `run-benchmarks.sh`, `capture-reference-baseline.sh`, `verify-reference-performance-baseline-evidence.sh` | JMH benchmarks and the historical performance reference baseline | [`BENCHMARKING.md`](../docs/performance/BENCHMARKING.md) |
+| `run-deployment-benchmarks.sh`, `run-resource-benchmarks.sh`, `compare-benchmarks.sh`, `run-benchmark-regression.sh` | Deployment, resource, and comparison benchmark families | [`ai-sentinel-benchmark/README.md`](../ai-sentinel-benchmark/README.md) |
+| `verify-reproducible-build.sh` | Check that clean builds produce byte-identical library JARs | [`RELEASING.md`](../RELEASING.md) |
+
+The remaining `*.py` verifiers are invoked by the shell script of the same name. `test_verify_reproduced_evidence.py` is a standalone test for the reproduction verifier (`python3 scripts/test_verify_reproduced_evidence.py`).
 
 ---
 
@@ -172,7 +193,7 @@ Details: [`evaluation/DETERMINISTIC_REPLAY.md`](../evaluation/DETERMINISTIC_REPL
 
 ### Complete detection-evaluation evidence
 
-There is no dedicated shell wrapper yet. After compiling `ai-sentinel-core`, run the thin CLI adapter with an **explicit** `--threshold`:
+There is no dedicated shell wrapper. After compiling `ai-sentinel-core`, run the thin CLI adapter with an **explicit** `--threshold`:
 
 ```bash
 mvn -q -pl ai-sentinel-core -DskipTests compile dependency:build-classpath \
