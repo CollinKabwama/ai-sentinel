@@ -151,7 +151,7 @@ mvn clean deploy -Prelease -pl ai-sentinel-core,ai-sentinel-spring-boot-starter 
 | `-pl …` | Only core + starter |
 | `-am` | Also build the parent POM |
 
-Trainer and demo are skipped via module properties and `excludeArtifacts` in the parent POM.
+Trainer, demo, and benchmark are excluded via `excludeArtifacts` in the parent POM (trainer and demo also set module-level deploy-skip properties).
 
 Default `mvn clean verify` (without `-Prelease`) packages module JARs but does **not** attach
 sources/javadoc or publish. Sources/javadoc JARs are produced only under `-Prelease`.
@@ -221,7 +221,7 @@ fixed `project.build.outputTimestamp`. Local rebuilds from tag `v0.4.0` /
 commit `4830a69…` match published **entry contents** (classes, Manifest, Maven
 metadata) but differ in **ZIP entry timestamps**, so JAR SHA-256 values do not
 match Central. `v0.4.0` remains immutable historical evidence; do not rewrite or
-re-upload it. Future builds from the remediated configuration are verified
+re-upload it. Builds from the current configuration are verified
 byte-reproducible under the documented toolchain constraints.
 
 ---

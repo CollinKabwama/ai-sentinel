@@ -132,7 +132,7 @@ Fail-open proceed on the client remains observably distinct from a trusted engin
 5. Re-run integration tests and the characterization release gate ([`testing.md`](testing.md)).
 6. Review Actuator `lastDecision` / evaluation phases in a staging environment before ENFORCE.
 
-You do **not** need to adopt deferred roadmap items (additional detectors, WebFlux, fail-closed profiles, formal SLA tooling) to upgrade.
+Upgrading does not require any capability that is not included in 0.3.0 (for example additional detectors, WebFlux support, fail-closed profiles, or SLA tooling).
 
 ---
 

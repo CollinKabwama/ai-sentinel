@@ -10,6 +10,8 @@ This document describes the **current** runtime architecture: a **Java** decisio
 
 Framework-independent means free of Spring/Servlet/Reactor APIs inside the Java core — **not** language-independent. Other language integrations consume the remote evaluation contract; they do not reimplement the engine.
 
+**Evaluation is not enforcement.** The decision engine produces a `RiskDecision`; the adapter's `EnforcementHandler` (or a remote client) decides how that decision affects the HTTP response, and `MONITOR` mode never denies. AI-Sentinel is one application-layer control inside a broader security architecture — it is not itself a Zero Trust architecture.
+
 ---
 
 ## 1. Goals (engineering)
@@ -35,6 +37,7 @@ ai-sentinel/
 ├── ai-sentinel-spring-boot-starter/  # Current Servlet filter, auto-config, actuator, Micrometer
 ├── ai-sentinel-trainer/              # Optional app: Kafka consumer, IF training, filesystem registry publisher
 ├── ai-sentinel-demo/                 # Reference Spring Boot application
+├── ai-sentinel-benchmark/            # Opt-in JMH / deployment / resource benchmarks (not published)
 ├── evaluation/                       # Tracked synthetic corpus + offline replay/evaluation docs
 ├── dotnet/                           # Reference ASP.NET Core remote adapter (no C# scoring engine)
 └── scripts/                          # Optional Python helpers, evaluation corpus scripts, JMH runners
@@ -102,6 +105,22 @@ TrainingCandidatePublisher → Kafka (optional) → ai-sentinel-trainer → file
 ```
 
 Filesystem model-registry refresh installs Isolation Forest artifacts for the configured scorer path. It is a separate concern from candidate lifecycle designation governance.
+
+**Optional remote evaluation path:**
+
+```
+Client adapter (Java RemoteEvaluationClient or .NET reference client)
+  → POST /ai-sentinel/v1/evaluation  (X-AI-Sentinel-Api-Key)
+  → RemoteEvaluationController (starter; ai.sentinel.evaluation.server.enabled=true)
+  → EvaluationRequest → same SentinelDecisionEngine → EvaluationResponse
+```
+
+- The wire contract (`EvaluationRequest` / `EvaluationResponse`, validators, `contractVersion`) lives in `dev.aisentinel.core.contract`.
+- `ai.sentinel.evaluation.executor-mode` selects how a Java host obtains decisions: `LOCAL` (default, in-process), `REMOTE`, or `REMOTE_WITH_LOCAL_FALLBACK` (runs local evaluation when the remote call fails).
+- Client-side transport, auth, or contract failures return `REMOTE_EVALUATION_FAILURE` and fail open. That result is not a trusted engine `ALLOW`.
+- The Java service remains the only detection engine; the .NET client in [`dotnet/`](dotnet/README.md) is an adapter only.
+
+Properties: [`docs/configuration.md`](docs/configuration.md). Credential and header rules: [`SECURITY.md`](SECURITY.md).
 
 ```mermaid
 flowchart TB

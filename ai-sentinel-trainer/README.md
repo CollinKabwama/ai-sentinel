@@ -86,4 +86,4 @@ Expose Prometheus if `micrometer-registry-prometheus` is on the classpath (see m
 - **No multi-node trainer coordination** — One trainer instance per logical pipeline is assumed; scale-out requires external design.
 - **Kafka required for live ingestion** — With `kafka.enabled=false`, wire your own feed or enable Kafka for production-style runs.
 
-For end-to-end flow and node-side model refresh, see the root [`README.md`](../README.md) and [`ARCHITECTURE.md`](../ARCHITECTURE.md) (distributed architecture and testing strategy).
+For end-to-end flow and node-side model refresh, see [`ARCHITECTURE.md`](../ARCHITECTURE.md#10-distributed-architecture).

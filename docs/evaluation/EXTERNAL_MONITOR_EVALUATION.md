@@ -45,7 +45,7 @@ artifacts. For this external evaluation, build AI-Sentinel from commit
 **`3317ec6b042e09da40ea8fbdbb2c9b86598acd2b`** or a later commit that contains
 the pilot workflow.
 
-That commit is a `dev` tip (PR #149 merge). It is **not** a formal Maven/GitHub
+That commit is on the `dev` branch. It is **not** a formal Maven/GitHub
 Release by itself.
 
 **Maven Central `0.4.0` does not include this pilot workflow** and is not

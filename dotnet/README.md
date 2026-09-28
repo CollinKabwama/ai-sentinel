@@ -4,8 +4,8 @@ The ASP.NET Core adapter is a **client/integration layer** for the AI-Sentinel r
 
 ## What it is
 
-- Thin ASP.NET Core middleware and HTTP client for the frozen Step-8 evaluation contract
-- Consumes the Step-9 remote evaluation API (`POST /ai-sentinel/v1/evaluation`)
+- Thin ASP.NET Core middleware and HTTP client for the AI-Sentinel evaluation contract (`EvaluationRequest` / `EvaluationResponse`)
+- Calls the Java remote evaluation API (`POST /ai-sentinel/v1/evaluation`) — see the remote evaluation path in [`../ARCHITECTURE.md`](../ARCHITECTURE.md#3-request-lifecycle)
 - Maps trusted `HttpContext.User` identity and request context into `EvaluationRequest`
 - Applies server-authoritative `proceed` and enforcement actions from `EvaluationResponse`
 
@@ -37,11 +37,14 @@ Authoritative AI-Sentinel engine
 ## Prerequisites
 
 - .NET SDK 8.0 (LTS)
-- Running AI-Sentinel remote evaluation service (Java/Spring **0.3.0+**; **0.4.0** preferred)
+- A Java AI-Sentinel host with remote evaluation enabled (`ai.sentinel.evaluation.server.enabled=true`)
 
-Pair with the Java starter or service using remote evaluation enabled. Upgrade and contract notes: [`../docs/migration.md`](../docs/migration.md).
+## Version compatibility
 
-## Build
+- Java host: **0.3.0** or later (**0.4.0** preferred).
+- The client rejects responses with an unsupported `contractVersion` and ignores unknown additive fields. Contract notes: [`../docs/migration.md`](../docs/migration.md).
+
+## Build and test
 
 ```bash
 cd dotnet
@@ -50,16 +53,7 @@ dotnet build
 dotnet test
 ```
 
-Shared wire fixtures live in `dotnet/fixtures/` (`requests/` and `responses/`) and are validated by both Java and .NET tests.
-
-## Testing
-
-```bash
-cd dotnet
-dotnet test
-```
-
-Most tests use in-memory HTTP stubs. For a **live cross-runtime** check against a running Java evaluation service, set:
+Shared wire fixtures live in `dotnet/fixtures/` (`requests/` and `responses/`) and are validated by both Java and .NET tests. Most tests use in-memory HTTP stubs. For a **live cross-runtime** check against a running Java evaluation service, set:
 
 ```bash
 export AI_SENTINEL_E2E_SERVICE_URL=http://127.0.0.1:8080
@@ -186,7 +180,7 @@ OpenTelemetry-style meters under `AI.Sentinel.AspNetCore` with bounded labels (`
 ## Known limitations
 
 - No local Java-style fallback when remote service is unavailable
-- No OAuth/mTLS for API key transport in this reference increment
+- No OAuth/mTLS for API key transport in this reference client
 - THROTTLE is not implemented as an artificial delay; enforcement maps to HTTP denial when `proceed=false`
 - Remote cancellation is not guaranteed once the HTTP request is in flight
 

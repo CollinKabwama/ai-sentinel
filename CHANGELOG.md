@@ -10,15 +10,29 @@ for the published library line.
 
 ### Added
 
-- Tracked historical reference-performance **selection-analysis** artifact ([`docs/performance/reference-baseline-selection-analysis.json`](docs/performance/reference-baseline-selection-analysis.json)) and integrity verifier (`scripts/verify-reference-performance-baseline-evidence.sh`). Capture still does not regenerate selection analysis; `analysisSha256` is unchanged.
+- **Evaluation Kit contracts** — Scenario, generated-corpus manifest, ground-truth sidecar, evaluation-result, and reproducibility contracts with JSON Schemas, fixtures, and a validator (`scripts/validate-evaluation-kit-contracts.sh`). See [`docs/contracts/EVALUATION_KIT.md`](docs/contracts/EVALUATION_KIT.md).
+- **Deterministic corpus generation** in `ai-sentinel-core`: scenario-driven generation of detector-facing evaluation events with a separate ground-truth annotation sidecar. Ground truth is never detector input.
+- **Versioned kit reference corpus** under [`evaluation/kit-reference/`](evaluation/kit-reference/README.md) with inventory, checksums, and `scripts/verify-kit-reference-corpus.sh`. Historical `evaluation/reference/` evidence is unchanged.
+- **Evaluation Kit CLI** (`scripts/evaluate-generated-corpus.sh`) that replays a labeled corpus through the existing detection-evaluation pipeline. Warmup and unknown labels are excluded from binary metrics but retained in evidence.
+- **Evaluation reports** — with `--output`, the CLI writes a machine-readable Kit evaluation result, event-level inspection evidence, and a self-contained HTML report.
+- **Containerized Evaluation Kit** — optional local image (`Dockerfile.evaluation-kit`, non-root JRE runtime, network-independent) running the same evaluator. Not published to a registry.
+- **Evaluator-provided datasets** (`--dataset`) evaluated through the same pipeline and reports, with provenance kept distinct from generated corpora. See [`docs/contracts/EVALUATOR_PROVIDED_DATASET.md`](docs/contracts/EVALUATOR_PROVIDED_DATASET.md).
+- **Evaluation comparison** (`scripts/compare-evaluations.sh`) — deterministic before/after comparison of two compatible evidence sets after dataset and ground-truth identity checks. Factual deltas only; no winner selection.
+- **Evidence artifact identity and storage** — content identity (SHA-256 + size) kept separate from storage location, a versioned evidence-artifact manifest, and a local verifier (`scripts/verify-evidence-artifact.sh`); deterministic evaluation-run identity for reports and comparisons. No remote upload. See [`evaluation/EVIDENCE_ARTIFACT_STORAGE.md`](evaluation/EVIDENCE_ARTIFACT_STORAGE.md).
+- **Level-1 independent reproduction package** (`scripts/reproduce-evaluation-evidence.sh`, `scripts/verify-reproduced-evidence.sh`) that regenerates selected kit-reference evidence and verifies it against expected digests. Reproduces repository-controlled evidence — not detection-efficacy proof or third-party validation. See [`docs/evaluation/INDEPENDENT_REPRODUCTION.md`](docs/evaluation/INDEPENDENT_REPRODUCTION.md).
+- **Level-3 same-framework detector comparison** (`scripts/compare-reference-detectors.sh`) of the Statistical scorer and a deterministic offline reference Isolation Forest on identical controlled inputs. Factual deltas only — not a scorer ranking; the documented tiny/homogeneous-training limitation applies. See [`docs/evaluation/SAME_FRAMEWORK_DETECTOR_COMPARISON.md`](docs/evaluation/SAME_FRAMEWORK_DETECTOR_COMPARISON.md).
+- **Northgate fictional organization-profile corpora** — five deterministic synthetic scenarios with multiple identities and longer warmup history, evaluated through the Evaluation Kit. Fictional and synthetic — not production or organizational validation. See [`docs/evaluation/ORGANIZATION_PROFILE_SYNTHETIC_EVALUATION.md`](docs/evaluation/ORGANIZATION_PROFILE_SYNTHETIC_EVALUATION.md).
+- **MONITOR-mode pilot evidence workflow** (opt-in `ai.sentinel.pilot.*`) for Spring/Servlet hosts: local observational evidence export with pilot-scoped HMAC pseudonymization, safety validation, and `scripts/verify-monitor-pilot-evidence.sh`. Proposed actions are recorded separately from actual outcomes and nothing is enforced. Pilot-readiness tooling — not external pilot evidence or detection efficacy. See [`docs/evaluation/MONITOR_MODE_PILOT.md`](docs/evaluation/MONITOR_MODE_PILOT.md).
+- **External MONITOR evaluator handoff** guide and attestation template for an authorized independent evaluator. Documentation only; it does not record an external run. See [`docs/evaluation/EXTERNAL_MONITOR_EVALUATION.md`](docs/evaluation/EXTERNAL_MONITOR_EVALUATION.md).
+- **Reproducible-build verification** — fixed `project.build.outputTimestamp` and `scripts/verify-reproducible-build.sh` checking byte-identical core and starter JARs across clean builds under the documented JDK 21 toolchain. Historical Central `v0.4.0` JARs are not claimed byte-reproducible; not a supply-chain certification. See [`RELEASING.md`](RELEASING.md).
+- Tracked historical reference-performance **selection-analysis** artifact ([`docs/performance/reference-baseline-selection-analysis.json`](docs/performance/reference-baseline-selection-analysis.json)) and integrity verifier (`scripts/verify-reference-performance-baseline-evidence.sh`). Capture still does not regenerate selection analysis; `analysisSha256` and benchmark values are unchanged. Performance evidence only — not detection evidence.
 - Cross-runtime remote-evaluation **reliability evidence** fixtures and tests (shared `dotnet/fixtures/` additive/minimal responses; Java + ASP.NET client cases for version skew, auth-body ignore, unknown action, malformed numerics). Repository-controlled only — not production interoperability certification.
 - Same-version **multi-client Redis consistency** validation against ephemeral `redis:7-alpine` (quarantine / trust baseline / throttle shared-state scenarios). Repository-controlled only — not Redis Cluster, multi-host, rolling-deploy, or mixed-version proof.
 
 ### Changed
 
-- Clarified reference-performance baseline selection-analysis contract in [`docs/performance/REFERENCE_BASELINE.md`](docs/performance/REFERENCE_BASELINE.md): historical immutable evidence vs capture-recreatable raw JMH artifacts.
-- Documented ASP.NET / Java remote-response forward-compatibility and failure semantics in [`dotnet/README.md`](dotnet/README.md) and [`docs/migration.md`](docs/migration.md).
-- Clarified distributed Redis coverage / claim boundaries and trust-fallback divergence limits in [`docs/deployment.md`](docs/deployment.md) and operator entry docs.
+- `EvaluationEvent` JSON serialization and parsing are shared by dataset export and replay; evaluation metadata and ground truth stay outside detector-facing events.
+- Java `RemoteEvaluationClient` rejects numeric enum ordinals in responses, so an unknown action cannot map to a trusted `ALLOW`. Unknown additive fields are still ignored.
 
 ### Security
 
@@ -27,13 +41,20 @@ for the published library line.
 - Evaluation Kit / candidate evaluation tooling refuses writing into protected accepted/reference evidence locations (`evaluation/detection-reference-baseline`, `evaluation/reference`, `docs/performance`), with real-path checks for existing path prefixes.
 - Clarified remote API-key trust boundary, fail-open proceed vs trusted engine ALLOW, and artifact governance limits in [`SECURITY.md`](SECURITY.md).
 
+### Documentation
+
+- Documented the Evaluation Kit module boundary: evaluation stays in `ai-sentinel-core`, separate from JMH benchmark tooling, with no Kit-specific published artifact.
+- Clarified reference-performance baseline selection-analysis contract in [`docs/performance/REFERENCE_BASELINE.md`](docs/performance/REFERENCE_BASELINE.md): historical immutable evidence vs capture-recreatable raw JMH artifacts.
+- Documented ASP.NET / Java remote-response forward-compatibility and failure semantics in [`dotnet/README.md`](dotnet/README.md) and [`docs/migration.md`](docs/migration.md).
+- Clarified distributed Redis coverage / claim boundaries and trust-fallback divergence limits in [`docs/deployment.md`](docs/deployment.md) and operator entry docs.
+- Simplified and aligned project documentation around canonical architecture, security, configuration, deployment, evaluation, and integration references ([`docs/README.md`](docs/README.md)).
+
 ## [0.4.0] — 2026-09-19
 
 Engineering capability packaging of post-`0.3.0` candidate-scorer integration,
 observational shadow scoring, and lifecycle-governance designation work.
 
-This is a **pre-1.0 capability increment** and the intended stable engineering
-reference immediately before any later evaluation-first development. It does
+This is a **pre-1.0 capability release**. It does
 **not** implement evaluation-first architecture, new detectors/models, production
 model activation, production ENFORCE readiness, pilot validation, or production
 efficacy claims.
@@ -96,7 +117,7 @@ See also: [`docs/migration.md`](docs/migration.md) · [`docs/deployment.md`](doc
 - Isolation Forest per-feature attribution / SHAP is not included
 - Formal JMH / SLA certification is not included
 - Kafka trainer real-broker E2E is not included
-- Historical reference-performance selection-analysis consistency was an open MEDIUM evidence note at release time (capture does not regenerate selection analysis); not a packaging blocker
+- Historical reference-performance selection-analysis consistency was an open evidence note at release time (capture does not regenerate selection analysis); not a packaging blocker
 - Shadow scoring, when enabled, is synchronous/in-process (not an async shadow platform)
 - Evaluation-first architecture and tooling are **out of scope** for this release
 
@@ -111,7 +132,7 @@ See also: [`docs/migration.md`](docs/migration.md) · [`docs/deployment.md`](doc
 
 ### Breaking
 
-- Removed deprecated `EnforcementHandler.isQuarantined(String identityHash)`. Quarantine lookup requires both identity and endpoint: `isQuarantined(String identityHash, String endpoint)`. Source callers and already compiled binaries invoking the removed interface method must migrate and recompile. See [`docs/migration.md`](docs/migration.md#quarantine-lookup-requires-identity-and-endpoint).
+- Removed deprecated `EnforcementHandler.isQuarantined(String identityHash)`. Quarantine lookup requires both identity and endpoint: `isQuarantined(String identityHash, String endpoint)`. Source callers and already compiled binaries invoking the removed interface method must migrate and recompile. See [`docs/migration.md`](docs/migration.md#1-public-api-break--quarantine-lookup).
 
 ### Changed
 
