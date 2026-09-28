@@ -190,7 +190,8 @@ Python helpers (stdlib only): [`scripts/README.md`](scripts/README.md).
 
 - Target **`dev`** unless your change is a maintainer-approved hotfix (see **Branching strategy**).
 - Describe **what** changed and **why**; link issues.
-- Ensure **`mvn test`** passes.
+- Ensure **`mvn clean verify`** passes from the repository root (the same gate CI runs).
+- If you change `dotnet/` or the shared Java/.NET wire fixtures in `dotnet/fixtures/`, also run **`dotnet test`** ([`dotnet/README.md`](dotnet/README.md)).
 - Update the canonical document for what changed (see [`docs/README.md`](docs/README.md)) — for example `docs/configuration.md` for properties or `ARCHITECTURE.md` for component boundaries — and link to it rather than copying explanations into several files.
 - For breaking or deprecated behavior, follow the sections above.
 
@@ -207,6 +208,18 @@ Everything committed to this repository is public. Do not commit or paste into i
 Evaluation and test data must be synthetic or privacy-safe. Do not modify accepted reference evidence (`evaluation/reference/`, `evaluation/detection-reference-baseline/`, `evaluation/kit-reference/`, `docs/performance/`) except through the documented regeneration or lifecycle scripts.
 
 Public docs describe current, implemented behavior. Do not present unimplemented ideas as product capability.
+
+---
+
+## Evaluation and experiment contributions
+
+- To reproduce or understand existing evaluation evidence, start with [`docs/evaluation/RUNNING_EVALUATIONS.md`](docs/evaluation/RUNNING_EVALUATIONS.md).
+- To design a new local controlled experiment, start with [`docs/evaluation/CREATING_EXPERIMENTS.md`](docs/evaluation/CREATING_EXPERIMENTS.md).
+- Local experiment inputs and outputs (scenario drafts, helper programs, generated corpora, reports, notes) normally stay outside the tracked tree.
+- Experiment results are not product capabilities or accepted reference evidence.
+- Ground truth stays in annotation sidecars and is never detector input.
+- Adding tracked reference scenarios or corpora, changing accepted evidence, or changing schemas or contracts is a tracked contribution: open an issue first and follow the relevant contract document and regeneration or lifecycle process.
+- Schema or contract changes must update the affected fixtures and pass `./scripts/validate-evaluation-kit-contracts.sh`.
 
 ---
 

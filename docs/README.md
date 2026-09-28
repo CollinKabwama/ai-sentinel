@@ -25,7 +25,7 @@ Each topic has one canonical document. Other documents should link to it rather 
 
 - **Operators:** [`deployment.md`](deployment.md) → [`configuration.md`](configuration.md) → [`../SECURITY.md`](../SECURITY.md) → [`migration.md`](migration.md) when upgrading.
 - **Contributors:** [`../ARCHITECTURE.md`](../ARCHITECTURE.md) → [`../CONTRIBUTING.md`](../CONTRIBUTING.md) → [`testing.md`](testing.md).
-- **Evaluators:** [Evaluation](#evaluation) below.
+- **Evaluators:** [`evaluation/RUNNING_EVALUATIONS.md`](evaluation/RUNNING_EVALUATIONS.md) → [`evaluation/CREATING_EXPERIMENTS.md`](evaluation/CREATING_EXPERIMENTS.md) → workflow documents in [Evaluation](#evaluation) below.
 
 ## Evaluation
 
@@ -33,6 +33,8 @@ Offline evaluation is repository-controlled engineering evidence. It is not prod
 
 | Document | Purpose |
 |----------|---------|
+| **Start here:** [`evaluation/RUNNING_EVALUATIONS.md`](evaluation/RUNNING_EVALUATIONS.md) | Running evaluations — which workflow to run, how to start it safely, how to read the results |
+| **Start here:** [`evaluation/CREATING_EXPERIMENTS.md`](evaluation/CREATING_EXPERIMENTS.md) | Creating an experiment — controlled, reproducible local evaluation experiments |
 | [`../evaluation/REFERENCE_DATASET.md`](../evaluation/REFERENCE_DATASET.md) | Historical seed reference corpus |
 | [`../evaluation/DETERMINISTIC_REPLAY.md`](../evaluation/DETERMINISTIC_REPLAY.md) | Deterministic replay |
 | [`../evaluation/DETECTION_EVALUATION.md`](../evaluation/DETECTION_EVALUATION.md) | Detection Evaluation Framework (metrics and evidence) |
