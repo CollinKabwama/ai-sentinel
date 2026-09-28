@@ -176,6 +176,8 @@ This rule is **additional to** ground-truth ≠ detector input.
 
 Machine recording of generator identity appears on the **Corpus Manifest** and **Reproducibility Manifest**.
 
+Practical walkthrough (scenario → generated corpus → evaluation): [`../evaluation/CREATING_EXPERIMENTS.md`](../evaluation/CREATING_EXPERIMENTS.md).
+
 ---
 
 ## 5b. Versioned reference corpus inventory

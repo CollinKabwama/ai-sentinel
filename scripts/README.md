@@ -2,6 +2,8 @@
 
 Helpers for local development, offline evaluation, and opt-in benchmarks. Run shell scripts from the repository root with JDK 21. The Python traffic helpers assume the demo app is running with **`/actuator/sentinel`** exposed.
 
+To choose which evaluation workflow to run and how to read its results, start with [`docs/evaluation/RUNNING_EVALUATIONS.md`](../docs/evaluation/RUNNING_EVALUATIONS.md).
+
 ## Catalog
 
 | Script | Purpose | Canonical doc |
