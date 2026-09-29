@@ -45,7 +45,7 @@ When your PR **deprecates** functionality (but keeps it working for a transition
 | **ai-sentinel-demo** | Reference Spring Boot app for local runs and smoke tests. |
 | **ai-sentinel-benchmark** | Opt-in JMH, deployment, and resource benchmarks. Not published; JMH suites do not run on `mvn verify`. See [`docs/performance/BENCHMARKING.md`](docs/performance/BENCHMARKING.md). |
 | **dotnet/** | Reference ASP.NET Core remote adapter (`AI.Sentinel.AspNetCore`) — consumes remote evaluation HTTP API; no C# scoring engine. See [`dotnet/README.md`](dotnet/README.md). |
-| **evaluation/** | Offline Detection Evaluation Framework docs, tracked synthetic corpus, and Official Detection Reference Baseline (capture/verify/lifecycle). Engineering evidence only — not production efficacy or a quality gate. Start at [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md) and [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). |
+| **evaluation/** | Offline Detection Evaluation Framework docs, tracked synthetic corpus, and Official Detection Reference Baseline (capture/verify/lifecycle). Engineering evidence only — not production efficacy or a quality gate. Start at [`docs/evaluation/RUNNING_EVALUATIONS.md`](docs/evaluation/RUNNING_EVALUATIONS.md); framework and baseline semantics are in [`evaluation/DETECTION_EVALUATION.md`](evaluation/DETECTION_EVALUATION.md) and [`evaluation/DETECTION_REFERENCE_BASELINE.md`](evaluation/DETECTION_REFERENCE_BASELINE.md). |
 
 ---
 
@@ -193,6 +193,7 @@ Python helpers (stdlib only): [`scripts/README.md`](scripts/README.md).
 - Ensure **`mvn clean verify`** passes from the repository root (the same gate CI runs).
 - If you change `dotnet/` or the shared Java/.NET wire fixtures in `dotnet/fixtures/`, also run **`dotnet test`** ([`dotnet/README.md`](dotnet/README.md)).
 - Update the canonical document for what changed (see [`docs/README.md`](docs/README.md)) — for example `docs/configuration.md` for properties or `ARCHITECTURE.md` for component boundaries — and link to it rather than copying explanations into several files.
+- Public documentation under `docs/` must live in an allowlisted tracked path such as `docs/contracts/`, `docs/evaluation/`, or `docs/performance/` (or be one of the existing top-level files listed in `docs/README.md`). Other new files under `docs/` are ignored by `.gitignore`; adding a new documentation area requires updating the `.gitignore` allowlist in the same PR.
 - For breaking or deprecated behavior, follow the sections above.
 
 ---
