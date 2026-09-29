@@ -22,4 +22,4 @@ AI-Sentinel version or git commit SHA.
 **Environment**
 - Java version:
 - Spring Boot version (if applicable):
-- Module(s): core / starter / trainer / demo
+- Module(s): core / starter / trainer / demo / benchmark / dotnet / evaluation
