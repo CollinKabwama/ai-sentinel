@@ -41,7 +41,7 @@ Authoritative AI-Sentinel engine
 
 ## Version compatibility
 
-- Java host: **0.3.0** or later (**0.4.0** preferred).
+- Java host: **0.3.0** or later (**0.5.0** preferred).
 - The client rejects responses with an unsupported `contractVersion` and ignores unknown additive fields. Contract notes: [`../docs/migration.md`](../docs/migration.md).
 
 ## Build and test

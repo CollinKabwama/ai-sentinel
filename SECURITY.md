@@ -4,7 +4,8 @@
 
 | Line | Status |
 |------|--------|
-| **0.4.0** (tag `v0.4.0`) | Current published Maven Central release |
+| **0.5.0** (packaging line) | Current packaging / upcoming Maven Central release |
+| **0.4.0** (tag `v0.4.0`) | Previous published Maven Central release |
 | **0.3.0** (tag `v0.3.0`) | Previous published release |
 | **0.2.0** and earlier | Not maintained; upgrade via [`docs/migration.md`](docs/migration.md) |
 | Unreleased `dev` commits | Integration tip; not a supported production pin unless you intentionally build from source |

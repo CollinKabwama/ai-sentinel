@@ -2,7 +2,7 @@
   "reproductionSchemaVersion": "1",
   "packageId": "example.reproduction.path-traversal",
   "description": "Invalid corpusPath traversal.",
-  "softwareVersion": "0.4.0",
+  "softwareVersion": "0.5.0",
   "referenceConfiguration": {
     "aiSentinelVersion": "0.3.0",
     "scorerVersion": "0.3.0",

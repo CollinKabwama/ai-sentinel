@@ -82,7 +82,7 @@ class EvaluationRunIdentityTest {
 
     @Test
     void softwareVersionResolvedWithoutFabricatingBuildId() {
-        assertThat(KitSoftwareIdentity.softwareVersion()).contains("0.4.0");
+        assertThat(KitSoftwareIdentity.softwareVersion()).contains("0.5.0");
         assertThat(KitSoftwareIdentity.buildId()).isEmpty();
     }
 

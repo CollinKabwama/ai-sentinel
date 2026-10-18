@@ -89,7 +89,7 @@ None of these axes are required to equal the Maven release version.
 | `featureSchemaVersion` | Existing FeatureSchema (currently `"1"`). |
 | `evaluationEventSchemaVersion` | Existing EvaluationEvent (currently `"1"`). |
 | `aiSentinelVersion` | Reference evaluation / methodology configuration version used by Kit replay defaults (historical reference packaging; not Maven project version). |
-| `softwareVersion` | Packaging software version that produced Kit evidence (for example Maven `0.4.0`). Additive; omit when unknown. |
+| `softwareVersion` | Packaging software version that produced Kit evidence (for example Maven `0.5.0`). Additive; omit when unknown. |
 | `aiSentinelBuildId` | Exact build/commit/package-build identity when truthfully available. Omit rather than fabricate or reuse software version. |
 
 Software SemVer, corpus/dataset/result identities, evidence checkpoint tags, and

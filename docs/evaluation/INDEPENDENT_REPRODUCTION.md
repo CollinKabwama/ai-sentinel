@@ -127,7 +127,7 @@ Open `<output>/index.html` for human navigation. Machine success is
 | Input content identity | `eventsSha256` / `annotationsSha256` | Canonical corpus bytes |
 | Result family | `resultId` | Input-bound family id |
 | Concrete run | `evaluationRunId` | Configured evaluation identity |
-| Packaging software | `softwareVersion` | e.g. `0.4.0` |
+| Packaging software | `softwareVersion` | e.g. `0.5.0` |
 | Reference configuration | `aiSentinelVersion` / `scorerVersion` / `policyVersion` | Historical reference package (`0.3.0`) |
 | Artifact bytes | per-file `sha256` + `sizeBytes` | Exact evidence file identity |
 

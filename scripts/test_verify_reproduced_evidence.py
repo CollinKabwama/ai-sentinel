@@ -295,7 +295,7 @@ class VerifyReproducedEvidenceTests(unittest.TestCase):
             "reproductionResultSchemaVersion": "1",
             "packageId": "x",
             "status": "PASS",
-            "softwareVersion": "0.4.0",
+            "softwareVersion": "0.5.0",
             "referenceConfiguration": {
                 "aiSentinelVersion": "0.3.0",
                 "scorerVersion": "0.3.0",

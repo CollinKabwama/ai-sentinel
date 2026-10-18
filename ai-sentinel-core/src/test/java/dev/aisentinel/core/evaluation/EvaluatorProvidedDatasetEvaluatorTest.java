@@ -41,7 +41,7 @@ class EvaluatorProvidedDatasetEvaluatorTest {
         assertThat(kit).contains("\"datasetSource\":\"evaluator-provided\"");
         assertThat(kit).contains("\"datasetId\":\"byo.minimal.labeled.001\"");
         assertThat(kit).contains("\"evaluationRunId\":\"evalrun.");
-        assertThat(kit).contains("\"softwareVersion\":\"0.4.0\"");
+        assertThat(kit).contains("\"softwareVersion\":\"0.5.0\"");
         assertThat(kit).contains("\"aiSentinelVersion\":\"0.3.0\"");
         assertThat(kit).doesNotContain("\"aiSentinelBuildId\"");
         assertThat(kit).doesNotContain("\"seed\"");

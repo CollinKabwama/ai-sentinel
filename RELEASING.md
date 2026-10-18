@@ -116,7 +116,7 @@ mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am
 Fix any test or build failures before continuing. Run `mvn clean verify` **twice**. Characterization
 and architecture gates are included in that command — see [`docs/testing.md`](docs/testing.md).
 The `api-compatibility` profile compares published library modules against
-`aisentinel.api.compatibility.oldVersion` (currently **0.3.0** for the published **0.4.0** line) via japicmp.
+`aisentinel.api.compatibility.oldVersion` (currently **0.4.0** for the **0.5.0** packaging line) via japicmp.
 After a later release is published, retarget that property to the newly published version when appropriate.
 
 Confirm MONITOR-first guidance is still accurate in [`docs/deployment.md`](docs/deployment.md) and
@@ -129,7 +129,7 @@ Central **release** publishing rejects `-SNAPSHOT` versions. Update the parent a
 
 ```bash
 # Example with the versions plugin (adjust newVersion as needed):
-# mvn versions:set -DnewVersion=0.4.0 -DgenerateBackupPoms=false
+# mvn versions:set -DnewVersion=0.5.0 -DgenerateBackupPoms=false
 # Or edit the <version> in the parent pom.xml and each module's parent reference.
 ```
 
@@ -174,15 +174,15 @@ Artifacts usually appear on Maven Central within minutes; search indexing can ta
 ### 5. Tag and push
 
 ```bash
-git tag -a v0.4.0 -m "Release 0.4.0"
-git push origin v0.4.0
+git tag -a v0.5.0 -m "Release 0.5.0"
+git push origin v0.5.0
 ```
 
-Commit the version bump on `main` if it is not already committed. Use the same version string you publish. The current published Maven Central line is **0.4.0** (tag `v0.4.0`); previous published line is **0.3.0** (tag `v0.3.0`).
+Commit the version bump on `main` if it is not already committed. Use the same version string you publish. The current packaging line is **0.5.0**; previous published Central line is **0.4.0** (tag `v0.4.0`).
 
 ### 6. Bump to the next development version (optional)
 
-After the tag, set versions to the next development line (for example `0.4.1-SNAPSHOT` if you enable SNAPSHOT publishing, or simply `0.4.1`) so day-to-day work does not reuse a published release version.
+After the tag, set versions to the next development line (for example `0.5.1-SNAPSHOT` if you enable SNAPSHOT publishing, or simply `0.5.1`) so day-to-day work does not reuse a published release version.
 
 ---
 
