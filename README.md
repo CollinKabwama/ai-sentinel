@@ -53,13 +53,13 @@ Component boundaries and data flow: [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 **Prerequisites:** Java 21 (the supported and CI-tested JDK) and Maven 3.8+. Optional: Docker for Redis-backed tests; .NET 8 SDK for `dotnet/`.
 
-Add the starter (current release **0.4.0**, [Maven Central](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.4.0)):
+Add the starter (current release **0.5.0**, [Maven Central](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.5.0)):
 
 ```xml
 <dependency>
     <groupId>dev.aisentinel</groupId>
     <artifactId>ai-sentinel-spring-boot-starter</artifactId>
-    <version>0.4.0</version>
+    <version>0.5.0</version>
 </dependency>
 ```
 

@@ -8,6 +8,29 @@ for the published library line.
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-10-18
+
+Engineering capability packaging of the Evaluation Kit, evidence/reproduction
+tooling, MONITOR pilot-readiness workflow, and post-`0.4.0` reliability and
+security hardening.
+
+This is a **pre-1.0 capability release**. It does **not** claim production
+detection efficacy, production ENFORCE readiness, completed external pilot
+evidence, scorer ranking, or production model activation.
+
+**Recommended initial deployment mode remains `MONITOR`.** Prefer
+`ai.sentinel.mode=MONITOR` until operators complete application-specific
+validation. Enabling `ENFORCE` remains an explicit operator decision.
+
+Invariant reminder:
+
+`SYNTHETIC EVALUATION != PRODUCTION EFFICACY` · `REPRODUCTION PASS != EXTERNAL VALIDATION` ·
+`PILOT TOOLING != PILOT EVIDENCE` · `SHADOW RESULT != PRODUCTION DECISION` ·
+`PROMOTED != PRODUCTION DEPLOYED`
+
+See also: [`docs/migration.md`](docs/migration.md) · [`docs/evaluation/RUNNING_EVALUATIONS.md`](docs/evaluation/RUNNING_EVALUATIONS.md) ·
+[`docs/deployment.md`](docs/deployment.md) · [`docs/testing.md`](docs/testing.md)
+
 ### Added
 
 - **Evaluation Kit contracts** — Scenario, generated-corpus manifest, ground-truth sidecar, evaluation-result, and reproducibility contracts with JSON Schemas, fixtures, and a validator (`scripts/validate-evaluation-kit-contracts.sh`). See [`docs/contracts/EVALUATION_KIT.md`](docs/contracts/EVALUATION_KIT.md).
@@ -48,6 +71,28 @@ for the published library line.
 - Documented ASP.NET / Java remote-response forward-compatibility and failure semantics in [`dotnet/README.md`](dotnet/README.md) and [`docs/migration.md`](docs/migration.md).
 - Clarified distributed Redis coverage / claim boundaries and trust-fallback divergence limits in [`docs/deployment.md`](docs/deployment.md) and operator entry docs.
 - Simplified and aligned project documentation around canonical architecture, security, configuration, deployment, evaluation, and integration references ([`docs/README.md`](docs/README.md)).
+- Public evaluator and experiment contributor guides: [`docs/evaluation/RUNNING_EVALUATIONS.md`](docs/evaluation/RUNNING_EVALUATIONS.md) and [`docs/evaluation/CREATING_EXPERIMENTS.md`](docs/evaluation/CREATING_EXPERIMENTS.md), with contributor and GitHub template alignment.
+
+### Compatibility / Migration
+
+- **Additive** Evaluation Kit, pilot, and evidence tooling. Ordinary starter usage does not require configuring these paths.
+- **No intentional public API removals** relative to published **0.4.0**. Binary/source compatibility is validated with japicmp against **0.4.0**.
+- Remote evaluation API-key and credential-header rejection is stricter on invalid requests; happy-path clients are unaffected.
+- Upgrade notes: [`docs/migration.md`](docs/migration.md).
+
+### Known limitations
+
+- Production-ready ENFORCE without real-traffic validation is **not** claimed
+- Production candidate/model activation (rewiring the authoritative runtime scorer) is **not** included
+- Pilot evidence remains required for operational production claims (`PILOT_EVIDENCE_REQUIRED`)
+- Partner / production latency evidence remains open
+- Level-3 offline Isolation Forest comparison remains limited by tiny/homogeneous training (documented)
+- Automatic baseline relearning is not offered
+- Fail-closed request path is not offered
+- WebFlux / reactive servlet adapter is not included
+- Isolation Forest per-feature attribution / SHAP is not included
+- Formal JMH / SLA certification is not included
+- Kafka trainer real-broker E2E is not included
 
 ## [0.4.0] — 2026-09-19
 
@@ -287,7 +332,8 @@ See also: [`docs/migration.md`](docs/migration.md) · [`docs/deployment.md`](doc
 Initial Maven Central library line: Spring Boot starter, framework-independent scoring core,
 local MONITOR/ENFORCE deployment, optional Isolation Forest and distributed integrations.
 
-[Unreleased]: https://github.com/CollinKabwama/ai-sentinel/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/CollinKabwama/ai-sentinel/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/CollinKabwama/ai-sentinel/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/CollinKabwama/ai-sentinel/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/CollinKabwama/ai-sentinel/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/CollinKabwama/ai-sentinel/compare/v0.1.0...v0.2.0

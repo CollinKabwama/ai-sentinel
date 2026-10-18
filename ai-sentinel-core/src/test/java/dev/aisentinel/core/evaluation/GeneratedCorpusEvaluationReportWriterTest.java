@@ -48,7 +48,7 @@ class GeneratedCorpusEvaluationReportWriterTest {
         assertThat(kit).contains("\"resultSchemaVersion\":\"1\"");
         assertThat(kit).contains("\"resultId\":\"result." + result.provenance().corpusId() + "\"");
         assertThat(kit).contains("\"evaluationRunId\":\"evalrun.");
-        assertThat(kit).contains("\"softwareVersion\":\"0.4.0\"");
+        assertThat(kit).contains("\"softwareVersion\":\"0.5.0\"");
         assertThat(kit).contains("\"aiSentinelVersion\":\"0.3.0\"");
         assertThat(kit).doesNotContain("\"aiSentinelBuildId\"");
         assertThat(kit).contains("\"status\":\"completed_with_limitations\"");

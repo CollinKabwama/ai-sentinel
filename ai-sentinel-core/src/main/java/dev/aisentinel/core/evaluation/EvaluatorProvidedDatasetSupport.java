@@ -82,7 +82,7 @@ final class EvaluatorProvidedDatasetSupport {
             EvaluationDatasetSchemas.DATASET_SCHEMA_VERSION,
             provenance.datasetId(),
             Instant.parse("1970-01-01T00:00:00Z"),
-            "0.4.0",
+            "0.5.0",
             provenance.featureSchemaVersion(),
             provenance.evaluationEventSchemaVersion(),
             provenance.eventCount(),

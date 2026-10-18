@@ -90,7 +90,7 @@ If a maintainer designates an issue as **hotfix**, **security**, or **release-bl
 
 ### Releases
 
-Maintainers merge `dev` → `main` and tag releases (for example [`v0.4.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.4.0)). After promoting a release, keep `dev` and `main` tips aligned. Contributors do not manage releases.
+Maintainers merge `dev` → `main` and tag releases (for example [`v0.5.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.5.0) after publication; previous [`v0.4.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.4.0)). After promoting a release, keep `dev` and `main` tips aligned. Contributors do not manage releases.
 
 ---
 
@@ -137,7 +137,7 @@ Optional **public API compatibility** check against the japicmp baseline (`0.3.0
 mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am verify -DskipTests
 ```
 
-CI runs this profile after the main reactor verify. For the **0.4.0** line, japicmp compares published modules against **0.3.0** (`aisentinel.api.compatibility.oldVersion`). Prior intentional 0.2.0-era excludes were removed when that baseline was retargeted.
+CI runs this profile after the main reactor verify. For the **0.5.0** line, japicmp compares published modules against **0.4.0** (`aisentinel.api.compatibility.oldVersion`). Prior intentional 0.2.0-era excludes were removed when that baseline was retargeted.
 
 Running a single module in isolation only works when its dependencies are already installed with matching sources:
 

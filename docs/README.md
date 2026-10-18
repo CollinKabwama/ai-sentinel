@@ -60,7 +60,7 @@ Performance evidence is separate from detection evidence: the performance refere
 
 ## Candidate scorer lifecycle
 
-Opt-in engineering capability packaged in **0.4.0**. None of these steps changes the running production scorer (`PROMOTED LIFECYCLE CHAMPION != RUNNING PRODUCTION SCORER`).
+Opt-in engineering capability packaged in **0.4.0** (still available in **0.5.0**). None of these steps changes the running production scorer (`PROMOTED LIFECYCLE CHAMPION != RUNNING PRODUCTION SCORER`).
 
 1. [`contracts/SCORER_ARTIFACT.md`](contracts/SCORER_ARTIFACT.md) — descriptor and integrity metadata
 2. [`contracts/SCORER_CANDIDATE_LOADING.md`](contracts/SCORER_CANDIDATE_LOADING.md) — verified-bytes load and readiness
@@ -70,4 +70,4 @@ Opt-in engineering capability packaged in **0.4.0**. None of these steps changes
 
 ## Versions
 
-Current published release: **0.4.0** ([release notes](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.4.0)). Previous: **0.3.0** ([release notes](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)). Historical performance evidence belongs to the 0.3.0 line.
+Current packaging line: **0.5.0** ([CHANGELOG](../CHANGELOG.md)). Previous published Central release: **0.4.0** ([release notes](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.4.0)). Historical performance evidence belongs to the 0.3.0 line.

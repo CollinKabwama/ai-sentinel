@@ -54,7 +54,7 @@ final class CorpusArtifactWriter {
         try (EvaluationDatasetWriter writer = new EvaluationDatasetWriter(
             outputDirectory,
             corpusId,
-            "0.4.0",
+            "0.5.0",
             scenario.featureSchemaVersion(),
             "1",
             CorpusGeneratorSchemas.SOURCE_CLASSIFICATION,

@@ -4,7 +4,7 @@
   "artifacts": [
     {
       "path": "kit-evaluation-result.json",
-      "sha256": "47aad2befdd43ece13f685853ef31c42fa9e83c7080fd6f5f535a74f355ed43b",
+      "sha256": "d3e6caefeb521c7f47bf73258426f25fedad9a2c598329f6fd4c2cc800166eea",
       "sizeBytes": 2335
     },
     {
@@ -24,7 +24,7 @@
     },
     {
       "path": "evaluation-report.html",
-      "sha256": "5f35779aa17100f536db87658783bca1426601a618da84d8fa818327b1ada519",
+      "sha256": "990a786d8369d088b95db45706e7f464d9bcae824cea8b721f50695830f245fc",
       "sizeBytes": 12477
     }
   ]
