@@ -110,11 +110,47 @@ public class SentinelProperties {
     private Identity identity = new Identity();
 
     /**
+     * Bounded MONITOR-mode pilot evidence collection ({@code ai.sentinel.pilot.*}).
+     * Disabled by default. Supported only for Spring Boot / Servlet + MONITOR.
+     */
+    @Valid
+    private Pilot pilot = new Pilot();
+
+    /**
      * Remote / local evaluation executor and optional authenticated evaluation endpoint
      * ({@code ai.sentinel.evaluation.*}). Default remains local-only with no network calls.
      */
     @Valid
     private Evaluation evaluation = new Evaluation();
+
+    /**
+     * Local-file MONITOR pilot observation collection.
+     * Not a deployment or customer integration surface.
+     */
+    @Data
+    public static class Pilot {
+        /**
+         * When true, collect pilot-scoped pseudonymized observations to a local directory
+         * while {@link Mode#MONITOR} is active under supported wiring.
+         */
+        private boolean enabled = false;
+        /**
+         * Operator-selected local output directory for this pilot session.
+         * Must be empty or non-existent; refuse overwrite of prior pilot evidence.
+         */
+        private String outputDirectory = "";
+        /**
+         * Optional operator-provided session id. When blank, a UUID is generated at startup.
+         */
+        private String sessionId = "";
+        /**
+         * HMAC-SHA256 secret for pilot-scoped identity pseudonyms.
+         * Inject via environment / secret store (e.g. {@code AI_SENTINEL_PILOT_PSEUDONYMIZATION_SECRET}).
+         * Never commit production values. Never logged or written to evidence.
+         */
+        @lombok.ToString.Exclude
+        private String pseudonymizationSecret = "";
+    }
 
     @Data
     public static class Evaluation {

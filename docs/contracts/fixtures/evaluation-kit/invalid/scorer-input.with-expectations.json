@@ -1,0 +1,26 @@
+{
+  "scorerId": "statistical-baseline",
+  "scorerVersion": "1",
+  "featureSchemaVersion": "1",
+  "features": {
+    "requestsPerWindow": 12.0,
+    "endpointEntropy": 0.4,
+    "endpointConcentration": 0.7,
+    "tokenAgeSeconds": -1.0,
+    "parameterCount": 2,
+    "payloadSizeBytes": 128,
+    "headerFingerprintHash": 123456789,
+    "ipBucket": 42
+  },
+  "evaluationExpectations": {
+    "assertions": [
+      {
+        "assertionId": "leak",
+        "kind": "detection_labeled",
+        "statement": "Must not appear in scorer input."
+      }
+    ]
+  },
+  "desiredAnomalyScore": 0.9,
+  "expectedAction": "BLOCK"
+}

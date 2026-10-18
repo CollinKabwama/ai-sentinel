@@ -1,0 +1,23 @@
+{
+  "resultSchemaVersion": "1",
+  "resultId": "result.byo.invalid.has-scenarioId",
+  "status": "completed",
+  "provenance": {
+    "datasetSource": "evaluator-provided",
+    "datasetId": "byo.example.invalid.scenarioId",
+    "datasetSchemaVersion": "1",
+    "eventsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "featureSchemaVersion": "1",
+    "evaluationEventSchemaVersion": "1",
+    "representationMode": "feature-level",
+    "aiSentinelVersion": "0.4.0",
+    "scenarioId": "kit.fabricated.v1",
+    "corpusSchemaVersion": "1"
+  },
+  "metricFamilies": {
+    "structural": {
+      "availability": "unavailable",
+      "reason": "invalid fixture"
+    }
+  }
+}

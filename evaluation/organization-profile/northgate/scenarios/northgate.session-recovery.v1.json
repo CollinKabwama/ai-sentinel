@@ -1,0 +1,58 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "northgate.session-recovery.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Northgate recovery after anomalous burst",
+  "description": "Fictional Northgate organization-profile synthetic scenario: normal → anomalous burst → authored recovery to baseline. Recovery boundary is scenario-authored, not scorer-derived. Not a real organization. Synthetic evaluation only.",
+  "population": {
+    "identityCount": 4,
+    "identityKeyPrefix": "northgate-rc-",
+    "notes": "Fictional pseudonymous identities only: northgate-rc-001 = stable integration (burst/recovery subject); northgate-rc-002..004 = interactive. Not real users."
+  },
+  "normalBehavior": {
+    "summary": "Normal SaaS/API behavior before a transient anomalous burst and after an authored recovery boundary.",
+    "endpointKeys": [
+      "/api/v1/records",
+      "/api/v1/records/{id}",
+      "/api/v1/search",
+      "/api/v1/export",
+      "/api/v1/account",
+      "/api/v1/auth/refresh"
+    ]
+  },
+  "timing": {
+    "warmup": {
+      "durationSeconds": 48,
+      "notes": "Baseline/state-building: 48 ticks with 4 rotating identities → 12 observations per identity before evaluation."
+    },
+    "evaluation": {
+      "durationSeconds": 32,
+      "notes": "Early evaluation-normal, anomalous burst, then recovery in the final third per existing recovery compiler semantics."
+    }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-northgate-burst-then-recover",
+      "intent": "anomalous",
+      "summary": "Transient anomalous burst before authored recovery to established-normal behavior.",
+      "startsAfterWarmupSeconds": 8
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only. Recovery boundary is authored by the recovery family compiler (final third), not by detector output.",
+    "assertions": [
+      {
+        "assertionId": "a-northgate-recovery-present",
+        "kind": "temporal",
+        "statement": "Evaluation window includes anomalous transition then recovery conditions with recovery authored as benign."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "recovery",
+    "profileId": "northgate",
+    "profileClassification": "fictional-organization-profile-synthetic",
+    "authoringNote": "Fictional Northgate profile scenario. Uses existing recovery family (not a session-anomaly extension)."
+  }
+}

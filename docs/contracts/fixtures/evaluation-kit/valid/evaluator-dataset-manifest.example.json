@@ -1,0 +1,20 @@
+{
+  "datasetSchemaVersion": "1",
+  "datasetId": "byo.example.minimal.001",
+  "featureSchemaVersion": "1",
+  "evaluationEventSchemaVersion": "1",
+  "representationMode": "feature-level",
+  "ordering": "append-order",
+  "events": {
+    "role": "events",
+    "path": "events.jsonl",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "annotations": {
+    "role": "annotations",
+    "path": "annotations.json",
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "eventCount": 4,
+  "notes": "Representative evaluator-provided dataset manifest. No generator seed or build identity."
+}

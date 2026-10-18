@@ -1,0 +1,44 @@
+# Keep Evaluation Kit image builds focused on core sources and reactor POMs.
+.git
+.github
+.idea
+.vscode
+*.iml
+**/.DS_Store
+
+**/target/
+**/bin/
+**/out/
+**/.classpath
+**/.project
+**/.settings/
+
+# Local evaluation outputs and large checked-in evidence trees are not runtime image contents.
+evaluation/
+review/
+docs/planning/
+docs/archive/
+docs/detection/
+
+# Non-core modules are represented by POM stubs copied explicitly; exclude their sources/tests.
+ai-sentinel-spring-boot-starter/src/
+ai-sentinel-trainer/src/
+ai-sentinel-demo/src/
+ai-sentinel-benchmark/src/
+ai-sentinel-benchmark/results/
+
+dotnet/
+node_modules/
+*.log
+*.tmp
+tmp/
+.temp/
+
+# Secrets / local credentials must never enter the build context.
+**/.env
+**/.env.*
+**/credentials*
+**/secrets*
+**/*id_rsa*
+**/.m2/
+**/settings.xml

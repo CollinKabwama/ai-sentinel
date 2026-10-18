@@ -58,6 +58,7 @@ public final class RemoteEvaluationClient {
         // Isolated copy: do not configure/mutate the caller-provided mapper.
         ObjectMapper responseMapper = this.objectMapper.copy();
         responseMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        responseMapper.configure(DeserializationFeature.FAIL_ON_NUMBERS_FOR_ENUMS, true);
         this.evaluationResponseReader = responseMapper.readerFor(EvaluationResponse.class);
         this.metrics = metrics != null ? metrics : SentinelMetrics.NOOP;
 

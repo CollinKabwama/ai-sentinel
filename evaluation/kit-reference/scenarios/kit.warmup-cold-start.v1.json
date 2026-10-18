@@ -1,0 +1,43 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "kit.warmup-cold-start.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Warmup / cold-start behavior",
+  "description": "Minimal warmup then early evaluation ticks that represent cold-start / low-observation conditions. Synthetic only.",
+  "population": {
+    "identityCount": 2,
+    "identityKeyPrefix": "cs-id-",
+    "notes": "Pseudonymous identities only."
+  },
+  "normalBehavior": {
+    "summary": "Low observation counts during short warmup and early evaluation.",
+    "endpointKeys": ["/api/a", "/api/b"]
+  },
+  "timing": {
+    "warmup": { "durationSeconds": 1, "notes": "Minimal baseline formation." },
+    "evaluation": { "durationSeconds": 6, "notes": "Includes cold-start shaped early ticks." }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-cold-start-eval",
+      "intent": "legitimate",
+      "summary": "Evaluate under cold-start shaped traffic.",
+      "startsAfterWarmupSeconds": 0
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only.",
+    "assertions": [
+      {
+        "assertionId": "a-cold-start-present",
+        "kind": "temporal",
+        "statement": "Early evaluation events are categorized as cold-start conditions."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "warmup-cold-start",
+    "authoringNote": "Versioned Kit reference scenario."
+  }
+}

@@ -3,9 +3,9 @@
 Properties use Spring Boot relaxed binding (`ai.sentinel.*`, `aisentinel.trainer.*`). See **`SentinelProperties`** and **`TrainerProperties`** in the codebase for validation rules.
 
 **Operator deployment modes, MONITOR-first adoption, ENFORCE preconditions, and restart/cold-start:** [`deployment.md`](deployment.md).  
-Upgrade notes (**0.3.0 → 0.4.0**, and earlier **0.2.x → 0.3.0**): [`migration.md`](migration.md). Release notes: [`../CHANGELOG.md`](../CHANGELOG.md).
+Upgrade notes (**0.4.0 → 0.5.0**, and earlier **0.3.0 → 0.4.0** / **0.2.x → 0.3.0**): [`migration.md`](migration.md). Release notes: [`../CHANGELOG.md`](../CHANGELOG.md).
 
-Packaging version is **0.4.0**. The previously published Maven Central line is **0.3.0** (tag `v0.3.0`) until **0.4.0** is authorized for Central. The japicmp API-compatibility baseline is **0.3.0**.
+Current packaging line is **0.5.0**. Previous published Maven Central line: **0.4.0** (tag `v0.4.0`). The japicmp API-compatibility baseline for **0.5.0** is **0.4.0**.
 
 This page is organized as:
 
@@ -112,6 +112,15 @@ Legend: **Required?** = needed for a working filter once `enabled=true`. **Advan
 | `ai.sentinel.trusted-proxies` | empty | HTTP adapter | No | Yes |
 | `ai.sentinel.startup-grace-period` | `0` | core | No | Yes |
 
+### MONITOR pilot evidence (optional)
+
+| Property | Default | Category | Required? | Advanced? |
+|----------|---------|----------|-----------|-----------|
+| `ai.sentinel.pilot.enabled` | `false` | pilot | No | Yes — see [`evaluation/MONITOR_MODE_PILOT.md`](evaluation/MONITOR_MODE_PILOT.md) |
+| `ai.sentinel.pilot.output-directory` | _(empty)_ | pilot | Yes when enabled | Yes |
+| `ai.sentinel.pilot.session-id` | _(generated)_ | pilot | No | Yes |
+| `ai.sentinel.pilot.pseudonymization-secret` | _(empty)_ | pilot | Yes when enabled | Yes — inject via env/secret store |
+
 ### Enforcement
 
 | Property | Default | Category | Required? | Advanced? |
@@ -167,6 +176,18 @@ Legend: **Required?** = needed for a working filter once `enabled=true`. **Advan
 |----------|---------|----------|-----------|-----------|
 | `ai.sentinel.telemetry.*` | `ANOMALY_ONLY` | observability | No | Yes |
 
+To expose the Sentinel actuator endpoint alongside Prometheus:
+
+```yaml
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus,sentinel
+```
+
+`/actuator/sentinel` omits identity and request identifiers. Meter and field reference: [`../ARCHITECTURE.md`](../ARCHITECTURE.md#11-observability).
+
 ### Remote evaluation (optional)
 
 Default remains **local** evaluation with no network calls. Remote mode is additive.
@@ -182,7 +203,7 @@ Default remains **local** evaluation with no network calls. Remote mode is addit
 | `ai.sentinel.evaluation.client.read-timeout` | `2s` | Read timeout |
 | `ai.sentinel.evaluation.client.require-https` | `true` | Non-HTTPS rejected except loopback HTTP for local tests |
 
-Remote transport failures are **fail-open** with status `REMOTE_EVALUATION_FAILURE` (not high risk). There is **no automatic retry** of evaluation POSTs.
+Remote transport/client failures yield status `REMOTE_EVALUATION_FAILURE` and **fail-open proceed** (not high risk; **not** a trusted engine `ALLOW`). There is **no automatic retry** of evaluation POSTs. Details: [`../SECURITY.md`](../SECURITY.md), [`../dotnet/README.md`](../dotnet/README.md).
 
 **ASP.NET Core clients:** the reference adapter in [`dotnet/README.md`](../dotnet/README.md) maps `AiSentinel:*` settings to the same endpoint and `X-AI-Sentinel-Api-Key` header. Server-side properties above apply to the Java host exposing the evaluation API.
 
@@ -198,6 +219,10 @@ Remote transport failures are **fail-open** with status `REMOTE_EVALUATION_FAILU
 |----------|---------|--------|
 | `ai.sentinel.enabled` | `true` | Master switch |
 | `ai.sentinel.mode` | `MONITOR` | `OFF` (full filter bypass), `MONITOR` (score/learn/observe; **no client denial** — **default**), `ENFORCE` (client denial enabled; requires explicit configuration). See [`deployment.md`](deployment.md). |
+| `ai.sentinel.pilot.enabled` | `false` | When true, collect bounded MONITOR pilot observations to a local directory. Requires `mode=MONITOR`, HMAC secret, empty output directory, training publish OFF, and default MonitorOnly enforcement wiring. See [`evaluation/MONITOR_MODE_PILOT.md`](evaluation/MONITOR_MODE_PILOT.md). |
+| `ai.sentinel.pilot.output-directory` | _(empty)_ | Local session directory (must be empty or non-existent; refuse overwrite). |
+| `ai.sentinel.pilot.session-id` | _(empty)_ | Optional operator session id; UUID generated when blank. |
+| `ai.sentinel.pilot.pseudonymization-secret` | _(empty)_ | HMAC-SHA256 secret (≥16 UTF-8 bytes). Inject via env/secret store; never commit; never written to evidence. |
 | `ai.sentinel.exclude-paths` | actuator, health, static, favicon | Comma-separated Ant-style patterns |
 | `ai.sentinel.block-status-code` | `429` | HTTP status written on BLOCK / throttle-exhaust / quarantine responses |
 | `ai.sentinel.quarantine-duration-ms` | `300000` | Local quarantine TTL in milliseconds |
@@ -450,7 +475,7 @@ Guidance:
 * Idle TTL eviction still runs under maxKeys; capacity eviction removes oldest-access keys when over cap.
 * Prefer authenticating clients so identity is stable (reduces IP churn).
 * Monitor actuator / metrics for map sizes where exposed; watch GC and RSS under load.
-* Defaults were **not** lowered in this release — changing them is an operator decision.
+* Changing the defaults is an operator decision; the library does not tune them automatically.
 
 ### Isolation Forest (demo)
 

@@ -1,0 +1,43 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "kit.identity-session-transition.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Identity / session transition",
+  "description": "Abrupt identity key transition in the evaluation window. Synthetic only.",
+  "population": {
+    "identityCount": 2,
+    "identityKeyPrefix": "it-id-",
+    "notes": "Pseudonymous identities only."
+  },
+  "normalBehavior": {
+    "summary": "Single primary identity during warmup before an identity transition.",
+    "endpointKeys": ["/api/a", "/api/b"]
+  },
+  "timing": {
+    "warmup": { "durationSeconds": 4, "notes": "Baseline formation window." },
+    "evaluation": { "durationSeconds": 6, "notes": "Includes identity transition." }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-identity-switch",
+      "intent": "anomalous",
+      "summary": "Switch to a different identity key mid-evaluation.",
+      "startsAfterWarmupSeconds": 2
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only.",
+    "assertions": [
+      {
+        "assertionId": "a-identity-switch",
+        "kind": "structural",
+        "statement": "Evaluation window includes identity-session-transition conditions."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "identity-session-transition",
+    "authoringNote": "Versioned Kit reference scenario."
+  }
+}

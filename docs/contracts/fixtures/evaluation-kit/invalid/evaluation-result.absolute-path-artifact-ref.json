@@ -1,0 +1,19 @@
+{
+  "resultSchemaVersion": "1",
+  "resultId": "result.example",
+  "status": "completed",
+  "provenance": {
+    "scenarioId": "kit.example.warmup-then-burst",
+    "scenarioVersion": "1.0.0",
+    "corpusId": "corpus.example",
+    "corpusSchemaVersion": "1",
+    "seed": "42",
+    "generatorContractVersion": "1",
+    "generatorBuildId": "build",
+    "featureSchemaVersion": "1",
+    "evaluationEventSchemaVersion": "1",
+    "aiSentinelVersion": "0.4.0"
+  },
+  "metricFamilies": {},
+  "eventInspectionRef": "/Users/example/event-inspection.json"
+}

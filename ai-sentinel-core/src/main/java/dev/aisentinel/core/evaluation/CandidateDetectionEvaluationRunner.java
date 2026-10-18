@@ -281,12 +281,91 @@ public final class CandidateDetectionEvaluationRunner {
     }
 
     static void rejectOfficialBaselineDirectory(Path outputDirectory) {
-        String asString = outputDirectory.toAbsolutePath().normalize().toString().replace('\\', '/');
-        if (asString.endsWith("/evaluation/detection-reference-baseline")
-            || asString.contains("/evaluation/detection-reference-baseline/")) {
+        if (isProtectedEvidenceDestination(outputDirectory)) {
             throw new IllegalArgumentException(
-                "candidate evaluation must not write to the Official Detection Reference Baseline directory");
+                "candidate evaluation must not write to protected accepted/reference evidence locations");
         }
+    }
+
+    static boolean isProtectedEvidenceDestination(Path outputDirectory) {
+        Path normalized = outputDirectory.toAbsolutePath().normalize();
+        if (isProtectedNormalizedPath(normalized)) {
+            return true;
+        }
+        Path resolved = resolveExistingPrefix(normalized);
+        return isProtectedNormalizedPath(resolved);
+    }
+
+    private static final List<Path> PROTECTED_EVIDENCE_PATHS = List.of(
+        Path.of("evaluation", "detection-reference-baseline"),
+        Path.of("evaluation", "reference"),
+        Path.of("docs", "performance")
+    );
+
+    private static boolean isProtectedNormalizedPath(Path candidate) {
+        Path repositoryRoot = repositoryRoot();
+        if (repositoryRoot != null) {
+            for (Path relative : PROTECTED_EVIDENCE_PATHS) {
+                if (candidate.startsWith(repositoryRoot.resolve(relative).normalize())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return containsProtectedSubpath(candidate);
+    }
+
+    private static Path resolveExistingPrefix(Path path) {
+        if (Files.exists(path)) {
+            return realPathOrNormalized(path);
+        }
+        List<Path> suffix = new ArrayList<>();
+        Path current = path;
+        while (current != null && !Files.exists(current)) {
+            suffix.add(0, current.getFileName());
+            current = current.getParent();
+        }
+        if (current == null) {
+            return path;
+        }
+        Path resolved = realPathOrNormalized(current);
+        for (Path element : suffix) {
+            resolved = resolved.resolve(element);
+        }
+        return resolved.normalize();
+    }
+
+    private static Path realPathOrNormalized(Path path) {
+        try {
+            return path.toRealPath().normalize();
+        } catch (IOException ignored) {
+            return path.toAbsolutePath().normalize();
+        }
+    }
+
+    private static Path repositoryRoot() {
+        Path current = Path.of("").toAbsolutePath().normalize();
+        while (current != null) {
+            if (Files.exists(current.resolve("pom.xml"))
+                && Files.isDirectory(current.resolve("evaluation"))
+                && Files.isDirectory(current.resolve("docs"))) {
+                return current;
+            }
+            current = current.getParent();
+        }
+        return null;
+    }
+
+    private static boolean containsProtectedSubpath(Path candidate) {
+        for (Path relative : PROTECTED_EVIDENCE_PATHS) {
+            int protectedCount = relative.getNameCount();
+            for (int start = 0; start <= candidate.getNameCount() - protectedCount; start++) {
+                if (candidate.subpath(start, start + protectedCount).equals(relative)) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private static void deleteRecursively(Path path) throws IOException {

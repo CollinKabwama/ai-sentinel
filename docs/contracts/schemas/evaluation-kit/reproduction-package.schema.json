@@ -1,0 +1,122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aisentinel.dev/schemas/evaluation-kit/reproduction-package.schema.json",
+  "title": "Evaluation Kit Independent Reproduction Package Manifest",
+  "description": "Declares what Level-1 repository-controlled Evaluation Kit evidence to regenerate and how to verify it. Repository-relative input paths are locators only; content identity is events/annotations SHA-256.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "reproductionSchemaVersion",
+    "packageId",
+    "description",
+    "softwareVersion",
+    "referenceConfiguration",
+    "anomalyThreshold",
+    "targets"
+  ],
+  "properties": {
+    "reproductionSchemaVersion": {
+      "const": "1"
+    },
+    "packageId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "description": {
+      "type": "string",
+      "minLength": 1
+    },
+    "softwareVersion": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString",
+      "description": "Packaging software version expected in reproduced Kit provenance."
+    },
+    "referenceConfiguration": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aiSentinelVersion", "scorerVersion", "policyVersion"],
+      "properties": {
+        "aiSentinelVersion": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "scorerVersion": { "type": "string" },
+        "policyVersion": { "type": "string" }
+      }
+    },
+    "anomalyThreshold": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "targets": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/target" }
+    }
+  },
+  "$defs": {
+    "target": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetId",
+        "inputType",
+        "corpusId",
+        "corpusPath",
+        "eventsSha256",
+        "annotationsSha256",
+        "expectedResultId",
+        "expectedEvaluationRunId",
+        "expectedDigestsRef",
+        "structuralExpectations"
+      ],
+      "properties": {
+        "targetId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "inputType": { "const": "generated-corpus" },
+        "corpusId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "corpusPath": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Repository-relative locator only. Not content identity.",
+          "pattern": "^(?!/)(?!.*://)(?!.*\\.\\.).+$"
+        },
+        "eventsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+        "annotationsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+        "expectedResultId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "expectedEvaluationRunId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "expectedDigestsRef": {
+          "type": "string",
+          "minLength": 1,
+          "pattern": "^(?!/)(?!.*://)(?!.*\\.\\.).+$",
+          "description": "Package-relative path to expected artifact digest file."
+        },
+        "structuralExpectations": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "eventCount",
+            "warmupEvents",
+            "labeledEvaluationEvents",
+            "labeledBenignEvents",
+            "labeledAnomalousEvents",
+            "detectionLabeledAvailability",
+            "truePositives",
+            "trueNegatives",
+            "falsePositives",
+            "falseNegatives"
+          ],
+          "properties": {
+            "eventCount": { "type": "integer", "minimum": 0 },
+            "warmupEvents": { "type": "integer", "minimum": 0 },
+            "labeledEvaluationEvents": { "type": "integer", "minimum": 0 },
+            "labeledBenignEvents": { "type": "integer", "minimum": 0 },
+            "labeledAnomalousEvents": { "type": "integer", "minimum": 0 },
+            "detectionLabeledAvailability": {
+              "$ref": "common.schema.json#/$defs/metricAvailability"
+            },
+            "truePositives": { "type": "integer", "minimum": 0 },
+            "trueNegatives": { "type": "integer", "minimum": 0 },
+            "falsePositives": { "type": "integer", "minimum": 0 },
+            "falseNegatives": { "type": "integer", "minimum": 0 }
+          }
+        }
+      }
+    }
+  }
+}

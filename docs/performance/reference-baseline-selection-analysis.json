@@ -1,0 +1,817 @@
+{
+  "selection": "Three controlled reference-profile JMH runs. SampleTime latency: official percentiles from the run whose p50 is closest to the median p50 across runs (mean used as tie-break). Isolation Forest fallback uses mean because SampleTime p50 hits timer resolution floor (~0 ns). Throughput: official mean from the run closest to the median mean ops/s across runs.",
+  "results": [
+    {
+      "id": "dev.aisentinel.benchmark.jmh.DecisionEngineBenchmark.evaluate|sample|workload=abruptDeviation",
+      "benchmark": "evaluate",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.DecisionEngineBenchmark.evaluate",
+      "mode": "sample",
+      "params": {
+        "workload": "abruptDeviation"
+      },
+      "unit": "ns/op",
+      "selectedRun": 3,
+      "selectionPrimary": "p50",
+      "medianPrimary": 542.0,
+      "ratioMaxMin": 1.0,
+      "mean": 757.251279568675,
+      "p50": 542.0,
+      "p95": 667.0,
+      "p99": 1542.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 796.8469418028449,
+          "p50": 542.0,
+          "p95": 667.0,
+          "p99": 1792.0
+        },
+        {
+          "run": 2,
+          "mean": 625.3334974873247,
+          "p50": 542.0,
+          "p95": 625.0,
+          "p99": 1166.0
+        },
+        {
+          "run": 3,
+          "mean": 757.251279568675,
+          "p50": 542.0,
+          "p95": 667.0,
+          "p99": 1542.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.DecisionEngineBenchmark.evaluate|sample|workload=establishedBaseline",
+      "benchmark": "evaluate",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.DecisionEngineBenchmark.evaluate",
+      "mode": "sample",
+      "params": {
+        "workload": "establishedBaseline"
+      },
+      "unit": "ns/op",
+      "selectedRun": 3,
+      "selectionPrimary": "p50",
+      "medianPrimary": 542.0,
+      "ratioMaxMin": 1.0,
+      "mean": 676.428795281033,
+      "p50": 542.0,
+      "p95": 625.0,
+      "p99": 1290.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 599.283284545738,
+          "p50": 542.0,
+          "p95": 583.0,
+          "p99": 750.0
+        },
+        {
+          "run": 2,
+          "mean": 678.5148503753179,
+          "p50": 542.0,
+          "p95": 625.0,
+          "p99": 1332.0
+        },
+        {
+          "run": 3,
+          "mean": 676.428795281033,
+          "p50": 542.0,
+          "p95": 625.0,
+          "p99": 1290.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.DecisionEngineBenchmark.evaluate|sample|workload=invalidScore",
+      "benchmark": "evaluate",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.DecisionEngineBenchmark.evaluate",
+      "mode": "sample",
+      "params": {
+        "workload": "invalidScore"
+      },
+      "unit": "ns/op",
+      "selectedRun": 1,
+      "selectionPrimary": "p50",
+      "medianPrimary": 292.0,
+      "ratioMaxMin": 1.0,
+      "mean": 356.51201707281245,
+      "p50": 292.0,
+      "p95": 334.0,
+      "p99": 708.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 356.51201707281245,
+          "p50": 292.0,
+          "p95": 334.0,
+          "p99": 708.0
+        },
+        {
+          "run": 2,
+          "mean": 342.5128739305435,
+          "p50": 292.0,
+          "p95": 334.0,
+          "p99": 542.0
+        },
+        {
+          "run": 3,
+          "mean": 397.89625336611635,
+          "p50": 292.0,
+          "p95": 375.0,
+          "p99": 709.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.DecisionEngineBenchmark.evaluate|sample|workload=warmupSparse",
+      "benchmark": "evaluate",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.DecisionEngineBenchmark.evaluate",
+      "mode": "sample",
+      "params": {
+        "workload": "warmupSparse"
+      },
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "selectionPrimary": "p50",
+      "medianPrimary": 458.0,
+      "ratioMaxMin": 1.0,
+      "mean": 496.28129474566316,
+      "p50": 458.0,
+      "p95": 500.0,
+      "p99": 708.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 488.29170524641046,
+          "p50": 458.0,
+          "p95": 500.0,
+          "p99": 584.0
+        },
+        {
+          "run": 2,
+          "mean": 496.28129474566316,
+          "p50": 458.0,
+          "p95": 500.0,
+          "p99": 708.0
+        },
+        {
+          "run": 3,
+          "mean": 513.5369329552755,
+          "p50": 458.0,
+          "p95": 541.0,
+          "p99": 917.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.FeatureExtractionBenchmark.extract|sample|requestShape=largerValid",
+      "benchmark": "extract",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.FeatureExtractionBenchmark.extract",
+      "mode": "sample",
+      "params": {
+        "requestShape": "largerValid"
+      },
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "selectionPrimary": "p50",
+      "medianPrimary": 417.0,
+      "ratioMaxMin": 1.0,
+      "mean": 460.92423804512015,
+      "p50": 417.0,
+      "p95": 541.0,
+      "p99": 958.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 450.8845446364243,
+          "p50": 417.0,
+          "p95": 459.0,
+          "p99": 584.0
+        },
+        {
+          "run": 2,
+          "mean": 460.92423804512015,
+          "p50": 417.0,
+          "p95": 541.0,
+          "p99": 958.0
+        },
+        {
+          "run": 3,
+          "mean": 635.9016161597925,
+          "p50": 417.0,
+          "p95": 542.0,
+          "p99": 1208.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.FeatureExtractionBenchmark.extract|sample|requestShape=small",
+      "benchmark": "extract",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.FeatureExtractionBenchmark.extract",
+      "mode": "sample",
+      "params": {
+        "requestShape": "small"
+      },
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "selectionPrimary": "p50",
+      "medianPrimary": 209.0,
+      "ratioMaxMin": 1.196,
+      "mean": 250.71713758028503,
+      "p50": 209.0,
+      "p95": 250.0,
+      "p99": 334.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 250.2421758051929,
+          "p50": 209.0,
+          "p95": 250.0,
+          "p99": 334.0
+        },
+        {
+          "run": 2,
+          "mean": 250.71713758028503,
+          "p50": 209.0,
+          "p95": 250.0,
+          "p99": 334.0
+        },
+        {
+          "run": 3,
+          "mean": 287.4197843370191,
+          "p50": 250.0,
+          "p95": 291.0,
+          "p99": 500.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.FeatureExtractionBenchmark.extract|sample|requestShape=typical",
+      "benchmark": "extract",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.FeatureExtractionBenchmark.extract",
+      "mode": "sample",
+      "params": {
+        "requestShape": "typical"
+      },
+      "unit": "ns/op",
+      "selectedRun": 1,
+      "selectionPrimary": "p50",
+      "medianPrimary": 292.0,
+      "ratioMaxMin": 1.0,
+      "mean": 379.50532070174876,
+      "p50": 292.0,
+      "p95": 417.0,
+      "p99": 709.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 379.50532070174876,
+          "p50": 292.0,
+          "p95": 417.0,
+          "p99": 709.0
+        },
+        {
+          "run": 2,
+          "mean": 347.7136540645789,
+          "p50": 292.0,
+          "p95": 334.0,
+          "p99": 417.0
+        },
+        {
+          "run": 3,
+          "mean": 386.3169210502777,
+          "p50": 292.0,
+          "p95": 417.0,
+          "p99": 750.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.IdentityCardinalityBenchmark.scoreRotatingIdentities|sample|identityCount=1",
+      "benchmark": "scoreRotatingIdentities",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.IdentityCardinalityBenchmark.scoreRotatingIdentities",
+      "mode": "sample",
+      "params": {
+        "identityCount": "1"
+      },
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "selectionPrimary": "p50",
+      "medianPrimary": 83.0,
+      "ratioMaxMin": 1.0,
+      "mean": 74.51046766538651,
+      "p50": 83.0,
+      "p95": 84.0,
+      "p99": 125.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 69.05191267887103,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 84.0
+        },
+        {
+          "run": 2,
+          "mean": 74.51046766538651,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 125.0
+        },
+        {
+          "run": 3,
+          "mean": 74.62077515333421,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 125.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.IdentityCardinalityBenchmark.scoreRotatingIdentities|sample|identityCount=100",
+      "benchmark": "scoreRotatingIdentities",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.IdentityCardinalityBenchmark.scoreRotatingIdentities",
+      "mode": "sample",
+      "params": {
+        "identityCount": "100"
+      },
+      "unit": "ns/op",
+      "selectedRun": 1,
+      "selectionPrimary": "p50",
+      "medianPrimary": 84.0,
+      "ratioMaxMin": 1.012,
+      "mean": 111.70979151817534,
+      "p50": 84.0,
+      "p95": 125.0,
+      "p99": 125.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 111.70979151817534,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 125.0
+        },
+        {
+          "run": 2,
+          "mean": 101.16341493724369,
+          "p50": 83.0,
+          "p95": 125.0,
+          "p99": 166.0
+        },
+        {
+          "run": 3,
+          "mean": 117.82838568256972,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 208.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.IdentityCardinalityBenchmark.scoreRotatingIdentities|sample|identityCount=1000",
+      "benchmark": "scoreRotatingIdentities",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.IdentityCardinalityBenchmark.scoreRotatingIdentities",
+      "mode": "sample",
+      "params": {
+        "identityCount": "1000"
+      },
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "selectionPrimary": "p50",
+      "medianPrimary": 84.0,
+      "ratioMaxMin": 1.0,
+      "mean": 113.88755495671066,
+      "p50": 84.0,
+      "p95": 125.0,
+      "p99": 167.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 108.65937376438026,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 166.0
+        },
+        {
+          "run": 2,
+          "mean": 113.88755495671066,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 167.0
+        },
+        {
+          "run": 3,
+          "mean": 127.73291616496437,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 208.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.IdentityCardinalityBenchmark.scoreRotatingIdentities|sample|identityCount=10000",
+      "benchmark": "scoreRotatingIdentities",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.IdentityCardinalityBenchmark.scoreRotatingIdentities",
+      "mode": "sample",
+      "params": {
+        "identityCount": "10000"
+      },
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "selectionPrimary": "p50",
+      "medianPrimary": 84.0,
+      "ratioMaxMin": 1.0,
+      "mean": 123.00021922750491,
+      "p50": 84.0,
+      "p95": 125.0,
+      "p99": 167.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 121.39180405272477,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 208.0
+        },
+        {
+          "run": 2,
+          "mean": 123.00021922750491,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 167.0
+        },
+        {
+          "run": 3,
+          "mean": 485.20333941447313,
+          "p50": 84.0,
+          "p95": 125.0,
+          "p99": 250.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.PipelineBenchmark.processLatencyOneThread|sample|",
+      "benchmark": "processLatencyOneThread",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.PipelineBenchmark.processLatencyOneThread",
+      "mode": "sample",
+      "params": {},
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "selectionPrimary": "p50",
+      "medianPrimary": 792.0,
+      "ratioMaxMin": 1.052,
+      "mean": 886.4869564293474,
+      "p50": 792.0,
+      "p95": 958.0,
+      "p99": 1334.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 869.8478216479137,
+          "p50": 792.0,
+          "p95": 958.0,
+          "p99": 1250.0
+        },
+        {
+          "run": 2,
+          "mean": 886.4869564293474,
+          "p50": 792.0,
+          "p95": 958.0,
+          "p99": 1334.0
+        },
+        {
+          "run": 3,
+          "mean": 949.8021570768864,
+          "p50": 833.0,
+          "p95": 1000.0,
+          "p99": 1958.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.PipelineBenchmark.processThroughputFourThreads|thrpt|",
+      "benchmark": "processThroughputFourThreads",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.PipelineBenchmark.processThroughputFourThreads",
+      "mode": "thrpt",
+      "params": {},
+      "unit": "ops/s",
+      "selectedRun": 2,
+      "selectionPrimary": "mean",
+      "medianPrimary": 1697635.7396331287,
+      "ratioMaxMin": 1.433,
+      "mean": 1697635.7396331287,
+      "p50": 1723072.3999415594,
+      "p95": 1904619.5279793264,
+      "p99": 1904619.5279793264,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 1837818.8372006223,
+          "p50": 1827948.6222494321,
+          "p95": 1911733.5550494548,
+          "p99": 1911733.5550494548
+        },
+        {
+          "run": 2,
+          "mean": 1697635.7396331287,
+          "p50": 1723072.3999415594,
+          "p95": 1904619.5279793264,
+          "p99": 1904619.5279793264
+        },
+        {
+          "run": 3,
+          "mean": 1282195.2266604593,
+          "p50": 1294231.664613396,
+          "p95": 1348472.0043905242,
+          "p99": 1348472.0043905242
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.PipelineBenchmark.processThroughputOneThread|thrpt|",
+      "benchmark": "processThroughputOneThread",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.PipelineBenchmark.processThroughputOneThread",
+      "mode": "thrpt",
+      "params": {},
+      "unit": "ops/s",
+      "selectedRun": 2,
+      "selectionPrimary": "mean",
+      "medianPrimary": 1161083.7241026205,
+      "ratioMaxMin": 1.105,
+      "mean": 1161083.7241026205,
+      "p50": 1165761.7284532762,
+      "p95": 1181908.2255344226,
+      "p99": 1181908.2255344226,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 1212671.386780768,
+          "p50": 1214633.0777296922,
+          "p95": 1222798.8303501708,
+          "p99": 1222798.8303501708
+        },
+        {
+          "run": 2,
+          "mean": 1161083.7241026205,
+          "p50": 1165761.7284532762,
+          "p95": 1181908.2255344226,
+          "p99": 1181908.2255344226
+        },
+        {
+          "run": 3,
+          "mean": 1097783.4625885922,
+          "p50": 1098842.7588673513,
+          "p95": 1152532.9132333815,
+          "p99": 1152532.9132333815
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.PipelineBenchmark.processThroughputSixteenThreads|thrpt|",
+      "benchmark": "processThroughputSixteenThreads",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.PipelineBenchmark.processThroughputSixteenThreads",
+      "mode": "thrpt",
+      "params": {},
+      "unit": "ops/s",
+      "selectedRun": 3,
+      "selectionPrimary": "mean",
+      "medianPrimary": 1530235.98948068,
+      "ratioMaxMin": 1.017,
+      "mean": 1530235.98948068,
+      "p50": 1501621.7137633688,
+      "p95": 1613555.1225912827,
+      "p99": 1613555.1225912827,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 1551271.592526998,
+          "p50": 1621869.138033437,
+          "p95": 1657472.060827404,
+          "p99": 1657472.060827404
+        },
+        {
+          "run": 2,
+          "mean": 1524956.2625688757,
+          "p50": 1533803.6625682604,
+          "p95": 1557249.1387586351,
+          "p99": 1557249.1387586351
+        },
+        {
+          "run": 3,
+          "mean": 1530235.98948068,
+          "p50": 1501621.7137633688,
+          "p95": 1613555.1225912827,
+          "p99": 1613555.1225912827
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score|sample|scorerKind=compositeStatisticalOnly",
+      "benchmark": "score",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score",
+      "mode": "sample",
+      "params": {
+        "scorerKind": "compositeStatisticalOnly"
+      },
+      "unit": "ns/op",
+      "selectedRun": 1,
+      "selectionPrimary": "p50",
+      "medianPrimary": 83.0,
+      "ratioMaxMin": 1.0,
+      "mean": 87.71263101266997,
+      "p50": 83.0,
+      "p95": 84.0,
+      "p99": 166.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 87.71263101266997,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 166.0
+        },
+        {
+          "run": 2,
+          "mean": 85.2802171092308,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 125.0
+        },
+        {
+          "run": 3,
+          "mean": 94.14053586475865,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 167.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score|sample|scorerKind=compositeWithIf",
+      "benchmark": "score",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score",
+      "mode": "sample",
+      "params": {
+        "scorerKind": "compositeWithIf"
+      },
+      "unit": "ns/op",
+      "selectedRun": 3,
+      "selectionPrimary": "p50",
+      "medianPrimary": 250.0,
+      "ratioMaxMin": 1.0,
+      "mean": 285.718998463234,
+      "p50": 250.0,
+      "p95": 292.0,
+      "p99": 583.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 262.9463863227102,
+          "p50": 250.0,
+          "p95": 292.0,
+          "p99": 334.0
+        },
+        {
+          "run": 2,
+          "mean": 296.24963217728896,
+          "p50": 250.0,
+          "p95": 292.0,
+          "p99": 625.0
+        },
+        {
+          "run": 3,
+          "mean": 285.718998463234,
+          "p50": 250.0,
+          "p95": 292.0,
+          "p99": 583.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score|sample|scorerKind=isolationForestFallback",
+      "benchmark": "score",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score",
+      "mode": "sample",
+      "params": {
+        "scorerKind": "isolationForestFallback"
+      },
+      "unit": "ns/op",
+      "selectedRun": 1,
+      "selectionPrimary": "mean",
+      "medianPrimary": 19.254151431910504,
+      "ratioMaxMin": 1.124,
+      "mean": 19.254151431910504,
+      "p50": 0.0,
+      "p95": 42.0,
+      "p99": 42.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 19.254151431910504,
+          "p50": 0.0,
+          "p95": 42.0,
+          "p99": 42.0
+        },
+        {
+          "run": 2,
+          "mean": 19.004262601669048,
+          "p50": 0.0,
+          "p95": 42.0,
+          "p99": 42.0
+        },
+        {
+          "run": 3,
+          "mean": 21.367969758072473,
+          "p50": 0.0,
+          "p95": 42.0,
+          "p99": 42.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score|sample|scorerKind=isolationForestModel",
+      "benchmark": "score",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score",
+      "mode": "sample",
+      "params": {
+        "scorerKind": "isolationForestModel"
+      },
+      "unit": "ns/op",
+      "selectedRun": 2,
+      "selectionPrimary": "p50",
+      "medianPrimary": 167.0,
+      "ratioMaxMin": 1.0,
+      "mean": 201.57756375882113,
+      "p50": 167.0,
+      "p95": 209.0,
+      "p99": 250.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 213.27950804112606,
+          "p50": 167.0,
+          "p95": 250.0,
+          "p99": 417.0
+        },
+        {
+          "run": 2,
+          "mean": 201.57756375882113,
+          "p50": 167.0,
+          "p95": 209.0,
+          "p99": 250.0
+        },
+        {
+          "run": 3,
+          "mean": 197.38490706351848,
+          "p50": 167.0,
+          "p95": 209.0,
+          "p99": 291.0
+        }
+      ]
+    },
+    {
+      "id": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score|sample|scorerKind=statistical",
+      "benchmark": "score",
+      "fullBenchmark": "dev.aisentinel.benchmark.jmh.ScorerLatencyBenchmark.score",
+      "mode": "sample",
+      "params": {
+        "scorerKind": "statistical"
+      },
+      "unit": "ns/op",
+      "selectedRun": 1,
+      "selectionPrimary": "p50",
+      "medianPrimary": 83.0,
+      "ratioMaxMin": 1.0,
+      "mean": 102.8901946240547,
+      "p50": 83.0,
+      "p95": 84.0,
+      "p99": 125.0,
+      "runs": [
+        {
+          "run": 1,
+          "mean": 102.8901946240547,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 125.0
+        },
+        {
+          "run": 2,
+          "mean": 76.2021823417234,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 125.0
+        },
+        {
+          "run": 3,
+          "mean": 112.06880590193902,
+          "p50": 83.0,
+          "p95": 84.0,
+          "p99": 125.0
+        }
+      ]
+    }
+  ]
+}

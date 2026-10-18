@@ -1,0 +1,62 @@
+{
+  "comparisonSchemaVersion": "1",
+  "comparisonId": "comparison.metric-delta.example",
+  "status": "completed",
+  "limitations": [],
+  "baseline": {
+    "datasetSource": "evaluator-provided",
+    "datasetId": "dataset.example",
+    "eventsSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "annotationsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "representationMode": "feature-level",
+    "resultId": "result.baseline",
+    "eventCount": 1,
+    "anomalyThreshold": 0.5
+  },
+  "candidate": {
+    "datasetSource": "evaluator-provided",
+    "datasetId": "dataset.example",
+    "eventsSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "annotationsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "representationMode": "feature-level",
+    "resultId": "result.candidate",
+    "eventCount": 1,
+    "anomalyThreshold": 0.6
+  },
+  "compatibility": {
+    "comparable": true,
+    "sameDataset": true,
+    "thresholdEqual": false,
+    "notes": []
+  },
+  "metricChanges": [{
+    "family": "detectionLabeled",
+    "metric": "precision",
+    "baselineAvailability": "available",
+    "candidateAvailability": "available",
+    "availabilityChange": "unchanged",
+    "baselineValue": 0.5,
+    "candidateValue": 0.75,
+    "delta": 0.25
+  }],
+  "countChanges": [],
+  "correctnessTransitions": {
+    "TP_TO_FN": 0,
+    "FN_TO_TP": 0,
+    "TN_TO_FP": 0,
+    "FP_TO_TN": 0,
+    "TP_TO_TP": 1,
+    "TN_TO_TN": 0,
+    "FP_TO_FP": 0,
+    "FN_TO_FN": 0
+  },
+  "eventChanges": [],
+  "summary": {
+    "eventsCompared": 1,
+    "eventsWithChanges": 0,
+    "newFalsePositives": 0,
+    "newFalseNegatives": 0
+  },
+  "htmlReportRef": "comparison.html",
+  "notes": "Factual deltas only; not a winner or deployment decision."
+}

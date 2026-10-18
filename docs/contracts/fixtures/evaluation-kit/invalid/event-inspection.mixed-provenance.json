@@ -1,0 +1,9 @@
+{
+  "inspectionSchemaVersion": "1",
+  "datasetSource": "evaluator-provided",
+  "datasetId": "byo.example.mixed",
+  "corpusId": "corpus.fabricated",
+  "scenarioId": "kit.fabricated.v1",
+  "eventCount": 0,
+  "events": []
+}

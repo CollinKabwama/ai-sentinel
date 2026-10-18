@@ -1,0 +1,43 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "kit.recovery.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Recovery after anomalous burst",
+  "description": "Anomalous burst followed by return to established-normal behavior. Synthetic only.",
+  "population": {
+    "identityCount": 2,
+    "identityKeyPrefix": "rc-id-",
+    "notes": "Pseudonymous identities only."
+  },
+  "normalBehavior": {
+    "summary": "Normal behavior before and after a transient anomalous burst.",
+    "endpointKeys": ["/api/a", "/api/b"]
+  },
+  "timing": {
+    "warmup": { "durationSeconds": 4, "notes": "Baseline formation window." },
+    "evaluation": { "durationSeconds": 6, "notes": "Burst then recovery." }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-burst-then-recover",
+      "intent": "anomalous",
+      "summary": "Transient anomalous burst before recovery.",
+      "startsAfterWarmupSeconds": 1
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only.",
+    "assertions": [
+      {
+        "assertionId": "a-recovery-present",
+        "kind": "temporal",
+        "statement": "Evaluation window includes burst then recovery conditions."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "recovery",
+    "authoringNote": "Versioned Kit reference scenario."
+  }
+}

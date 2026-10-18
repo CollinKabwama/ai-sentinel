@@ -1,18 +1,71 @@
-# Migrating to AI-Sentinel 0.4.0
+# Migrating to AI-Sentinel 0.5.0
 
-This guide covers upgrading from the published **0.3.0** line to **0.4.0**. Notes for **0.2.0 / unreleased 0.2.1 → 0.3.0** and **0.1.0 → 0.2.0** remain below.
+This guide covers upgrading from the published **0.4.0** line to **0.5.0**. Notes for **0.3.0 → 0.4.0**, **0.2.0 / unreleased 0.2.1 → 0.3.0**, and **0.1.0 → 0.2.0** remain below.
 
-**0.4.0** is the packaging line for candidate-scorer integration, observational shadow scoring, and lifecycle-governance designation. Central publication of **0.4.0** requires separate release authorization after review; until then, prefer a source/local install of this repository. Published Central remains **0.3.0** ([tag `v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)) until that authorization completes.
+**0.5.0** is the current packaging line for the Evaluation Kit, evidence/reproduction tooling, MONITOR pilot-readiness workflow, and post-`0.4.0` reliability/security hardening ([CHANGELOG](../CHANGELOG.md)). Previous published Central line: **0.4.0** ([tag `v0.4.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.4.0), [Maven Central](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.4.0)).
 
 **Recommended first deployment mode remains `MONITOR`.** Do not enable `ENFORCE` based on synthetic suites alone — see [`deployment.md`](deployment.md).
 
-`VALIDATED CANDIDATE ARTIFACT != RUNTIME-AVAILABLE CANDIDATE != EVALUATED != APPROVED != SHADOW != CHAMPION != PRODUCTION` · `PROMOTED != PRODUCTION DEPLOYED`
+`SYNTHETIC EVALUATION != PRODUCTION EFFICACY` · `PILOT TOOLING != PILOT EVIDENCE` · `SHADOW RESULT != PRODUCTION DECISION` · `PROMOTED != PRODUCTION DEPLOYED`
 
-For the full user-facing change list, see the root [`CHANGELOG.md`](../CHANGELOG.md).
+For the full user-facing change list, see the root [`CHANGELOG.md`](../CHANGELOG.md). Evaluator entry: [`RUNNING_EVALUATIONS.md`](evaluation/RUNNING_EVALUATIONS.md).
 
 ---
 
-## Dependency version (0.4.0)
+## Dependency version (0.5.0)
+
+```xml
+<dependency>
+  <groupId>dev.aisentinel</groupId>
+  <artifactId>ai-sentinel-spring-boot-starter</artifactId>
+  <version>0.5.0</version>
+</dependency>
+```
+
+Maven Central: [`dev.aisentinel:ai-sentinel-spring-boot-starter:0.5.0`](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.5.0) (after publication).
+Local `mvn clean install` is only needed when building from source.
+
+---
+
+## 0.4.0 → 0.5.0
+
+### What changes for ordinary starter users
+
+- Default operating mode remains **`MONITOR`**.
+- No intentional public API removals relative to **0.4.0**.
+- Optional Redis/Kafka integrations remain optional.
+- You do **not** need to configure Evaluation Kit paths, MONITOR pilot export, or candidate lifecycle for ordinary runtime scoring.
+
+### What is new (opt-in engineering capability)
+
+- Evaluation Kit: contracts, deterministic corpus generation, kit-reference corpora, CLI/reports, containerized evaluator, evaluator-provided datasets, comparison, Level-1 reproduction, Level-3 same-framework detector comparison, Northgate fictional organization-profile corpora
+- MONITOR-mode pilot evidence workflow (`ai.sentinel.pilot.*`) and external evaluator handoff docs — tooling only; not completed pilot evidence
+- Reproducible-build verification for published module JARs
+- Cross-runtime remote-evaluation reliability fixtures/tests and same-version multi-client Redis consistency validation
+
+### Security / remote client notes
+
+- Remote evaluation rejects missing, blank, duplicate/ambiguous, and incorrect `X-AI-Sentinel-Api-Key` values without echoing secrets.
+- `EvaluationRequest` rejects credential-bearing header keys and non-presence `authorization` values on the wire contract.
+- Java `RemoteEvaluationClient` rejects numeric enum ordinals in responses so an unknown action cannot map to a trusted `ALLOW`.
+
+### Suggested upgrade checklist
+
+1. Bump the starter dependency to `0.5.0`.
+2. Leave `ai.sentinel.mode=MONITOR` unless you already run an explicit ENFORCE posture.
+3. Do not enable pilot export, shadow scoring, or lifecycle governance unless you intentionally operate those engineering paths.
+4. Re-run the reactor gate ([`testing.md`](testing.md)).
+5. Review Actuator / telemetry in staging before any ENFORCE decision.
+
+---
+
+## Migrating to AI-Sentinel 0.4.0 (historical)
+
+This section covers upgrading from the published **0.3.0** line to **0.4.0**.
+
+**0.4.0** packaged candidate-scorer integration, observational shadow scoring, and lifecycle-governance designation ([GitHub Release](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.4.0), [Maven Central](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.4.0)).
+
+### Dependency version (0.4.0)
 
 ```xml
 <dependency>
@@ -22,31 +75,16 @@ For the full user-facing change list, see the root [`CHANGELOG.md`](../CHANGELOG
 </dependency>
 ```
 
-Until Central publication is authorized, install from this repository (`mvn clean install`) or depend on the previously published [`0.3.0`](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.3.0) coordinate if you do not need 0.4.0 APIs.
-
----
-
-## 0.3.0 → 0.4.0
-
-### What changes for ordinary starter users
+### 0.3.0 → 0.4.0
 
 - Default operating mode remains **`MONITOR`**.
 - No intentional public API removals relative to **0.3.0**.
-- Optional Redis/Kafka integrations remain optional.
-- You do **not** need to configure candidate scorers, shadow scoring, or lifecycle governance for ordinary runtime scoring.
+- Optional candidate artifact validation / loading / offline evaluation / observational shadow / lifecycle designation-only promotion.
+- These paths do **not** rewire the authoritative runtime scorer.
 
-### What is new (opt-in engineering capability)
+### Suggested upgrade checklist (0.4.0)
 
-- Candidate artifact validation / verified-bytes loading / readiness
-- Offline candidate replay, detection evaluation, and optional engineering acceptance
-- Explicit opt-in observational shadow scoring (default OFF; does not affect policy/enforcement)
-- Explicit challenger/approval/promotion/rollback for lifecycle champion **designation only**
-
-These paths do **not** rewire the authoritative runtime scorer. See contracts under [`docs/contracts/`](contracts/).
-
-### Suggested upgrade checklist
-
-1. Bump the starter dependency to `0.4.0` (or install from source until Central publish).
+1. Bump the starter dependency to `0.4.0`.
 2. Leave `ai.sentinel.mode=MONITOR` unless you already run an explicit ENFORCE posture.
 3. Do not enable shadow scoring or lifecycle governance unless you intentionally operate those engineering paths.
 4. Re-run the reactor gate ([`testing.md`](testing.md)).
@@ -111,7 +149,16 @@ This is a **behavioral / configuration default** change (not a Java method signa
 
 ### 3. Remote response forward compatibility
 
-Java `RemoteEvaluationClient` ignores unknown additive `EvaluationResponse` JSON fields without mutating a caller-supplied `ObjectMapper`. Malformed known fields still fail open (`ALLOW`, `proceed=true`, no fabricated scores/factors/advice).
+Java `RemoteEvaluationClient` ignores unknown additive `EvaluationResponse` JSON fields without mutating a caller-supplied `ObjectMapper`. The ASP.NET Core reference client does the same via default `System.Text.Json` unmapped-member skipping. Malformed known fields, unsupported `contractVersion`, unknown `action` values, and HTTP auth rejection still yield a client **fail-open proceed** result (`REMOTE_EVALUATION_FAILURE`; hosts may observe `proceed=true` with a synthetic failure action — this is **not** a trusted engine `ALLOW` decision). Auth-rejected responses do not trust a success-shaped body.
+
+Repository-controlled cross-runtime reliability fixtures live under [`dotnet/fixtures/`](../dotnet/fixtures/) and are exercised by both Java and .NET tests. That evidence is **not** production interoperability certification (`Repository cross-runtime evidence ≠ production interoperability`).
+
+Fail-open proceed on the client remains observably distinct from a trusted engine `ALLOW` decision (`REMOTE_EVALUATION_FAILURE ≠ trusted engine ALLOW`).
+
+### 3b. Remote evaluation credential and header hardening
+
+- Server authentication accepts only a single non-blank `X-AI-Sentinel-Api-Key` header value. Missing, blank, duplicate/ambiguous, or incorrect credentials return **401** with a small `{"error":...}` code and never echo the secret.
+- `EvaluationRequest.headers` must not include credential-bearing keys (`cookie`, `set-cookie`, `proxy-authorization`, `x-ai-sentinel-api-key`, `x-api-key`). If `authorization` is present, its value must be the presence sentinel `present` (adapters already map this way).
 
 ### 4. Suggested upgrade checklist
 
@@ -122,7 +169,7 @@ Java `RemoteEvaluationClient` ignores unknown additive `EvaluationResponse` JSON
 5. Re-run integration tests and the characterization release gate ([`testing.md`](testing.md)).
 6. Review Actuator `lastDecision` / evaluation phases in a staging environment before ENFORCE.
 
-You do **not** need to adopt deferred roadmap items (additional detectors, WebFlux, fail-closed profiles, formal SLA tooling) to upgrade.
+Upgrading does not require any capability that is not included in 0.3.0 (for example additional detectors, WebFlux support, fail-closed profiles, or SLA tooling).
 
 ---
 

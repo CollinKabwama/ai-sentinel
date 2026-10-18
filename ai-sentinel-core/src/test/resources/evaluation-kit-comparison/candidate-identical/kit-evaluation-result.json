@@ -1,0 +1,31 @@
+{
+  "resultSchemaVersion": "1",
+  "resultId": "result.candidate",
+  "status": "completed",
+  "limitations": [],
+  "provenance": {
+    "datasetSource": "generated-corpus",
+    "corpusId": "corpus.mini",
+    "corpusEventsSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "annotationsSha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+    "featureSchemaVersion": "1",
+    "evaluationEventSchemaVersion": "1"
+  },
+  "metricFamilies": {
+    "structural": {
+      "availability": "available",
+      "values": { "eventCount": 1, "anomalyThreshold": 0.5 }
+    },
+    "detectionLabeled": {
+      "availability": "available",
+      "values": {
+        "truePositives": 1,
+        "trueNegatives": 0,
+        "falsePositives": 0,
+        "falseNegatives": 0,
+        "precision": 1.0
+      }
+    }
+  },
+  "eventInspectionRef": "event-inspection.json"
+}

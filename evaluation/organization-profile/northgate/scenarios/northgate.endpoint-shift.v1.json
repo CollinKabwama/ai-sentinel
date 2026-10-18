@@ -1,0 +1,58 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "northgate.endpoint-shift.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Northgate endpoint-distribution shift",
+  "description": "Fictional Northgate organization-profile synthetic scenario: behavioral anomaly driven primarily by endpoint-distribution change toward export-heavy traffic at stable approximate volume. Not a real organization. Synthetic evaluation only.",
+  "population": {
+    "identityCount": 4,
+    "identityKeyPrefix": "northgate-ed-",
+    "notes": "Fictional pseudonymous identities only: northgate-ed-001 = stable integration (shift subject); northgate-ed-002..004 = interactive. Not real users."
+  },
+  "normalBehavior": {
+    "summary": "Distributed records/search-heavy SaaS/API traffic during warmup and early evaluation before collapsing onto export.",
+    "endpointKeys": [
+      "/api/v1/export",
+      "/api/v1/records",
+      "/api/v1/records/{id}",
+      "/api/v1/search",
+      "/api/v1/account",
+      "/api/v1/auth/refresh"
+    ]
+  },
+  "timing": {
+    "warmup": {
+      "durationSeconds": 48,
+      "notes": "Baseline/state-building: 48 ticks with 4 rotating identities → 12 observations per identity before evaluation."
+    },
+    "evaluation": {
+      "durationSeconds": 32,
+      "notes": "Early distributed evaluation-normal then endpoint-distribution collapse onto export."
+    }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-northgate-endpoint-shift",
+      "intent": "anomalous",
+      "summary": "Collapse traffic from records/search-heavy mix onto export-heavy single-endpoint behavior.",
+      "startsAfterWarmupSeconds": 12
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only.",
+    "assertions": [
+      {
+        "assertionId": "a-northgate-endpoint-shift",
+        "kind": "structural",
+        "statement": "Post-shift declared window is authored as anomalous endpoint-distribution-change."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "endpoint-distribution-change",
+    "profileId": "northgate",
+    "profileClassification": "fictional-organization-profile-synthetic",
+    "authoringNote": "Fictional Northgate profile scenario. Endpoint list places /api/v1/export first so the existing compiler's collapse target matches the export-heavy narrative."
+  }
+}

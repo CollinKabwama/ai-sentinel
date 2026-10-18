@@ -1,0 +1,43 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "kit.low-variance-deviation.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Low-variance baseline with deviations",
+  "description": "Low-variance baseline followed by small authored feature deviations. Synthetic only.",
+  "population": {
+    "identityCount": 1,
+    "identityKeyPrefix": "lv-id-",
+    "notes": "Pseudonymous identities only."
+  },
+  "normalBehavior": {
+    "summary": "Tight low-variance request pattern on a single endpoint.",
+    "endpointKeys": ["/api/a"]
+  },
+  "timing": {
+    "warmup": { "durationSeconds": 4, "notes": "Low-variance baseline formation." },
+    "evaluation": { "durationSeconds": 6, "notes": "Includes small deviations." }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-deviation",
+      "intent": "anomalous",
+      "summary": "Small progressive deviations from the low-variance baseline.",
+      "startsAfterWarmupSeconds": 2
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only.",
+    "assertions": [
+      {
+        "assertionId": "a-deviation-present",
+        "kind": "temporal",
+        "statement": "Later evaluation events are authored as low-variance-deviation conditions."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "low-variance-deviation",
+    "authoringNote": "Versioned Kit reference scenario."
+  }
+}

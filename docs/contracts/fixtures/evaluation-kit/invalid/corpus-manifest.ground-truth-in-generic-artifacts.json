@@ -1,0 +1,29 @@
+{
+  "corpusSchemaVersion": "1",
+  "corpusId": "corpus.bad.ground-truth-leak",
+  "scenarioId": "kit.example.warmup-then-burst",
+  "scenarioVersion": "1.0.0",
+  "seed": "42",
+  "generatorContractVersion": "1",
+  "generatorBuildId": "aisentinel-corpus-generator@dev+example",
+  "featureSchemaVersion": "1",
+  "evaluationEventSchemaVersion": "1",
+  "representationMode": "feature-level",
+  "artifacts": [
+    {
+      "role": "events",
+      "path": "events.jsonl",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    {
+      "role": "annotations",
+      "path": "annotations.json",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    }
+  ],
+  "timing": {
+    "warmupDurationSeconds": 60,
+    "evaluationDurationSeconds": 120
+  },
+  "notes": "Ground truth must use annotationsArtifact, not the generic detector-facing artifacts array."
+}

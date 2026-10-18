@@ -1,0 +1,22 @@
+{
+  "inspectionSchemaVersion": "1",
+  "corpusId": "corpus.example.warmup-then-burst.001",
+  "scenarioId": "kit.example.warmup-then-burst",
+  "eventCount": 1,
+  "events": [
+    {
+      "sequenceNumber": 1,
+      "observedAt": "2024-01-01T00:00:00Z",
+      "identityKey": "identity-a",
+      "category": "warmup",
+      "expectedClass": "benign",
+      "participation": "warmup",
+      "binaryMetricParticipant": false,
+      "anomalyScore": 0.1,
+      "predictedAnomalous": false,
+      "action": "ALLOW",
+      "evaluationStatuses": [],
+      "outcome": "excluded-warmup"
+    }
+  ]
+}

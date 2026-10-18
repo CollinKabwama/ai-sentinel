@@ -4,7 +4,9 @@
 -
 
 ## Test plan
-- [ ] `mvn clean verify` from the repository root
+- [ ] `mvn clean verify` passes from the repository root
+- [ ] `dotnet test` passes (only when touching `dotnet/` or shared fixtures)
+- [ ] No protected/reference evidence or local experiment outputs were unintentionally committed
 - [ ] Updated docs if behavior or configuration changed
 - [ ] Linked related issues
 

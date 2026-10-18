@@ -27,6 +27,13 @@ public record ReplayDataset(
         return events.size();
     }
 
+    /**
+     * Returns a copy with replaced annotation metadata (evaluation-layer provenance only).
+     */
+    public ReplayDataset withAnnotations(AnnotationMetadata replacement) {
+        return new ReplayDataset(manifest, eventsSha256, events, replacement);
+    }
+
     public record ReplaySourceEvent(
         ReplayInputRecord replayInput,
         HistoricalReferenceOutput historicalOutput

@@ -40,6 +40,7 @@ import dev.aisentinel.core.scoring.CompositeScorer;
 import dev.aisentinel.core.scoring.IsolationForestConfig;
 import dev.aisentinel.core.scoring.IsolationForestScorer;
 import dev.aisentinel.core.scoring.StatisticalScorer;
+import dev.aisentinel.core.scoring.shadow.ShadowScoringExecutor;
 import dev.aisentinel.core.store.BaselineStore;
 import dev.aisentinel.core.metrics.SentinelMetrics;
 import dev.aisentinel.core.telemetry.DefaultTelemetryEmitter;
@@ -51,7 +52,10 @@ import dev.aisentinel.autoconfigure.distributed.training.LoggingTrainingCandidat
 import dev.aisentinel.autoconfigure.distributed.training.TrainingCandidateTransport;
 import dev.aisentinel.autoconfigure.distributed.training.TrainingPublishStatus;
 import dev.aisentinel.autoconfigure.metrics.MicrometerSentinelMetrics;
+import dev.aisentinel.autoconfigure.pilot.PilotEvidenceConfiguration;
 import dev.aisentinel.autoconfigure.web.SentinelFilter;
+import dev.aisentinel.core.pilot.NoopPilotObservationRecorder;
+import dev.aisentinel.core.pilot.PilotObservationRecorder;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import dev.aisentinel.distributed.training.NoopTrainingCandidatePublisher;
 import dev.aisentinel.distributed.training.TrainingCandidatePublisher;
@@ -87,6 +91,7 @@ import java.util.Set;
 @ConditionalOnWebApplication
 @ConditionalOnProperty(name = "ai.sentinel.enabled", havingValue = "true", matchIfMissing = true)
 @EnableConfigurationProperties(SentinelProperties.class)
+@org.springframework.context.annotation.Import(PilotEvidenceConfiguration.class)
 public class SentinelAutoConfiguration {
 
     @Bean
@@ -528,6 +533,84 @@ public class SentinelAutoConfiguration {
                                              ObjectProvider<TrustEvaluator> trustEvaluatorProvider,
                                              ObjectProvider<TrustPolicyAdjuster> trustPolicyAdjusterProvider,
                                              ObjectProvider<IdentityResponseHook> identityResponseHookProvider,
+                                             RequestRiskFusion requestRiskFusion,
+                                             ObjectProvider<PilotObservationRecorder> pilotObservationRecorderProvider) {
+        log.info("Sentinel pipeline configured (mode={})", props.getMode());
+        String nodeId = props.getDistributed().getTrainingPublisherNodeId();
+        if (nodeId == null) {
+            nodeId = "";
+        }
+        IdentityContextResolver identityContextResolver = identityContextResolverProvider.getIfAvailable();
+        if (identityContextResolver == null) {
+            identityContextResolver = NoopIdentityContextResolver.INSTANCE;
+        }
+        TrustEvaluator trustEvaluator = trustEvaluatorProvider.getIfAvailable();
+        if (trustEvaluator == null) {
+            trustEvaluator = NoopTrustEvaluator.INSTANCE;
+        }
+        TrustPolicyAdjuster trustPolicyAdjuster = trustPolicyAdjusterProvider.getIfAvailable();
+        if (trustPolicyAdjuster == null) {
+            trustPolicyAdjuster = NoopTrustPolicyAdjuster.INSTANCE;
+        }
+        IdentityResponseHook identityResponseHook = identityResponseHookProvider.getIfAvailable();
+        if (identityResponseHook == null) {
+            identityResponseHook = NoopIdentityResponseHook.INSTANCE;
+        }
+        PilotObservationRecorder pilotRecorder = pilotObservationRecorderProvider.getIfAvailable();
+        if (pilotRecorder == null) {
+            pilotRecorder = NoopPilotObservationRecorder.INSTANCE;
+        }
+        return new SentinelPipeline(
+            featureExtractor,
+            compositeScorer,
+            compositeScorer,
+            policyEngine,
+            enforcementHandler,
+            telemetry,
+            sentinelStartupGrace,
+            sentinelMetrics,
+            trainingCandidatePublisher,
+            props.getEnforcementScope(),
+            props.getDistributed().getTenantId(),
+            nodeId,
+            props.getMode().name(),
+            identityContextResolver,
+            trustEvaluator,
+            trustPolicyAdjuster,
+            identityResponseHook,
+            requestRiskFusion,
+            props.getWarmupAction(),
+            new ConfigurableBaselineUpdatePolicy(
+                props.getStatistical().getBaselineUpdatePolicy(),
+                props.getStatistical().getBaselineUpdateScoreThreshold()),
+            baselineLifecycle,
+            lastDecisionExplanation,
+            ShadowScoringExecutor.disabled(),
+            pilotRecorder
+        );
+    }
+
+    /**
+     * Source/binary compatibility overload for callers compiled against the
+     * pre-pilot auto-configuration method signature. Spring Boot uses the
+     * {@code @Bean} overload above; this method always supplies the no-op pilot
+     * recorder and does not create a second bean definition.
+     */
+    public SentinelPipeline sentinelPipeline(FeatureExtractor featureExtractor,
+                                             CompositeScorer compositeScorer,
+                                             PolicyEngine policyEngine,
+                                             EnforcementHandler enforcementHandler,
+                                             TelemetryEmitter telemetry,
+                                             StartupGrace sentinelStartupGrace,
+                                             SentinelMetrics sentinelMetrics,
+                                             TrainingCandidatePublisher trainingCandidatePublisher,
+                                             SentinelProperties props,
+                                             BaselineLifecycle baselineLifecycle,
+                                             LastDecisionExplanation lastDecisionExplanation,
+                                             ObjectProvider<IdentityContextResolver> identityContextResolverProvider,
+                                             ObjectProvider<TrustEvaluator> trustEvaluatorProvider,
+                                             ObjectProvider<TrustPolicyAdjuster> trustPolicyAdjusterProvider,
+                                             ObjectProvider<IdentityResponseHook> identityResponseHookProvider,
                                              RequestRiskFusion requestRiskFusion) {
         log.info("Sentinel pipeline configured (mode={})", props.getMode());
         String nodeId = props.getDistributed().getTrainingPublisherNodeId();
@@ -574,7 +657,9 @@ public class SentinelAutoConfiguration {
                 props.getStatistical().getBaselineUpdatePolicy(),
                 props.getStatistical().getBaselineUpdateScoreThreshold()),
             baselineLifecycle,
-            lastDecisionExplanation
+            lastDecisionExplanation,
+            ShadowScoringExecutor.disabled(),
+            NoopPilotObservationRecorder.INSTANCE
         );
     }
 

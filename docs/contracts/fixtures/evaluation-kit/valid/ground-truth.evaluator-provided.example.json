@@ -1,0 +1,21 @@
+{
+  "annotationSchemaVersion": "1",
+  "annotationId": "ann.byo.example.001",
+  "datasetId": "byo.example.minimal.001",
+  "scenarioId": "byo.example.minimal.001",
+  "annotations": [
+    {
+      "eventId": "evt-byo-0001",
+      "scenarioId": "byo.example.minimal.001",
+      "expectedClass": "benign",
+      "category": "warmup"
+    },
+    {
+      "eventId": "evt-byo-0002",
+      "scenarioId": "byo.example.minimal.001",
+      "expectedClass": "anomalous",
+      "category": "burst"
+    }
+  ],
+  "notes": "BYO sidecar uses datasetId instead of corpusId."
+}

@@ -7,9 +7,11 @@ Do not enable `ENFORCE` based on synthetic regression suites alone. Application-
 
 Property defaults (verified): `ai.sentinel.enabled=true`, `ai.sentinel.mode=MONITOR`. **Client denial requires explicit `ai.sentinel.mode=ENFORCE`** after MONITOR validation.
 
-The packaging library line is **0.4.0**. The previously published Central line is **0.3.0** ([Maven Central](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.3.0), tag [`v0.3.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.3.0)) until **0.4.0** Central publication is separately authorized.
+Bounded MONITOR-mode pilot evidence collection (local file sink; not a deployment): [`evaluation/MONITOR_MODE_PILOT.md`](evaluation/MONITOR_MODE_PILOT.md).
 
-Full property tables: [`configuration.md`](configuration.md). Upgrade from **0.3.0** to **0.4.0**: [`migration.md`](migration.md). Validation gates: [`testing.md`](testing.md).
+The current packaging line is **0.5.0**. Previous published Central line: **0.4.0** ([Maven Central](https://central.sonatype.com/artifact/dev.aisentinel/ai-sentinel-spring-boot-starter/0.4.0), tag [`v0.4.0`](https://github.com/CollinKabwama/ai-sentinel/releases/tag/v0.4.0)).
+
+Full property tables: [`configuration.md`](configuration.md). Upgrade from **0.4.0** to **0.5.0**: [`migration.md`](migration.md). Validation gates: [`testing.md`](testing.md).
 Architecture (security model vs Java core vs current adapter) and observability: [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
 
 ---
@@ -254,7 +256,8 @@ These are different controls:
 ## Failure mode profile (availability-first)
 
 **Canonical reference** for how AI-Sentinel behaves when optional or request-path components fail.
-Behavior is **availability-first (fail-open)**: optional and many request-path errors **allow** the client request rather than deny it.
+Behavior is **availability-first (fail-open)**: optional and many request-path errors **fail-open proceed** (application execution continues) rather than deny the client.
+That is **not** the same as a trusted engine `ALLOW` risk decision — especially for remote-client `REMOTE_EVALUATION_FAILURE` results.
 This document describes **current** behavior only — it does **not** invent fail-closed modes.
 
 ### How to read outcomes
@@ -263,10 +266,10 @@ This document describes **current** behavior only — it does **not** invent fai
 |---------------|---------|
 | **Scored ALLOW / policy action** | Complete `RiskDecision`; client outcome follows mode (`MONITOR` never denies; `ENFORCE` may deny). |
 | **Degraded decision** | Complete `RiskDecision` with `EvaluationStatus.DEGRADED`; request continues with partial context. |
-| **Whole-request fail-open** | No complete decision (or filter catch-all); request **allowed**; `FailOpenReason` metrics incremented. |
+| **Whole-request fail-open** | No complete decision (or filter catch-all); request **fail-open proceeds**; `FailOpenReason` metrics incremented. |
 | **Side-path fail-open** | Request outcome unchanged; a side effect (training publish, Redis write, lifecycle hook) was dropped. |
 
-An allowed request is **not** proof of low risk.
+Fail-open proceed is **not** proof of low risk and is **not** a trusted engine `ALLOW` decision.
 
 ### Visibility: metrics vs structured `FailOpen` telemetry
 
@@ -313,7 +316,7 @@ Redis quarantine / throttle / trust fail-open uses **dedicated** meters
 | **Cluster quarantine Redis read failure** | Treated as **not** cluster-quarantined (local quarantine still authoritative) | `aisentinel.distributed.*` meters / degraded gauges | Fail-open |
 | **Cluster quarantine Redis write failure** | Local quarantine **retained**; cluster publish dropped | Distributed meters / debug | Does not roll back local state |
 | **Cluster throttle Redis failure** | Throttle check **allows**; local per-node throttle still runs | Distributed throttle meters | Fail-open |
-| **Distributed trust Redis failure** | Falls back to **in-memory** trust store | Trust Redis meters | In-memory path is `baseline-max-keys`-bounded |
+| **Distributed trust Redis failure** | Falls back to each node's **in-memory** trust store | Trust Redis meters | Nodes may temporarily diverge while Redis is unavailable; fallback observations are not reconciled back into Redis |
 | **Training publish / trainer-side failure** | Request outcome **unchanged** | Training publish failure meters / trainer logs | Async, bounded, fail-open drop |
 | **Identity response hook throw** | Request outcome **unchanged** | Debug log only | After pipeline |
 | **IF local retrain / model registry refresh failure** | Serving continues on last good model or IF fallback mode | Retrain/registry logs and IF score-mode meters | Off request path for registry; does not deny clients |
@@ -322,7 +325,7 @@ Redis quarantine / throttle / trust fail-open uses **dedicated** meters
 
 * Prefer **`MONITOR`** until fail-open rates, `DEGRADED`, and Redis degradation gauges are understood for your traffic.
 * Alert on sustained `aisentinel.failopen.reason` and distributed degraded gauges — not only on denial counts.
-* Do **not** treat “request allowed” as “scored low risk.”
+* Do **not** treat fail-open proceed as “scored low risk” or as a trusted engine `ALLOW`.
 * There is **no** library fail-closed profile today; changing that would be a future product decision, not current behavior.
 
 Related property detail: [`configuration.md`](configuration.md) (fail-open reporting, Redis matrix). Architecture overview: [`../ARCHITECTURE.md`](../ARCHITECTURE.md).
@@ -332,18 +335,21 @@ Related property detail: [`configuration.md`](configuration.md) (fail-open repor
 ## Distributed deployment notes
 
 * Local single-instance behavior is the default and fully exercised in unit/integration tests.
-* Redis quarantine/throttle/trust and Kafka training publish are **optional**, fail-open, and validated with Testcontainers where Docker is available.
+* Redis quarantine/throttle/trust and Kafka training publish are **optional**, fail-open, and validated with Testcontainers / local Docker Redis (`redis:7-alpine`) where Docker is available.
 * Testcontainers / single-JVM suites are **not** a substitute for production multi-process proof.
 
 ### Distributed test coverage (what is / is not proven)
 
 | Area | Automated coverage today | Still untested here |
 |------|--------------------------|---------------------|
-| Cluster quarantine write → Redis → read | Testcontainers single-JVM; second Lettuce client stands in for a peer | Separate OS processes / hosts; rolling restart races across nodes |
-| Cluster throttle | Unit tests with mocked Redis; fail-open paths | Live Redis Testcontainers throttle under concurrent JVMs |
-| Distributed trust baselines | Unit tests with mocked Redis + fail-open fallback | Multi-JVM trust continuity under partition |
+| Cluster quarantine write → Redis → read (A→B) | Testcontainers single-JVM; second Lettuce client stands in for a peer | Separate OS processes / hosts; rolling restart races across nodes |
+| Multi-client Redis state consistency / divergence (same-version) | Dual independent Lettuce clients + ephemeral `redis:7-alpine`: quarantine A↔B + clear + fresh client; identity trust baseline A↔B + raw JSON converge + Lua concurrent updates; cluster throttle shared counter; key-prefix isolation; peer reconnect re-read | Mixed client versions; rolling deploy; multi-process / multi-host; Redis Cluster / HA / partitions |
+| Cluster throttle | Unit tests with mocked Redis; fail-open paths; live dual-client shared counter (above) | Concurrent JVMs / multi-host throttle fairness |
+| Distributed trust baselines | Unit tests with mocked Redis + fail-open fallback; live dual-client continuity (above) | Multi-JVM trust under network partition |
 | Training publish / Kafka | Publisher unit / bounded fail-open tests | Broker E2E across publishers and trainer instances |
 | Multi-host networking / K8s | — | Not in scope of library CI |
+
+**Claim boundary:** repository-controlled same-version multi-client Redis evidence ≠ production Redis reliability, Kubernetes readiness, Redis Cluster validation, rolling-deploy compatibility, mixed-version compatibility, or reconciliation of local fail-open fallback state after Redis recovery.
 
 Operators should validate Redis timeouts, degraded gauges, and peer visibility in **their** topology before relying on ENFORCE with distributed flags.
 

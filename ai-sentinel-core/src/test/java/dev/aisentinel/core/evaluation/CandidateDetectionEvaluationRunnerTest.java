@@ -381,7 +381,7 @@ class CandidateDetectionEvaluationRunnerTest {
             THRESHOLD,
             officialBaselineDirectory()
         )).isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Official Detection Reference Baseline");
+            .hasMessageContaining("protected accepted/reference evidence");
     }
 
     @Test
@@ -394,7 +394,19 @@ class CandidateDetectionEvaluationRunnerTest {
             THRESHOLD,
             officialBaselineDirectory().resolve("candidate-evaluation")
         )).isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("Official Detection Reference Baseline");
+            .hasMessageContaining("protected accepted/reference evidence");
+    }
+
+    @Test
+    void officialBaselineGuardAllowsNearPrefixButRejectsNormalizedEquivalent() {
+        Path root = locateTrackedPath(Path.of("evaluation")).getParent();
+        CandidateDetectionEvaluationRunner.rejectOfficialBaselineDirectory(
+            root.resolve("evaluation/reference-copy/candidate-evaluation"));
+
+        assertThatThrownBy(() -> CandidateDetectionEvaluationRunner.rejectOfficialBaselineDirectory(
+            root.resolve("evaluation/reference/../reference/candidate-evaluation")))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("protected accepted/reference evidence");
     }
 
     @Test

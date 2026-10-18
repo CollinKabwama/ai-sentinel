@@ -1,0 +1,43 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "kit.gradual-drift.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Gradual drift",
+  "description": "Low-and-slow feature drift across the evaluation window after warmup. Synthetic only.",
+  "population": {
+    "identityCount": 2,
+    "identityKeyPrefix": "gd-id-",
+    "notes": "Pseudonymous identities only."
+  },
+  "normalBehavior": {
+    "summary": "Stable baseline during warmup before gradual drift.",
+    "endpointKeys": ["/api/a", "/api/b"]
+  },
+  "timing": {
+    "warmup": { "durationSeconds": 4, "notes": "Baseline formation window." },
+    "evaluation": { "durationSeconds": 6, "notes": "Gradual drift across evaluation ticks." }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-drift",
+      "intent": "anomalous",
+      "summary": "Gradual multi-tick drift in request-rate and related features.",
+      "startsAfterWarmupSeconds": 0
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only.",
+    "assertions": [
+      {
+        "assertionId": "a-drift-window",
+        "kind": "temporal",
+        "statement": "Evaluation events are authored as gradual-drift conditions."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "gradual-drift",
+    "authoringNote": "Versioned Kit reference scenario."
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "eventSchemaVersion": "1",
+  "eventId": "evt-010",
+  "observedAt": "2026-01-15T12:00:30Z",
+  "identityKey": "ex-id-1",
+  "endpointKey": "/api/a",
+  "featureSchemaVersion": "1",
+  "features": {
+    "requestsPerWindow": 12.0,
+    "endpointEntropy": 0.4,
+    "endpointConcentration": 0.7,
+    "tokenAgeSeconds": -1.0,
+    "parameterCount": 2,
+    "payloadSizeBytes": 128,
+    "headerFingerprintHash": 123456789,
+    "ipBucket": 42
+  },
+  "scorerId": "statistical-baseline",
+  "scorerVersion": "1",
+  "anomalyScore": 0.82,
+  "policyScore": 0.55,
+  "action": "MONITOR",
+  "evaluationStatuses": [],
+  "evaluationMode": "REPLAY"
+}

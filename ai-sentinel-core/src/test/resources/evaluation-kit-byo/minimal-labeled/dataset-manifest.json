@@ -1,0 +1,20 @@
+{
+  "datasetSchemaVersion": "1",
+  "datasetId": "byo.minimal.labeled.001",
+  "featureSchemaVersion": "1",
+  "evaluationEventSchemaVersion": "1",
+  "representationMode": "feature-level",
+  "ordering": "append-order",
+  "events": {
+    "role": "events",
+    "path": "events.jsonl",
+    "sha256": "1a96d9b37894c49f9b105bb435f7aefac7e4d9e631153e3e2fa9b29ae947de87"
+  },
+  "annotations": {
+    "role": "annotations",
+    "path": "annotations.json",
+    "sha256": "6d191197d84a4304976d5bda0554b13637c58fd302f755a10daa855afa191138"
+  },
+  "eventCount": 4,
+  "notes": "Tiny labeled BYO fixture."
+}

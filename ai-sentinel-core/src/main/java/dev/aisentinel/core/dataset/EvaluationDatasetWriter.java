@@ -2,6 +2,7 @@ package dev.aisentinel.core.dataset;
 
 import dev.aisentinel.core.contract.ContractRiskFactor;
 import dev.aisentinel.core.contract.EvaluationEvent;
+import dev.aisentinel.core.contract.EvaluationEventJson;
 
 import java.io.BufferedWriter;
 import java.io.IOException;
@@ -194,40 +195,7 @@ final class EvaluationDatasetJson {
     }
 
     static String writeEvent(EvaluationEvent event) {
-        StringBuilder json = new StringBuilder(512);
-        json.append('{');
-        appendString(json, "eventSchemaVersion", event.eventSchemaVersion(), true);
-        appendString(json, "eventId", event.eventId(), false);
-        appendString(json, "observedAt", event.observedAt().toString(), false);
-        appendOptionalString(json, "correlationId", event.correlationId());
-        appendString(json, "identityKey", event.identityKey(), false);
-        appendOptionalString(json, "identityType", event.identityType());
-        appendString(json, "endpointKey", event.endpointKey(), false);
-        appendString(json, "featureSchemaVersion", event.featureSchemaVersion(), false);
-        json.append(",\"features\":{");
-        appendNumber(json, "requestsPerWindow", event.features().requestsPerWindow(), true);
-        appendNumber(json, "endpointEntropy", event.features().endpointEntropy(), false);
-        appendNumber(json, "endpointConcentration", event.features().endpointConcentration(), false);
-        appendNumber(json, "tokenAgeSeconds", event.features().tokenAgeSeconds(), false);
-        appendNumber(json, "parameterCount", event.features().parameterCount(), false);
-        appendNumber(json, "payloadSizeBytes", event.features().payloadSizeBytes(), false);
-        appendNumber(json, "headerFingerprintHash", event.features().headerFingerprintHash(), false);
-        appendNumber(json, "ipBucket", event.features().ipBucket(), false);
-        json.append('}');
-        appendString(json, "scorerId", event.scorerId(), false);
-        appendOptionalString(json, "scorerVersion", event.scorerVersion());
-        appendOptionalNumber(json, "anomalyScore", event.anomalyScore());
-        appendOptionalNumber(json, "policyScore", event.policyScore());
-        appendString(json, "action", event.action().name(), false);
-        appendStringArray(json, "evaluationStatuses", event.evaluationStatuses().stream().map(Enum::name).toList(), false);
-        json.append(",\"riskFactors\":[");
-        appendRiskFactors(json, event.riskFactors());
-        json.append(']');
-        appendOptionalString(json, "policyId", event.policyId());
-        appendOptionalString(json, "policyVersion", event.policyVersion());
-        appendOptionalString(json, "evaluationMode", event.evaluationMode());
-        json.append('}');
-        return json.toString();
+        return EvaluationEventJson.write(event);
     }
 
     static String writeManifest(EvaluationDatasetManifest manifest) {

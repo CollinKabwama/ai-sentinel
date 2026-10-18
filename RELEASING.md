@@ -9,6 +9,7 @@ This project publishes to the **Sonatype Central Portal** (not legacy OSSRH) usi
 | `dev.aisentinel:ai-sentinel` (parent POM) | Yes |
 | `dev.aisentinel:ai-sentinel-core` | Yes |
 | `dev.aisentinel:ai-sentinel-spring-boot-starter` | Yes |
+| `ai-sentinel-benchmark` | No |
 | `ai-sentinel-trainer` | No |
 | `ai-sentinel-demo` | No |
 
@@ -115,7 +116,7 @@ mvn -Papi-compatibility -pl ai-sentinel-core,ai-sentinel-spring-boot-starter -am
 Fix any test or build failures before continuing. Run `mvn clean verify` **twice**. Characterization
 and architecture gates are included in that command — see [`docs/testing.md`](docs/testing.md).
 The `api-compatibility` profile compares published library modules against
-`aisentinel.api.compatibility.oldVersion` (currently **0.3.0** for the **0.4.0** packaging line) via japicmp.
+`aisentinel.api.compatibility.oldVersion` (currently **0.4.0** for the **0.5.0** packaging line) via japicmp.
 After a later release is published, retarget that property to the newly published version when appropriate.
 
 Confirm MONITOR-first guidance is still accurate in [`docs/deployment.md`](docs/deployment.md) and
@@ -128,7 +129,7 @@ Central **release** publishing rejects `-SNAPSHOT` versions. Update the parent a
 
 ```bash
 # Example with the versions plugin (adjust newVersion as needed):
-# mvn versions:set -DnewVersion=0.4.0 -DgenerateBackupPoms=false
+# mvn versions:set -DnewVersion=0.5.0 -DgenerateBackupPoms=false
 # Or edit the <version> in the parent pom.xml and each module's parent reference.
 ```
 
@@ -150,7 +151,7 @@ mvn clean deploy -Prelease -pl ai-sentinel-core,ai-sentinel-spring-boot-starter 
 | `-pl …` | Only core + starter |
 | `-am` | Also build the parent POM |
 
-Trainer and demo are skipped via module properties and `excludeArtifacts` in the parent POM.
+Trainer, demo, and benchmark are excluded via `excludeArtifacts` in the parent POM (trainer and demo also set module-level deploy-skip properties).
 
 Default `mvn clean verify` (without `-Prelease`) packages module JARs but does **not** attach
 sources/javadoc or publish. Sources/javadoc JARs are produced only under `-Prelease`.
@@ -173,15 +174,55 @@ Artifacts usually appear on Maven Central within minutes; search indexing can ta
 ### 5. Tag and push
 
 ```bash
-git tag -a v0.4.0 -m "Release 0.4.0"
-git push origin v0.4.0
+git tag -a v0.5.0 -m "Release 0.5.0"
+git push origin v0.5.0
 ```
 
-Commit the version bump on `main` if it is not already committed. Use the same version string you publish. The previously published Maven Central line is **0.3.0** (tag `v0.3.0`); packaging for the next line is **0.4.0**.
+Commit the version bump on `main` if it is not already committed. Use the same version string you publish. The current packaging line is **0.5.0**; previous published Central line is **0.4.0** (tag `v0.4.0`).
 
 ### 6. Bump to the next development version (optional)
 
-After the tag, set versions to the next development line (for example `0.4.1-SNAPSHOT` if you enable SNAPSHOT publishing, or simply `0.4.1`) so day-to-day work does not reuse a published release version.
+After the tag, set versions to the next development line (for example `0.5.1-SNAPSHOT` if you enable SNAPSHOT publishing, or simply `0.5.1`) so day-to-day work does not reuse a published release version.
+
+---
+
+## Artifact reproducibility
+
+AI-Sentinel configures Maven Archiver via `project.build.outputTimestamp` in the
+parent `pom.xml` so that **clean builds of the same source commit produce
+byte-identical JARs** for the published library modules under a supported JDK 21
+toolchain.
+
+**Definition (this repository):** given the same source commit, the same
+documented JDK/toolchain constraints, and the same build configuration, two
+independent clean builds must produce byte-identical JARs for:
+
+- `dev.aisentinel:ai-sentinel-core`
+- `dev.aisentinel:ai-sentinel-spring-boot-starter`
+
+(`dev.aisentinel:ai-sentinel` is a parent POM only — no JAR.)
+
+Verify:
+
+```bash
+./scripts/verify-reproducible-build.sh
+```
+
+**Release note:** keep `project.build.outputTimestamp` in the parent `pom.xml`
+as a fixed ISO-8601 timestamp. Do not replace it with wall-clock time. Change it
+only when intentionally changing packaging provenance for a release line.
+
+**Not the same as Evaluation Kit / corpus determinism.** Artifact reproducibility
+is about JAR bytes. Kit corpus, detection baseline, and Level-1 reproduction
+gates verify evaluation evidence — they are separate.
+
+**Historical Maven Central `v0.4.0`:** that release was published **without** a
+fixed `project.build.outputTimestamp`. Local rebuilds from tag `v0.4.0` /
+commit `4830a69…` match published **entry contents** (classes, Manifest, Maven
+metadata) but differ in **ZIP entry timestamps**, so JAR SHA-256 values do not
+match Central. `v0.4.0` remains immutable historical evidence; do not rewrite or
+re-upload it. Builds from the current configuration are verified
+byte-reproducible under the documented toolchain constraints.
 
 ---
 
@@ -223,6 +264,7 @@ curl -sS --request POST \
 - [`docs/README.md`](docs/README.md) — docs layout and operator reading order
 - [`docs/migration.md`](docs/migration.md) — upgrade from the previous published line
 - [`docs/testing.md`](docs/testing.md) — characterization and release gates
+- [`scripts/verify-reproducible-build.sh`](scripts/verify-reproducible-build.sh) — clean-build JAR byte identity
 - [`ARCHITECTURE.md`](ARCHITECTURE.md) — runtime design
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — branching and local builds
 - [`SECURITY.md`](SECURITY.md) — vulnerability reporting

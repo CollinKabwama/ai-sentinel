@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aisentinel.dev/schemas/evaluation-kit/ground-truth.schema.json",
+  "title": "Evaluation Kit Ground Truth / Annotation Sidecar",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "annotationSchemaVersion",
+    "annotationId",
+    "annotations"
+  ],
+  "properties": {
+    "annotationSchemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "annotationId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "corpusId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString",
+      "description": "Corpus identity for generated-corpus ground truth. Mutually exclusive with datasetId."
+    },
+    "datasetId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString",
+      "description": "Dataset identity for evaluator-provided (BYO) ground truth. Mutually exclusive with corpusId."
+    },
+    "scenarioId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "annotations": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["eventId"],
+        "properties": {
+          "eventId": {
+            "$ref": "common.schema.json#/$defs/nonEmptyString"
+          },
+          "scenarioId": {
+            "$ref": "common.schema.json#/$defs/nonEmptyString"
+          },
+          "expectedClass": {
+            "type": "string",
+            "enum": ["benign", "anomalous", "unknown", "unlabeled"]
+          },
+          "category": { "type": "string" },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "notes": {
+      "type": "string",
+      "description": "Sidecar/evaluation-only. MUST NOT appear in detector-facing EvaluationEvent records."
+    }
+  },
+  "oneOf": [
+    {
+      "required": ["corpusId"],
+      "not": { "required": ["datasetId"] }
+    },
+    {
+      "required": ["datasetId"],
+      "not": { "required": ["corpusId"] }
+    }
+  ]
+}

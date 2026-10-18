@@ -1,0 +1,55 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "kit.example.warmup-then-burst",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Warmup then burst (example)",
+  "description": "Representative Scenario/Test Plan fixture for Evaluation Kit contract validation.",
+  "population": {
+    "identityCount": 3,
+    "identityKeyPrefix": "ex-id-",
+    "notes": "Pseudonymous identities only."
+  },
+  "normalBehavior": {
+    "summary": "Steady low-rate requests across a small endpoint set during warmup.",
+    "endpointKeys": ["/api/a", "/api/b"]
+  },
+  "timing": {
+    "warmup": {
+      "durationSeconds": 60,
+      "notes": "Baseline formation window."
+    },
+    "evaluation": {
+      "durationSeconds": 120,
+      "notes": "Post-warmup evaluation window."
+    }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-normal",
+      "intent": "legitimate",
+      "summary": "Continue normal behavior.",
+      "startsAfterWarmupSeconds": 0
+    },
+    {
+      "transitionId": "t-burst",
+      "intent": "anomalous",
+      "summary": "Single identity bursts to one endpoint.",
+      "startsAfterWarmupSeconds": 30
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only. Must not configure scorer/thresholds/policy for the subject under test.",
+    "assertions": [
+      {
+        "assertionId": "a-structural-event-count",
+        "kind": "structural",
+        "statement": "Evaluation window emits at least one event for the bursting identity."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "example",
+    "authoringNote": "JSON is the machine form; YAML authoring may normalize later."
+  }
+}

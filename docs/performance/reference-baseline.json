@@ -904,9 +904,10 @@
   "rawEvidence": {
     "sourceDirectory": "ai-sentinel-benchmark/results/reference-capture/",
     "algorithm": "SHA-256",
-    "retention": "Raw capture artifacts are generated and gitignored; this tracked summary preserves selected raw run metrics plus SHA-256 hashes for capture notes, the selection analysis, and the stable per-run jmh.json/manifest.json copies used to audit the accepted reference baseline.",
-    "analysisFile": "ai-sentinel-benchmark/results/reference-capture/analysis.json",
+    "retention": "The selection-analysis artifact is historical immutable evidence for the accepted 0.3.0 reference-performance baseline and is tracked under docs/performance/ (identity = analysisSha256). Capture notes and per-run jmh.json/manifest.json copies remain under the gitignored sourceDirectory and may be recreated by capture-reference-baseline.sh; their SHA-256 digests are retained for optional local audit. Capture does not regenerate the selection analysis.",
+    "analysisFile": "docs/performance/reference-baseline-selection-analysis.json",
     "analysisSha256": "15ee32fe2a6447ce495463e4ccd3cd8e2bddd3b277ae975933cf5c740401cab1",
+    "historicalCaptureAnalysisPath": "ai-sentinel-benchmark/results/reference-capture/analysis.json",
     "captureNotesSha256": "63969ce2cdfe1b72caa51a512bd2e6b0a2330eb53cbc9dbde42275db4ff276e2",
     "runArtifacts": [
       {

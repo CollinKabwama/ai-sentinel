@@ -14,4 +14,4 @@ High-level idea (not a full design dump).
 
 **Impact**
 - Breaking change? Yes / No
-- Affects: core / starter / trainer / docs / other
+- Affects: core / starter / trainer / dotnet / evaluation / docs / other

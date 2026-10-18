@@ -1,0 +1,43 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "kit.established-normal.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Established normal behavior",
+  "description": "Stable multi-identity normal behavior across warmup and evaluation. Synthetic evaluation scenario only.",
+  "population": {
+    "identityCount": 3,
+    "identityKeyPrefix": "en-id-",
+    "notes": "Pseudonymous identities only."
+  },
+  "normalBehavior": {
+    "summary": "Steady low-rate requests across a small endpoint set.",
+    "endpointKeys": ["/api/a", "/api/b"]
+  },
+  "timing": {
+    "warmup": { "durationSeconds": 4, "notes": "Baseline formation window." },
+    "evaluation": { "durationSeconds": 6, "notes": "Continued normal evaluation window." }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-continue-normal",
+      "intent": "legitimate",
+      "summary": "Continue established normal behavior.",
+      "startsAfterWarmupSeconds": 0
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only. Must not configure scorer/thresholds/policy for the subject under test.",
+    "assertions": [
+      {
+        "assertionId": "a-all-benign",
+        "kind": "structural",
+        "statement": "All events are authored as benign established-normal conditions."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "established-normal",
+    "authoringNote": "Versioned Kit reference scenario."
+  }
+}

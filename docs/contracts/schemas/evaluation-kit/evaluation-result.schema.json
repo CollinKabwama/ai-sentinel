@@ -1,0 +1,211 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aisentinel.dev/schemas/evaluation-kit/evaluation-result.schema.json",
+  "title": "Evaluation Kit Generic Evaluation Result",
+  "$defs": {
+    "metricFamily": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["availability"],
+      "properties": {
+        "availability": { "$ref": "common.schema.json#/$defs/metricAvailability" },
+        "values": {
+          "type": "object",
+          "additionalProperties": { "type": ["number", "integer", "string", "boolean", "null"] }
+        },
+        "reason": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "availability": { "enum": ["unavailable", "not_applicable"] }
+            },
+            "required": ["availability"]
+          },
+          "then": {
+            "not": { "required": ["values"] }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "availability": { "const": "available" }
+            },
+            "required": ["availability"]
+          },
+          "then": {
+            "required": ["values"]
+          }
+        }
+      ]
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "resultSchemaVersion",
+    "resultId",
+    "status",
+    "provenance",
+    "metricFamilies"
+  ],
+  "properties": {
+    "resultSchemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "resultId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString"
+    },
+    "evaluationRunId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString",
+      "description": "Optional deterministic concrete evaluation-run identity. Distinct from resultId, which is an input-bound result-family identity."
+    },
+    "status": {
+      "type": "string",
+      "enum": ["completed", "completed_with_limitations", "failed", "partial"]
+    },
+    "limitations": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "datasetSource": {
+          "type": "string",
+          "enum": ["generated-corpus", "evaluator-provided"],
+          "description": "Discriminator for provenance variants. Absent or generated-corpus retains generator/corpus fields; evaluator-provided uses dataset identity and forbids generator fields."
+        },
+        "scenarioId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "scenarioVersion": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "scenarioSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+        "corpusId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "corpusSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "corpusEventsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+        "datasetId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "datasetSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "eventsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+        "representationMode": {
+          "type": "string",
+          "enum": ["request-like", "feature-level", "both"]
+        },
+        "annotationId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "annotationsSha256": { "$ref": "common.schema.json#/$defs/sha256Hex" },
+        "seed": { "$ref": "common.schema.json#/$defs/seed" },
+        "generatorContractVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "generatorBuildId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "featureSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "evaluationEventSchemaVersion": { "$ref": "common.schema.json#/$defs/schemaVersion" },
+        "aiSentinelVersion": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "aiSentinelBuildId": {
+          "$ref": "common.schema.json#/$defs/nonEmptyString",
+          "description": "Actual build/commit/package-build identity when truthfully available. Do not reuse for Maven/project software version."
+        },
+        "softwareVersion": {
+          "$ref": "common.schema.json#/$defs/nonEmptyString",
+          "description": "Packaging software version that produced this Kit evidence (for example Maven project version). Distinct from aiSentinelVersion (reference evaluation configuration)."
+        },
+        "scorerId": { "$ref": "common.schema.json#/$defs/nonEmptyString" },
+        "scorerVersion": { "type": "string" },
+        "policyId": { "type": "string" },
+        "policyVersion": { "type": "string" },
+        "replayRunManifestRef": { "type": "string" },
+        "candidateProvenanceRef": { "type": "string" },
+        "reproducibilityManifestRef": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              { "not": { "required": ["datasetSource"] } },
+              {
+                "properties": { "datasetSource": { "const": "generated-corpus" } }
+              }
+            ]
+          },
+          "then": {
+            "required": [
+              "scenarioId",
+              "scenarioVersion",
+              "corpusId",
+              "corpusSchemaVersion",
+              "seed",
+              "generatorContractVersion",
+              "generatorBuildId",
+              "featureSchemaVersion",
+              "evaluationEventSchemaVersion",
+              "aiSentinelVersion"
+            ],
+            "allOf": [
+              { "not": { "required": ["datasetId"] } },
+              { "not": { "required": ["datasetSchemaVersion"] } },
+              { "not": { "required": ["eventsSha256"] } },
+              { "not": { "required": ["representationMode"] } }
+            ]
+          }
+        },
+        {
+          "if": {
+            "properties": { "datasetSource": { "const": "evaluator-provided" } },
+            "required": ["datasetSource"]
+          },
+          "then": {
+            "required": [
+              "datasetId",
+              "datasetSchemaVersion",
+              "eventsSha256",
+              "featureSchemaVersion",
+              "evaluationEventSchemaVersion",
+              "aiSentinelVersion",
+              "representationMode"
+            ],
+            "allOf": [
+              { "not": { "required": ["seed"] } },
+              { "not": { "required": ["generatorBuildId"] } },
+              { "not": { "required": ["generatorContractVersion"] } },
+              { "not": { "required": ["corpusId"] } },
+              { "not": { "required": ["scenarioId"] } },
+              { "not": { "required": ["scenarioVersion"] } },
+              { "not": { "required": ["scenarioSha256"] } },
+              { "not": { "required": ["corpusSchemaVersion"] } },
+              { "not": { "required": ["corpusEventsSha256"] } }
+            ]
+          }
+        }
+      ]
+    },
+    "artifactBindings": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/artifactRef"
+      }
+    },
+    "metricFamilies": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Families may be independently absent or marked unavailable. Do not fabricate metrics.",
+      "properties": {
+        "structural": { "$ref": "#/$defs/metricFamily" },
+        "temporal": { "$ref": "#/$defs/metricFamily" },
+        "detectionLabeled": { "$ref": "#/$defs/metricFamily" }
+      }
+    },
+    "detectionEvidenceRef": {
+      "type": "string",
+      "description": "Optional reference to specialized DetectionEvaluationEvidence for labeled detection runs. Not required for generic Kit results."
+    },
+    "eventInspectionRef": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*://)(?!.*\\.\\.).+$",
+      "description": "Optional reference to an event-level inspection artifact joining authored ground truth with runtime replay outcomes. A portable relative sibling-artifact name (e.g. event-inspection.json), never an absolute path or URI."
+    },
+    "htmlReportRef": {
+      "type": "string",
+      "pattern": "^(?!/)(?!.*://)(?!.*\\.\\.).+$",
+      "description": "Optional reference to a self-contained human-readable HTML evaluation report. A portable relative sibling-artifact name (e.g. evaluation-report.html), never an absolute path or URI."
+    },
+    "notes": { "type": "string" }
+  }
+}

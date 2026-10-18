@@ -1,0 +1,43 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "kit.multi-feature-anomaly.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Multi-feature anomaly",
+  "description": "Simultaneous shifts across multiple feature dimensions after warmup. Synthetic only.",
+  "population": {
+    "identityCount": 2,
+    "identityKeyPrefix": "mf-id-",
+    "notes": "Pseudonymous identities only."
+  },
+  "normalBehavior": {
+    "summary": "Balanced normal features during warmup.",
+    "endpointKeys": ["/api/a", "/api/b"]
+  },
+  "timing": {
+    "warmup": { "durationSeconds": 4, "notes": "Baseline formation window." },
+    "evaluation": { "durationSeconds": 6, "notes": "Includes multi-feature anomaly." }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-multi",
+      "intent": "anomalous",
+      "summary": "Concurrent rate, entropy, payload, and parameter shifts.",
+      "startsAfterWarmupSeconds": 2
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only.",
+    "assertions": [
+      {
+        "assertionId": "a-multi-feature",
+        "kind": "structural",
+        "statement": "Evaluation window includes multi-feature-anomaly conditions."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "multi-feature-anomaly",
+    "authoringNote": "Versioned Kit reference scenario."
+  }
+}

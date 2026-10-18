@@ -4,14 +4,13 @@
 
 | Line | Status |
 |------|--------|
-| **0.4.0** | Release packaging line (candidate/shadow/lifecycle engineering capability). Central publication requires separate authorization after review. |
-| **0.3.0** (tag `v0.3.0`) | Current published Maven Central release until **0.4.0** is published |
-| **0.2.0** | Previous published line; upgrade via [`docs/migration.md`](docs/migration.md) |
+| **0.5.0** (packaging line) | Current packaging / upcoming Maven Central release |
+| **0.4.0** (tag `v0.4.0`) | Previous published Maven Central release |
+| **0.3.0** (tag `v0.3.0`) | Previous published release |
+| **0.2.0** and earlier | Not maintained; upgrade via [`docs/migration.md`](docs/migration.md) |
 | Unreleased `dev` commits | Integration tip; not a supported production pin unless you intentionally build from source |
 
-Security fixes are developed on **`dev`** and promoted to **`main`** via the normal release flow. Critical vulnerabilities that require immediate public mitigation may be hotfixed directly on `main` at maintainer discretion; such fixes are merged back into `dev` promptly.
-
-Prefer the latest **published** release tag for deployments. Older snapshots are not maintained on a separate long-term support schedule unless explicitly stated in the future.
+Security fixes are developed on **`dev`** and promoted to **`main`** through the normal release flow. Critical vulnerabilities that need immediate mitigation may be hotfixed on `main` at maintainer discretion and merged back into `dev` promptly. Prefer the latest published release tag for deployments.
 
 ---
 
@@ -19,37 +18,79 @@ Prefer the latest **published** release tag for deployments. Older snapshots are
 
 **Please do not** open public GitHub issues for unfixed vulnerability details.
 
-- Report privately to the repository maintainers (use **GitHub Security Advisories** / **private security reporting** if enabled on the repo, or contact addresses listed in repository settings or maintainer profiles).
-- Include: affected component, version or commit, reproduction steps, and impact assessment if you can.
+- Report privately to the maintainers (GitHub **private security reporting** / Security Advisories if enabled, or contact details in repository settings or maintainer profiles).
+- Include the affected component, version or commit, reproduction steps, and impact assessment if you can.
 
-Maintainers will acknowledge receipt when possible and coordinate a fix and disclosure timeline. This is a volunteer-driven open-source project; response times are best-effort, not a SLA.
+This is a volunteer-driven project; response times are best-effort, not an SLA.
 
 ---
 
-## Security-related design choices
+## What AI-Sentinel is (and is not)
 
-- **Fail-open (availability-first)** — Request-path and optional-path failures generally **allow** traffic rather than deny it. This trades strict lockdown for availability. The canonical matrix (detector, Redis, trust, enforcement writes, feature extraction, trainer) is in [`docs/deployment.md`](docs/deployment.md#failure-mode-profile-availability-first). Prefer **`MONITOR`** until fail-open rates and enforcement decisions are understood in your traffic.
-- **No raw PII in training/export** — Training candidate records use hashed fingerprints and numeric features, not raw URLs or bodies. See training export properties in [`docs/configuration.md`](docs/configuration.md) and the root [`README.md`](README.md).
-- **Identity as hash** — Features and enforcement keys use hashed identifiers; configure hashing and trust boundaries in your application.
-- **Unauthenticated identity falls back to client IP hash** — Without an authenticated principal, baselines and enforcement keys are per resolved client IP. Expect NAT pooling, IP-churn cardinality, and weaker attribution — see [`docs/configuration.md`](docs/configuration.md#unauthenticated-identity-ip-hash-and-state-growth). Prefer authenticated identity for production keys.
-- **Redis diagnostics** — Redis failure DEBUG logs omit Redis key material and logical identity keys (exception summary only). Do not reintroduce key values into application logs.
-- **Bounded processing** — Buffers, semaphores, and timeouts limit work on hot and async paths; they are not a substitute for network-level rate limiting or auth.
-- **Filter order vs identity** — Default Sentinel filter order is late so authentication can populate principal-based identity; place earlier only when you accept IP-only identity and need earlier denial. If another filter commits the response first, denial HTTP writes are skipped while quarantine/throttle state may still apply — see [`docs/configuration.md`](docs/configuration.md).
-- **Enforcement scope blast radius** — `IDENTITY_GLOBAL` throttle/quarantine keys span all endpoints for an identity; statistical scoring remains per endpoint.
-- **ENFORCE is not claimed production-ready from synthetic tests alone** — enabling client denial requires application-specific MONITOR evaluation and the preconditions in [`docs/deployment.md`](docs/deployment.md).
+AI-Sentinel is an application/API-layer behavioral-risk evaluation framework for post-authentication traffic. It complements authentication, authorization, and infrastructure controls. It is **not** an identity provider, MFA system, WAF, SIEM, IAM product, or complete Zero Trust architecture.
+
+Current deployable surfaces: the Java 21 decision core, the Spring Boot / Servlet starter, the optional authenticated remote evaluation API, and the ASP.NET Core reference client in [`dotnet/`](dotnet/) (a remote client, not a .NET detection engine).
+
+---
+
+## Security controls provided
+
+**Remote evaluation API**
+
+- `POST /ai-sentinel/v1/evaluation` authenticates only through the `X-AI-Sentinel-Api-Key` header (not the query string, not end-user `Authorization`). Comparison is constant-time.
+- Missing, blank, duplicate/ambiguous, or incorrect keys are rejected with **401**; the secret is never echoed. Duplicate header values are rejected rather than silently picking one.
+- This is a shared-secret service boundary, not OAuth/OIDC/mTLS.
+
+**Sensitive metadata restrictions**
+
+- Local adapters map only an allowlist of safe headers into `EvaluationRequest`; `Authorization` is recorded as presence only (`present`).
+- The wire contract rejects credential-bearing header keys (`cookie`, `set-cookie`, `proxy-authorization`, `x-ai-sentinel-api-key`, `x-api-key`) and any `authorization` value other than the presence marker.
+- Features and enforcement keys use hashed identifiers. Training candidates carry hashed fingerprints and numeric features, not raw URLs or bodies. Evaluation events and MONITOR pilot observations use privacy-safe schemas without Authorization, Cookie, or raw body fields.
+- MONITOR pilot evidence HMAC-pseudonymizes identity and endpoint keys with a required secret (minimum length enforced). The secret is never written to artifacts or logs, and failure never falls back to storing raw identity.
+- Redis failure DEBUG logs omit Redis key material and logical identity keys.
+
+**Evidence protection**
+
+- Evaluation Kit and candidate evaluation tooling refuse to write into protected reference locations (`evaluation/detection-reference-baseline`, `evaluation/reference`, `docs/performance`) and refuse to overwrite an existing output directory. Existing path prefixes are resolved with real-path semantics, so symlinked parents are not treated as safe.
+- Manifests use SHA-256 + `sizeBytes` identity where applicable. This is integrity governance, not cryptographic signing or PKI.
+
+**Bounded processing**
+
+- Buffers, semaphores, and timeouts bound work on hot and async paths. They do not replace network-level rate limiting or authentication.
+
+---
+
+## Integration responsibilities
+
+- **Secrets.** Inject the remote evaluation API key and the pilot pseudonymization secret through environment variables or a secret store; never commit them. Protect the API key like any service credential.
+- **Identity.** Prefer authenticated principals. Without one, identity falls back to a hash of the resolved client IP, which suffers from NAT pooling, IP churn, and weak attribution — see [`docs/configuration.md`](docs/configuration.md#unauthenticated-identity-ip-hash-and-state-growth).
+- **Proxies.** Keep `ai.sentinel.trusted-proxies` tight; forwarded headers are honored only from trusted hops.
+- **Filter order.** The default filter order is late so authentication can populate the principal. Running earlier forces IP-only identity. If another filter commits the response first, denial writes are skipped while quarantine/throttle state may still apply — see [`docs/configuration.md`](docs/configuration.md).
+- **Enforcement scope.** `IDENTITY_GLOBAL` throttle/quarantine keys span all endpoints for an identity; choose it deliberately.
+- **Infrastructure.** Redis, Kafka, and shared filesystem registries must be secured, sized, and access-controlled by the operator; misconfiguration or compromise of those systems is outside the library's scope. Registry artifacts are not pruned automatically ([`docs/deployment.md`](docs/deployment.md#model-registry-disk-retention)).
+- **Mode.** Start in `MONITOR`. `ENFORCE` is not claimed production-ready from synthetic tests; it requires application-specific validation and the preconditions in [`docs/deployment.md`](docs/deployment.md).
+
+---
+
+## Failure behavior
+
+AI-Sentinel is **availability-first (fail-open)**. Request-path and optional-path failures generally let traffic proceed rather than deny it, and there is **no fail-closed profile**. The canonical failure matrix is in [`docs/deployment.md`](docs/deployment.md#failure-mode-profile-availability-first).
+
+When a remote client cannot obtain a trusted response (auth rejection, transport error, timeout, malformed body, unsupported `contractVersion`, unknown action), it returns `REMOTE_EVALUATION_FAILURE` and may fail open. That result is **not** a trusted engine `ALLOW`.
 
 ---
 
 ## Known limitations
 
-- **Not a full WAF or IAM product** — AI-Sentinel complements auth and infrastructure controls; it does not replace them.
-- **Current deployable surfaces** — Java **21** decision core (framework-independent: no Spring/Servlet APIs) plus Spring Boot / Servlet starter. Optional authenticated **remote evaluation HTTP API** for out-of-process clients. A reference **ASP.NET Core** adapter under [`dotnet/`](dotnet/) consumes that API (thin remote client; not a native .NET scoring engine). Framework-independent does **not** mean language-independent.
-- **Distributed features depend on Redis/Kafka** — Misconfiguration, credential leaks, or broker compromise are outside this library’s scope; follow standard practices for secrets and network policy.
-- **Filesystem model registry** — Shared filesystem layout (`active.json` pointer + versioned artifacts). Publishing a new model does **not** delete prior artifact files; operators manage disk retention (see [`docs/deployment.md`](docs/deployment.md#model-registry-disk-retention)). OS permissions and shared mounts are your responsibility.
-- **Trainer dedup is JVM-local** — Duplicate `eventId` handling does not survive process restarts or multiple trainer instances without external coordination.
-- **No fail-closed profile** — Availability-first failure modes are intentional today; do not assume denial on component failure.
+- **API keys** — no rotation service, per-caller identity, or resistance to credential theft or insider misuse.
+- **Distributed state** — when distributed trust Redis is unavailable, each node falls back to in-memory baselines; those observations are not reconciled into Redis after recovery ([`docs/deployment.md`](docs/deployment.md#distributed-deployment-notes)).
+- **Trainer deduplication** — `eventId` dedup is JVM-local and does not survive restarts or multiple trainer instances.
+- **Client-influenced features** — behavioral features (payload size, parameter counts, token-age headers) can be shaped by clients; they are weak signals, not identity assertions.
 
-No security boundary is perfect; review changes in your own threat model before production use.
-This project is an early open-source release; the packaging line is **0.4.0** (Central publish pending authorization; published Central remains **0.3.0** until then). Treat production readiness as an operator judgment, not a claim of the library alone.
+## Not claimed
 
-Related: [`docs/deployment.md`](docs/deployment.md) · [`CHANGELOG.md`](CHANGELOG.md) · [`docs/migration.md`](docs/migration.md)
+Production security certification, compliance attestation, Zero Trust certification, external penetration testing, privacy certification, complete secret management, signed artifact PKI, production detection efficacy, or complete protection against compromise. Repository hardening is not production security certification.
+
+No security boundary is perfect. Review AI-Sentinel in your own threat model; production readiness is an operator judgment, not a property of the library alone.
+
+Related: [`ARCHITECTURE.md`](ARCHITECTURE.md) · [`docs/deployment.md`](docs/deployment.md) · [`docs/configuration.md`](docs/configuration.md) · [`CHANGELOG.md`](CHANGELOG.md)

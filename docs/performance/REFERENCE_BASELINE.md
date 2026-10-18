@@ -4,17 +4,19 @@
 
 This document records the **official reference engineering baseline** for the approved **AI-Sentinel 0.3.0** in-process implementation under a documented controlled environment.
 
-These measurements are a reference engineering baseline for the documented environment.
+These measurements are a **historical** reference engineering baseline for the documented **0.3.0-era** environment (`Historical performance evidence ≠ current production performance`).
 
 They are **NOT**:
 
+- current production performance numbers;
 - production SLA guarantees;
 - minimum performance guarantees;
 - hardware-independent results;
 - security efficacy claims;
 - partner workload benchmarks;
 - a Detection Evaluation Framework result;
-- an Official Detection Reference Baseline.
+- an Official Detection Reference Baseline;
+- a refreshed post-0.3.0 benchmark recapture.
 
 `REFERENCE PERFORMANCE BASELINE != DETECTION REFERENCE BASELINE`
 
@@ -24,9 +26,20 @@ Offline detection metrics and evidence are documented separately in [`../../eval
 
 The benchmark captures relative engineering reference points that are intended to make future changes comparable against a known **0.3.0** baseline.
 
-Machine-readable summary: [`reference-baseline.json`](reference-baseline.json). It includes selected per-run raw metrics and SHA-256 hashes for the local raw capture artifacts used to audit the accepted baseline: `capture-notes.txt`, a one-time selection `analysis.json`, and the stable `run-0{1,2,3}/{jmh.json,manifest.json}` copies. The large generated raw capture directory remains gitignored.
+Machine-readable summary: [`reference-baseline.json`](reference-baseline.json). It includes selected per-run raw metrics and SHA-256 digests for audit:
 
-**FIND-002 clarification:** `./scripts/capture-reference-baseline.sh` regenerates `capture-notes.txt` and the per-run `jmh.json` / `manifest.json` copies only. It does **not** generate `analysis.json`. The `analysisSha256` retained in [`reference-baseline.json`](reference-baseline.json) is a historical hash of the selection-analysis artifact used when the accepted 0.3.0 reference baseline was recorded; re-running the capture script alone is not expected to recreate that file. Do not treat absence of a freshly generated `analysis.json` after capture as baseline drift.
+| Artifact | Role | Location |
+|----------|------|----------|
+| Selection analysis | Historical immutable selection pass for the accepted 0.3.0 baseline (full-precision run metrics + selected-run choices). Identity = `analysisSha256`. | Tracked: [`reference-baseline-selection-analysis.json`](reference-baseline-selection-analysis.json) |
+| Capture notes / per-run `jmh.json` / `manifest.json` | Raw capture evidence that `./scripts/capture-reference-baseline.sh` may recreate. Digests retained for optional local audit. | Gitignored: `ai-sentinel-benchmark/results/reference-capture/` |
+
+**Selection-analysis contract**
+
+- The selection analysis is **historical evidence**, not a regenerated capture output.
+- `./scripts/capture-reference-baseline.sh` writes `capture-notes.txt` and `run-0{1,2,3}/{jmh.json,manifest.json}` only. It does **not** produce or update the selection analysis.
+- Official rounded metrics for comparison tooling live in [`reference-baseline.json`](reference-baseline.json). The selection analysis is the higher-precision audit sibling identified by `analysisSha256`.
+- Absence of gitignored raw capture files after a fresh clone is **not** selection-analysis drift.
+- Verify tracked selection-analysis integrity with `./scripts/verify-reference-performance-baseline-evidence.sh`.
 
 ## 2. Baseline identity
 

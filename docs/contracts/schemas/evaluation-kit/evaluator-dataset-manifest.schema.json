@@ -1,0 +1,65 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://aisentinel.dev/schemas/evaluation-kit/evaluator-dataset-manifest.schema.json",
+  "title": "Evaluation Kit Evaluator-Provided Dataset Manifest",
+  "description": "Identity and integrity metadata for an evaluator-provided (BYO) EvaluationEvent dataset. Does not use generator seed/build provenance.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "datasetSchemaVersion",
+    "datasetId",
+    "featureSchemaVersion",
+    "evaluationEventSchemaVersion",
+    "representationMode",
+    "ordering",
+    "events",
+    "eventCount"
+  ],
+  "properties": {
+    "datasetSchemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "datasetId": {
+      "$ref": "common.schema.json#/$defs/nonEmptyString",
+      "description": "Stable dataset identity declared by the evaluator. Must not be a host absolute path."
+    },
+    "featureSchemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "evaluationEventSchemaVersion": {
+      "$ref": "common.schema.json#/$defs/schemaVersion"
+    },
+    "representationMode": {
+      "type": "string",
+      "enum": ["request-like", "feature-level", "both"]
+    },
+    "ordering": {
+      "type": "string",
+      "const": "append-order",
+      "description": "Events are replayed in file append order."
+    },
+    "events": {
+      "allOf": [
+        { "$ref": "common.schema.json#/$defs/artifactRef" },
+        {
+          "properties": {
+            "role": { "const": "events" }
+          }
+        }
+      ]
+    },
+    "annotations": {
+      "allOf": [
+        { "$ref": "common.schema.json#/$defs/artifactRef" }
+      ],
+      "description": "Optional ground-truth sidecar. Absent for unlabeled datasets."
+    },
+    "eventCount": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "notes": {
+      "type": "string"
+    }
+  }
+}

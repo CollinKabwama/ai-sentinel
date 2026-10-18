@@ -4,8 +4,8 @@ The ASP.NET Core adapter is a **client/integration layer** for the AI-Sentinel r
 
 ## What it is
 
-- Thin ASP.NET Core middleware and HTTP client for the frozen Step-8 evaluation contract
-- Consumes the Step-9 remote evaluation API (`POST /ai-sentinel/v1/evaluation`)
+- Thin ASP.NET Core middleware and HTTP client for the AI-Sentinel evaluation contract (`EvaluationRequest` / `EvaluationResponse`)
+- Calls the Java remote evaluation API (`POST /ai-sentinel/v1/evaluation`) — see the remote evaluation path in [`../ARCHITECTURE.md`](../ARCHITECTURE.md#3-request-lifecycle)
 - Maps trusted `HttpContext.User` identity and request context into `EvaluationRequest`
 - Applies server-authoritative `proceed` and enforcement actions from `EvaluationResponse`
 
@@ -37,11 +37,14 @@ Authoritative AI-Sentinel engine
 ## Prerequisites
 
 - .NET SDK 8.0 (LTS)
-- Running AI-Sentinel remote evaluation service (Java/Spring **0.3.0+**; **0.4.0** packaging line preferred when available)
+- A Java AI-Sentinel host with remote evaluation enabled (`ai.sentinel.evaluation.server.enabled=true`)
 
-Pair with the Java starter or service using remote evaluation enabled. Upgrade and contract notes: [`../docs/migration.md`](../docs/migration.md).
+## Version compatibility
 
-## Build
+- Java host: **0.3.0** or later (**0.5.0** preferred).
+- The client rejects responses with an unsupported `contractVersion` and ignores unknown additive fields. Contract notes: [`../docs/migration.md`](../docs/migration.md).
+
+## Build and test
 
 ```bash
 cd dotnet
@@ -50,16 +53,7 @@ dotnet build
 dotnet test
 ```
 
-Shared wire fixtures live in `dotnet/fixtures/` (`requests/` and `responses/`) and are validated by both Java and .NET tests.
-
-## Testing
-
-```bash
-cd dotnet
-dotnet test
-```
-
-Most tests use in-memory HTTP stubs. For a **live cross-runtime** check against a running Java evaluation service, set:
+Shared wire fixtures live in `dotnet/fixtures/` (`requests/` and `responses/`) and are validated by both Java and .NET tests. Most tests use in-memory HTTP stubs. For a **live cross-runtime** check against a running Java evaluation service, set:
 
 ```bash
 export AI_SENTINEL_E2E_SERVICE_URL=http://127.0.0.1:8080
@@ -142,11 +136,32 @@ The sample app (`samples/AI.Sentinel.AspNetCore.Sample`) demonstrates MONITOR-fi
 
 ## Failure behavior
 
-Transport/client failures produce a single synthetic `REMOTE_EVALUATION_FAILURE` response:
+Transport/client failures produce a single synthetic `REMOTE_EVALUATION_FAILURE` response used for **fail-open proceed**:
 
-- `action=ALLOW`, `proceed=true`
+- Host-visible fields may include `action=ALLOW` and `proceed=true` so the pipeline can continue
 - No fabricated BLOCK/QUARANTINE/THROTTLE or maximum risk scores
 - One HTTP attempt per evaluation (no automatic retry)
+
+This is an **evaluation-client failure** result for the host to observe — it is **not** a trusted engine `ALLOW` risk decision (`REMOTE_EVALUATION_FAILURE ≠ trusted engine ALLOW`). Middleware treats `REMOTE_EVALUATION_FAILURE` as fail-open proceed (continue).
+
+Auth rejection (HTTP 401/403) ignores any response body and still yields `REMOTE_EVALUATION_FAILURE` (outcome `AUTH_REJECTED`). Unknown `action` values and unsupported `contractVersion` do **not** silently become successful trusted ALLOW decisions.
+
+## Cross-runtime reliability evidence
+
+Shared wire fixtures under [`fixtures/`](fixtures/) (`requests/`, `responses/`) are validated by both Java and .NET tests. Covered cases include:
+
+| Case | Expected client behavior |
+|------|--------------------------|
+| Known-good ALLOW/MONITOR/BLOCK/… fixtures | Validated success |
+| Minimal older-compatible ALLOW fixture | Validated success |
+| Additive unknown JSON fields | Ignored; success when known fields valid |
+| Unsupported `contractVersion` | `REMOTE_EVALUATION_FAILURE` / `VERSION_MISMATCH` |
+| Unknown `action` enum | `REMOTE_EVALUATION_FAILURE` / malformed (not trusted ALLOW) |
+| HTTP 401/403 (even with success-shaped body) | `REMOTE_EVALUATION_FAILURE` / `AUTH_REJECTED` |
+| Malformed 2xx JSON / invalid numeric fields | `REMOTE_EVALUATION_FAILURE` / malformed |
+| HTTP 5xx / connection / cancel | `REMOTE_EVALUATION_FAILURE` (transport/HTTP outcomes) |
+
+**Claim boundary:** repository-controlled interoperability tests ≠ production cross-runtime validation. The reference ASP.NET adapter ≠ a universal supported .NET SDK ecosystem.
 
 ## Action handling
 
@@ -154,7 +169,7 @@ Transport/client failures produce a single synthetic `REMOTE_EVALUATION_FAILURE`
 |--------|------------------|
 | ALLOW / MONITOR | Continue pipeline when `proceed=true` |
 | THROTTLE / BLOCK / QUARANTINE | Deny with configured status when `proceed=false` |
-| REMOTE_EVALUATION_FAILURE | Fail-open continue |
+| REMOTE_EVALUATION_FAILURE | Fail-open proceed (continue; ≠ trusted ALLOW) |
 
 `proceed` from the server is authoritative; the adapter validates action/proceed consistency.
 
@@ -165,7 +180,7 @@ OpenTelemetry-style meters under `AI.Sentinel.AspNetCore` with bounded labels (`
 ## Known limitations
 
 - No local Java-style fallback when remote service is unavailable
-- No OAuth/mTLS for API key transport in this reference increment
+- No OAuth/mTLS for API key transport in this reference client
 - THROTTLE is not implemented as an artificial delay; enforcement maps to HTTP denial when `proceed=false`
 - Remote cancellation is not guaranteed once the HTTP request is in flight
 

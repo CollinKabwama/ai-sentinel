@@ -1,0 +1,58 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "northgate.legitimate-burst.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Northgate legitimate burst",
+  "description": "Fictional Northgate organization-profile synthetic scenario: scheduled integration/export workload step-up authored as benign. Not a real organization. Synthetic evaluation only.",
+  "population": {
+    "identityCount": 4,
+    "identityKeyPrefix": "northgate-lb-",
+    "notes": "Fictional pseudonymous identities only: northgate-lb-001 = stable integration; northgate-lb-002..004 = interactive. Not real users."
+  },
+  "normalBehavior": {
+    "summary": "Steady low-rate SaaS/API requests before a authored-benign scheduled export/integration step-up.",
+    "endpointKeys": [
+      "/api/v1/records",
+      "/api/v1/records/{id}",
+      "/api/v1/search",
+      "/api/v1/export",
+      "/api/v1/account",
+      "/api/v1/auth/refresh"
+    ]
+  },
+  "timing": {
+    "warmup": {
+      "durationSeconds": 48,
+      "notes": "Baseline/state-building: 48 ticks with 4 rotating identities → 12 observations per identity before evaluation."
+    },
+    "evaluation": {
+      "durationSeconds": 32,
+      "notes": "Early evaluation-normal then legitimate high-volume step-up."
+    }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-northgate-legitimate-burst",
+      "intent": "legitimate",
+      "summary": "Known-good scheduled integration/export volume step-up across the population.",
+      "startsAfterWarmupSeconds": 8
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only. High volume is not labeled anomalous.",
+    "assertions": [
+      {
+        "assertionId": "a-northgate-legitimate-burst-benign",
+        "kind": "structural",
+        "statement": "Burst events remain authored as benign legitimate-burst conditions."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "legitimate-burst",
+    "profileId": "northgate",
+    "profileClassification": "fictional-organization-profile-synthetic",
+    "authoringNote": "Fictional Northgate profile scenario. Not based on proprietary employer/customer data."
+  }
+}

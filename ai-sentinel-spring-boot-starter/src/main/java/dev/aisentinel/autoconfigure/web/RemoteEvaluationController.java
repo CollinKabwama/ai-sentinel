@@ -17,12 +17,21 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.Objects;
+
 /**
  * Authenticated evaluation-only endpoint ({@code POST /ai-sentinel/v1/evaluation}).
  * Does not expose admin/quarantine/baseline APIs.
  * <p>
  * Authenticated callers are trusted adapters asserting contract fields; enforcement mode remains
  * server configuration and cannot be overridden by request attributes.
+ * <p>
+ * Credential ingress is exclusively {@link RemoteEvaluationConstants#API_KEY_HEADER}. Duplicate
+ * header values are rejected (no silent first-value selection). Auth failure responses never echo
+ * credential material.
  */
 @RestController
 public class RemoteEvaluationController {
@@ -45,10 +54,18 @@ public class RemoteEvaluationController {
     public ResponseEntity<?> evaluate(@RequestBody(required = false) EvaluationRequest request,
                                       HttpServletRequest httpRequest) {
         SentinelProperties.Evaluation.Server server = properties.getEvaluation().getServer();
-        String provided = httpRequest.getHeader(RemoteEvaluationConstants.API_KEY_HEADER);
-        if (!ApiKeyAuthenticator.matches(server.getApiKey(), provided)) {
-            log.warn("Remote evaluation auth rejected");
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+        ApiKeyHeader.Resolution credential = ApiKeyHeader.resolve(httpRequest);
+        if (credential.status() == ApiKeyHeader.Status.MISSING) {
+            log.warn("Remote evaluation auth rejected: missing credential");
+            return authFailure("missing_credential");
+        }
+        if (credential.status() == ApiKeyHeader.Status.AMBIGUOUS) {
+            log.warn("Remote evaluation auth rejected: ambiguous credential");
+            return authFailure("ambiguous_credential");
+        }
+        if (!ApiKeyAuthenticator.matches(server.getApiKey(), credential.value())) {
+            log.warn("Remote evaluation auth rejected: credential rejected");
+            return authFailure("auth_rejected");
         }
 
         int maxBytes = server.getMaxRequestBytes();
@@ -70,6 +87,62 @@ public class RemoteEvaluationController {
         } catch (RuntimeException ex) {
             log.warn("Remote evaluation failed: {}: {}", ex.getClass().getSimpleName(), ex.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    private static ResponseEntity<String> authFailure(String code) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+            .contentType(MediaType.APPLICATION_JSON)
+            .body("{\"error\":\"" + code + "\"}");
+    }
+
+    /**
+     * Resolves the remote-evaluation API-key header without silently picking among
+     * duplicate values. Ambiguous multi-value credentials are rejected.
+     */
+    public static final class ApiKeyHeader {
+
+        public enum Status {
+            /** Header absent or blank/whitespace-only. */
+            MISSING,
+            /** More than one header value was supplied. */
+            AMBIGUOUS,
+            /** Exactly one non-blank value. */
+            PRESENT
+        }
+
+        public record Resolution(Status status, String value) {
+            public Resolution {
+                status = Objects.requireNonNull(status, "status");
+                if (status == Status.PRESENT) {
+                    Objects.requireNonNull(value, "value");
+                } else {
+                    value = null;
+                }
+            }
+        }
+
+        private ApiKeyHeader() {
+        }
+
+        public static Resolution resolve(HttpServletRequest request) {
+            Objects.requireNonNull(request, "request");
+            Enumeration<String> values = request.getHeaders(RemoteEvaluationConstants.API_KEY_HEADER);
+            if (values == null || !values.hasMoreElements()) {
+                return new Resolution(Status.MISSING, null);
+            }
+            List<String> collected = new ArrayList<>(2);
+            while (values.hasMoreElements()) {
+                collected.add(values.nextElement());
+                if (collected.size() > 1) {
+                    return new Resolution(Status.AMBIGUOUS, null);
+                }
+            }
+            String single = collected.get(0);
+            if (single == null || single.isBlank()) {
+                return new Resolution(Status.MISSING, null);
+            }
+            return new Resolution(Status.PRESENT, single);
         }
     }
 }

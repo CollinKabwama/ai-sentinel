@@ -1,0 +1,22 @@
+{
+  "corpusSchemaVersion": "1",
+  "corpusId": "corpus.bad.missing-generator-build",
+  "scenarioId": "kit.example.warmup-then-burst",
+  "scenarioVersion": "1.0.0",
+  "seed": "42",
+  "generatorContractVersion": "1",
+  "featureSchemaVersion": "1",
+  "evaluationEventSchemaVersion": "1",
+  "representationMode": "feature-level",
+  "artifacts": [
+    {
+      "role": "events",
+      "path": "events.jsonl",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    }
+  ],
+  "timing": {
+    "warmupDurationSeconds": 60,
+    "evaluationDurationSeconds": 120
+  }
+}

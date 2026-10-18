@@ -1,0 +1,43 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "kit.endpoint-distribution-change.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Endpoint-distribution change",
+  "description": "Traffic collapses onto a single endpoint after warmup, changing endpoint entropy/concentration. Synthetic only.",
+  "population": {
+    "identityCount": 2,
+    "identityKeyPrefix": "ed-id-",
+    "notes": "Pseudonymous identities only."
+  },
+  "normalBehavior": {
+    "summary": "Distributed requests across multiple endpoints during warmup.",
+    "endpointKeys": ["/api/a", "/api/b", "/api/c"]
+  },
+  "timing": {
+    "warmup": { "durationSeconds": 4, "notes": "Baseline formation window." },
+    "evaluation": { "durationSeconds": 6, "notes": "Includes endpoint-distribution change." }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-endpoint-shift",
+      "intent": "anomalous",
+      "summary": "Collapse traffic onto one endpoint.",
+      "startsAfterWarmupSeconds": 2
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only.",
+    "assertions": [
+      {
+        "assertionId": "a-endpoint-shift",
+        "kind": "structural",
+        "statement": "Evaluation window includes endpoint-distribution-change conditions."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "endpoint-distribution-change",
+    "authoringNote": "Versioned Kit reference scenario."
+  }
+}

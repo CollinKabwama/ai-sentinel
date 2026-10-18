@@ -56,6 +56,17 @@ class CoreIndependenceArchTest {
     }
 
     @Test
+    void coreContractPackageDoesNotDependOnReplayTypes() {
+        ArchRule rule = noClasses()
+            .that().resideInAPackage("dev.aisentinel.core.contract..")
+            .should().dependOnClassesThat().resideInAPackage("dev.aisentinel.core.replay..")
+            .because("EvaluationEvent evidence contracts must not depend on replay projections; "
+                + "replay adapts from EvaluationEvent");
+
+        rule.check(coreProductionClasses);
+    }
+
+    @Test
     void ruleDetectsAForbiddenPackageThatCoreActuallyUses() {
         // Sanity check on the rule mechanism itself: SLF4J is a real core dependency, so the same rule shape must
         // report a violation for it. If this passes silently, the rule above proves nothing.

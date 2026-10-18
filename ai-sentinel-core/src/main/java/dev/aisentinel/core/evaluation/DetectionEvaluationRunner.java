@@ -7,11 +7,13 @@ import dev.aisentinel.core.replay.ReplayDataset;
 import dev.aisentinel.core.replay.ReplayDatasetLoader;
 import dev.aisentinel.core.replay.ReplayEngine;
 import dev.aisentinel.core.replay.ReplayOutputValidator;
+import dev.aisentinel.core.replay.ReplayResult;
 import dev.aisentinel.core.replay.ReplayScorerKind;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.Objects;
 
 /**
@@ -90,6 +92,45 @@ public final class DetectionEvaluationRunner {
                                            Path outputDirectory) throws IOException {
         Path safeDatasetDirectory = requireExistingDirectory(datasetDirectory, "datasetDirectory");
         Path safeAnnotationsFile = requireExistingFile(annotationsFile, "annotationsFile");
+        ReplayDataset dataset = datasetLoader.load(safeDatasetDirectory, safeAnnotationsFile);
+        ReferenceDatasetAnnotations annotations = annotationsLoader.load(safeAnnotationsFile);
+        return evaluate(dataset, annotations, replayConfiguration, classification, outputDirectory);
+    }
+
+    /**
+     * Executes detection evaluation from an already-loaded replay dataset and annotations.
+     * Used for generated Evaluation Kit corpora after ground-truth adaptation.
+     * <p>
+     * Package-private: {@link GeneratedCorpusDetectionEvaluator} is the public entry point for
+     * that path; no cross-package caller currently needs this overload directly.
+     */
+    DetectionEvaluationRun evaluate(ReplayDataset dataset,
+                                    ReferenceDatasetAnnotations annotations,
+                                    ReplayConfiguration replayConfiguration,
+                                    DetectionClassificationConfiguration classification,
+                                    Path outputDirectory) throws IOException {
+        return evaluateWithReplayResults(dataset, annotations, replayConfiguration, classification, outputDirectory)
+            .run();
+    }
+
+    /**
+     * Same as {@link #evaluate(ReplayDataset, ReferenceDatasetAnnotations, ReplayConfiguration,
+     * DetectionClassificationConfiguration, Path)} but also returns the per-event replay results.
+     * <p>
+     * Package-private and used by {@link GeneratedCorpusDetectionEvaluator} and
+     * {@link EvaluatorProvidedDatasetEvaluator} to build event-level report inspections.
+     * Replay results are deliberately kept off the shared public
+     * {@link DetectionEvaluationRun} contract: every other caller of this runner (historical
+     * reference evaluation, candidate evaluation, baseline capture) neither needs nor should be
+     * forced to retain a full per-event replay-result list.
+     */
+    RunWithReplayResults evaluateWithReplayResults(ReplayDataset dataset,
+                                    ReferenceDatasetAnnotations annotations,
+                                    ReplayConfiguration replayConfiguration,
+                                    DetectionClassificationConfiguration classification,
+                                    Path outputDirectory) throws IOException {
+        ReplayDataset safeDataset = Objects.requireNonNull(dataset, "dataset");
+        ReferenceDatasetAnnotations safeAnnotations = Objects.requireNonNull(annotations, "annotations");
         ReplayConfiguration safeReplayConfiguration =
             Objects.requireNonNull(replayConfiguration, "replayConfiguration");
         DetectionClassificationConfiguration safeClassification =
@@ -97,25 +138,24 @@ public final class DetectionEvaluationRunner {
         Path safeOutputDirectory = Objects.requireNonNull(outputDirectory, "outputDirectory")
             .toAbsolutePath()
             .normalize();
-
-        ReplayDataset dataset = datasetLoader.load(safeDatasetDirectory, safeAnnotationsFile);
-        ReferenceDatasetAnnotations annotations = annotationsLoader.load(safeAnnotationsFile);
-        requireDatasetAnnotationConsistency(dataset, annotations);
+        // Same full consistency check as the file-path entry point (datasetId + schemaVersion +
+        // scenarioCount) — this overload must not accept a weaker guarantee than that one.
+        requireDatasetAnnotationConsistency(safeDataset, safeAnnotations);
 
         Path replayDirectory = Files.createTempDirectory("detection-evaluation-replay-");
         try {
             ReplayEngine.ReplayRun replayRun =
-                replayEngine.run(dataset, safeReplayConfiguration, replayDirectory);
-            replayOutputValidator.validate(replayDirectory, dataset, safeReplayConfiguration);
+                replayEngine.run(safeDataset, safeReplayConfiguration, replayDirectory);
+            replayOutputValidator.validate(replayDirectory, safeDataset, safeReplayConfiguration);
 
             ReferenceEvaluationAlignment alignment =
-                aligner.align(dataset, annotations, replayRun.results(), predictionSource(safeReplayConfiguration));
+                aligner.align(safeDataset, safeAnnotations, replayRun.results(), predictionSource(safeReplayConfiguration));
             DetectionEvaluationMetrics metrics =
                 metricsCalculator.compute(alignment, safeClassification);
             TemporalDetectionEvaluation temporal =
                 temporalEvaluator.evaluate(alignment, safeClassification);
             DetectionEvaluationEvidence evidence = evidenceGenerator.generate(
-                dataset,
+                safeDataset,
                 alignment,
                 replayRun.manifest(),
                 metrics,
@@ -124,7 +164,7 @@ public final class DetectionEvaluationRunner {
             );
             DetectionEvaluationEvidenceWriter.WrittenEvidence written =
                 evidenceWriter.write(safeOutputDirectory, evidence);
-            return new DetectionEvaluationRun(
+            DetectionEvaluationRun run = new DetectionEvaluationRun(
                 alignment,
                 metrics,
                 temporal,
@@ -133,6 +173,7 @@ public final class DetectionEvaluationRunner {
                 replayRun.manifest().resultsSha256(),
                 safeReplayConfiguration.configurationFingerprint()
             );
+            return new RunWithReplayResults(run, List.copyOf(replayRun.results()));
         } finally {
             deleteRecursively(replayDirectory);
         }
@@ -245,6 +286,21 @@ public final class DetectionEvaluationRunner {
             }
             if (!replayConfigurationFingerprint.equals(evidence.replay().configurationFingerprint())) {
                 throw new IllegalArgumentException("replayConfigurationFingerprint must match evidence replay provenance");
+            }
+        }
+    }
+
+    /**
+     * Package-private pairing of a {@link DetectionEvaluationRun} with the per-event replay
+     * results that produced it. Not part of the public evaluation-run contract; see
+     * {@link #evaluateWithReplayResults}.
+     */
+    record RunWithReplayResults(DetectionEvaluationRun run, List<ReplayResult> replayResults) {
+        RunWithReplayResults {
+            run = Objects.requireNonNull(run, "run");
+            replayResults = replayResults == null ? List.of() : List.copyOf(replayResults);
+            if (replayResults.size() != run.alignment().referenceEventCount()) {
+                throw new IllegalArgumentException("replayResults size must match referenceEventCount");
             }
         }
     }

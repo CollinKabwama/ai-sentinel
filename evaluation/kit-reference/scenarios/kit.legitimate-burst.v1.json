@@ -1,0 +1,43 @@
+{
+  "scenarioSchemaVersion": "1",
+  "scenarioId": "kit.legitimate-burst.v1",
+  "scenarioVersion": "1.0.0",
+  "featureSchemaVersion": "1",
+  "title": "Legitimate high-volume burst",
+  "description": "Workload step-up / legitimate high-volume burst authored as a benign condition. Synthetic only.",
+  "population": {
+    "identityCount": 3,
+    "identityKeyPrefix": "lb-id-",
+    "notes": "Pseudonymous identities only."
+  },
+  "normalBehavior": {
+    "summary": "Steady low-rate requests before a legitimate workload step-up.",
+    "endpointKeys": ["/api/a", "/api/b"]
+  },
+  "timing": {
+    "warmup": { "durationSeconds": 4, "notes": "Baseline formation window." },
+    "evaluation": { "durationSeconds": 6, "notes": "Includes legitimate burst." }
+  },
+  "transitions": [
+    {
+      "transitionId": "t-legitimate-burst",
+      "intent": "legitimate",
+      "summary": "Known-good high-volume step-up.",
+      "startsAfterWarmupSeconds": 2
+    }
+  ],
+  "evaluationExpectations": {
+    "notes": "Evaluation-side only. High volume is not labeled anomalous.",
+    "assertions": [
+      {
+        "assertionId": "a-legitimate-burst-benign",
+        "kind": "structural",
+        "statement": "Burst events remain authored as benign legitimate-burst conditions."
+      }
+    ]
+  },
+  "metadata": {
+    "family": "legitimate-burst",
+    "authoringNote": "Versioned Kit reference scenario."
+  }
+}
